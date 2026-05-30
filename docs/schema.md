@@ -21,8 +21,6 @@ erDiagram
     JOURNAL_ENTRIES ||--o{ JOURNAL_ENTRY_VERSIONS : "has"
     
     BACKTESTS ||--o{ BACKTEST_TRADES : "contains"
-    
-    MARKET_DATA : "Time-series data"
 
     USERS {
         uuid id PK
@@ -36,7 +34,7 @@ erDiagram
     TRADES {
         uuid id PK
         uuid user_id FK
-        uuid strategy_id FK "nullable"
+        uuid strategy_id FK
         string symbol
         string direction
         string status
@@ -44,17 +42,17 @@ erDiagram
         timestamp entry_time
         numeric entry_size
         numeric entry_fee
-        numeric exit_price "nullable"
-        timestamp exit_time "nullable"
-        numeric exit_size "nullable"
+        numeric exit_price
+        timestamp exit_time
+        numeric exit_size
         numeric exit_fee
-        numeric stop_loss "nullable"
-        numeric take_profit "nullable"
+        numeric stop_loss
+        numeric take_profit
         numeric leverage
-        numeric margin_used "nullable"
-        numeric liquidation_price "nullable"
-        numeric pnl "calculated"
-        numeric pnl_pct "calculated"
+        numeric margin_used
+        numeric liquidation_price
+        numeric pnl
+        numeric pnl_pct
         timestamp created_at
         timestamp updated_at
         uuid updated_by FK
@@ -67,7 +65,7 @@ erDiagram
         jsonb old_values
         jsonb new_values
         uuid changed_by FK
-        string change_reason "nullable"
+        string change_reason
         timestamp created_at
     }
 
@@ -75,10 +73,10 @@ erDiagram
         uuid id PK
         uuid user_id FK
         string name
-        text description "nullable"
+        text description
         jsonb entry_rules
         jsonb exit_rules
-        jsonb parameters "nullable"
+        jsonb parameters
         int version
         boolean is_active
         timestamp created_at
@@ -91,7 +89,7 @@ erDiagram
         int version_number
         jsonb entry_rules
         jsonb exit_rules
-        jsonb parameters "nullable"
+        jsonb parameters
         string[] changed_fields
         timestamp created_at
     }
@@ -99,17 +97,17 @@ erDiagram
     JOURNAL_ENTRIES {
         uuid id PK
         uuid user_id FK
-        uuid trade_id FK "nullable"
+        uuid trade_id FK
         string status
         string entry_type
-        text thesis "nullable"
-        text market_context "nullable"
-        string emotion_state "nullable"
-        text risk_assessment "nullable"
-        numeric actual_pnl "nullable"
-        text lessons "nullable"
+        text thesis
+        text market_context
+        string emotion_state
+        text risk_assessment
+        numeric actual_pnl
+        text lessons
         int current_version
-        timestamp published_at "nullable"
+        timestamp published_at
         timestamp created_at
         timestamp updated_at
     }
@@ -118,27 +116,27 @@ erDiagram
         uuid id PK
         uuid journal_entry_id FK
         int version_number
-        text thesis "nullable"
-        text market_context "nullable"
-        string emotion_state "nullable"
-        text risk_assessment "nullable"
-        text lessons "nullable"
-        uuid edited_by FK "nullable"
-        string edit_reason "nullable"
+        text thesis
+        text market_context
+        string emotion_state
+        text risk_assessment
+        text lessons
+        uuid edited_by FK
+        string edit_reason
         timestamp created_at
     }
 
     MARKET_DATA {
         uuid id PK
         string symbol
-        timestamp timestamp "clustered"
+        timestamp timestamp
         numeric open
         numeric high
         numeric low
         numeric close
         bigint volume
         string source
-        uuid import_batch_id "nullable"
+        uuid import_batch_id
         timestamp created_at
     }
 
@@ -146,25 +144,25 @@ erDiagram
         uuid id PK
         uuid user_id FK
         uuid strategy_id FK
-        int strategy_version "FK"
+        int strategy_version
         string symbol
         date date_start
         date date_end
         numeric initial_capital
-        numeric position_size_pct "nullable"
-        numeric slippage_pct "nullable"
-        numeric commission_pct "nullable"
+        numeric position_size_pct
+        numeric slippage_pct
+        numeric commission_pct
         numeric max_leverage
         string status
-        numeric total_pnl "nullable"
-        numeric total_return_pct "nullable"
-        numeric sharpe_ratio "nullable"
-        numeric max_drawdown_pct "nullable"
-        numeric win_rate "nullable"
-        int num_trades "nullable"
-        text error_message "nullable"
-        timestamp started_at "nullable"
-        timestamp completed_at "nullable"
+        numeric total_pnl
+        numeric total_return_pct
+        numeric sharpe_ratio
+        numeric max_drawdown_pct
+        numeric win_rate
+        int num_trades
+        text error_message
+        timestamp started_at
+        timestamp completed_at
         timestamp created_at
     }
 
@@ -173,14 +171,14 @@ erDiagram
         uuid backtest_id FK
         int trade_num
         timestamp entry_time
-        timestamp exit_time "nullable"
+        timestamp exit_time
         numeric entry_price
-        numeric exit_price "nullable"
+        numeric exit_price
         numeric size
-        numeric pnl "nullable"
-        numeric pnl_pct "nullable"
-        numeric slippage "nullable"
-        numeric fees "nullable"
+        numeric pnl
+        numeric pnl_pct
+        numeric slippage
+        numeric fees
         timestamp created_at
     }
 ```
