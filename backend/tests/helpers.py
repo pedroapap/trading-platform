@@ -8,7 +8,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.enums import Direction
-from app.models import Strategy, StrategyVersion, Trade, User
+from app.models import Backtest, Strategy, StrategyVersion, Trade, User
 
 USER_EMAIL = "trader@example.com"
 USER_PASSWORD = "a-long-enough-password"
@@ -48,6 +48,25 @@ def make_strategy(db: Session, user: User, name: str = "RSI dip") -> Strategy:
     db.flush()
     db.refresh(strategy)
     return strategy
+
+
+def make_backtest(db: Session, user: User, strategy: Strategy, **overrides: object) -> Backtest:
+    """Insert a pending daily BTCUSD backtest of the strategy's version 1, bypassing services."""
+    values: dict[str, object] = {
+        "strategy_version": 1,
+        "symbol": "BTCUSD",
+        "timeframe": "1d",
+        "initial_capital": Decimal("10000"),
+        "position_size_pct": Decimal("100"),
+        "fee_pct": Decimal("0"),
+        "slippage_pct": Decimal("0"),
+        "periods_per_year": 365,
+    }
+    backtest = Backtest(user_id=user.id, strategy_id=strategy.id, **(values | overrides))
+    db.add(backtest)
+    db.flush()
+    db.refresh(backtest)
+    return backtest
 
 
 def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:

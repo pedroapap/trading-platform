@@ -22,6 +22,13 @@ class TradeEvent(StrEnum):
     CORRECTION = "correction"
 
 
+class BacktestStatus(StrEnum):
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class ExitReason(StrEnum):
     """Why a backtest closed a position."""
 
