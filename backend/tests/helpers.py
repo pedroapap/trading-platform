@@ -107,3 +107,13 @@ def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:
 def store_bars(db: Session, bars: pd.DataFrame, symbol: str = "BTCUSD") -> None:
     """Store bars, such as random_bars makes, through the CSV importer."""
     import_bars(db, io.StringIO(bars.rename_axis("timestamp").to_csv()), symbol)
+
+
+def wait_for_backtest(client, headers: dict[str, str], backtest_id: str) -> dict:
+    """Poll the API until the backtest has finished. (The test client runs background jobs
+    before it returns, so the first poll normally sees the result.)"""
+    for _ in range(20):
+        backtest = client.get(f"/api/backtests/{backtest_id}", headers=headers).json()
+        if backtest["status"] in ("completed", "failed"):
+            return backtest
+    raise AssertionError(f"backtest {backtest_id} did not finish")

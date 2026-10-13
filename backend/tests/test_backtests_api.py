@@ -2,7 +2,14 @@ import pytest
 
 from app.security import create_access_token
 from app.services import users
-from tests.helpers import RSI_SWINGS, make_backtest, make_strategy, random_bars, store_bars
+from tests.helpers import (
+    RSI_SWINGS,
+    make_backtest,
+    make_strategy,
+    random_bars,
+    store_bars,
+    wait_for_backtest,
+)
 
 
 @pytest.fixture
@@ -16,15 +23,6 @@ def start_backtest(client, auth_headers, strategy_id, **fields):
     return client.post("/api/backtests", json=body, headers=auth_headers)
 
 
-def wait_for(client, auth_headers, backtest_id: str) -> dict:
-    """Poll until the backtest has finished (the test client runs jobs before returning)."""
-    for _ in range(20):
-        backtest = client.get(f"/api/backtests/{backtest_id}", headers=auth_headers).json()
-        if backtest["status"] in ("completed", "failed"):
-            return backtest
-    raise AssertionError(f"backtest {backtest_id} did not finish")
-
-
 def test_a_backtest_runs_in_the_background(client, auth_headers, strategy_id):
     response = start_backtest(client, auth_headers, strategy_id, fee_pct="0.1")
 
@@ -34,7 +32,7 @@ def test_a_backtest_runs_in_the_background(client, auth_headers, strategy_id):
     assert queued["metrics"] is None
     assert (queued["symbol"], queued["strategy_version"], queued["fee_pct"]) == ("BTCUSD", 1, "0.1")
 
-    backtest = wait_for(client, auth_headers, queued["id"])
+    backtest = wait_for_backtest(client, auth_headers, queued["id"])
     assert backtest["status"] == "completed"
     assert backtest["bars_count"] == 300
     assert backtest["metrics"]["num_trades"] > 5
@@ -95,7 +93,7 @@ def test_backtests_are_listed_newest_first(client, auth_headers, db_session, use
 
 
 def test_trades_are_listed_in_the_order_they_were_made(client, auth_headers, strategy_id):
-    backtest = wait_for(
+    backtest = wait_for_backtest(
         client, auth_headers, start_backtest(client, auth_headers, strategy_id).json()["id"]
     )
     trades_url = f"/api/backtests/{backtest['id']}/trades"
@@ -114,7 +112,7 @@ def test_trades_are_listed_in_the_order_they_were_made(client, auth_headers, str
 
 
 def test_the_equity_curve_starts_at_the_initial_capital(client, auth_headers, strategy_id):
-    backtest = wait_for(
+    backtest = wait_for_backtest(
         client, auth_headers, start_backtest(client, auth_headers, strategy_id).json()["id"]
     )
 
