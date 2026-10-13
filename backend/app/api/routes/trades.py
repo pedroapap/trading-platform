@@ -4,8 +4,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Query, status
 
 from app.deps import CurrentUser, DbSession
-from app.models import Trade
+from app.models import Trade, TradeAuditLog
 from app.schemas.trade import (
+    AuditEventRead,
     TradeCancel,
     TradeClose,
     TradeCreate,
@@ -60,3 +61,8 @@ def cancel_trade(
     body: Annotated[TradeCancel | None, Body()] = None,
 ) -> Trade:
     return trades.cancel_trade(db, user, trade_id, body or TradeCancel())
+
+
+@router.get("/{trade_id}/audit-log", response_model=list[AuditEventRead])
+def get_audit_log(trade_id: uuid.UUID, db: DbSession, user: CurrentUser) -> list[TradeAuditLog]:
+    return trades.list_events(db, user, trade_id)

@@ -197,3 +197,10 @@ def cancel_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCancel
         db.rollback()
         raise
     return trade
+
+
+def list_events(db: Session, user: User, trade_id: uuid.UUID) -> list[TradeAuditLog]:
+    """The trade's audit trail, oldest first."""
+    trade = get_trade(db, user, trade_id)
+    query = select(TradeAuditLog).where(TradeAuditLog.trade_id == trade.id)
+    return list(db.scalars(query.order_by(TradeAuditLog.id)))

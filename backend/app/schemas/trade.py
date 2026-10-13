@@ -5,7 +5,7 @@ from typing import Any, Self
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from app.enums import Direction, TradeStatus
+from app.enums import Direction, TradeEvent, TradeStatus
 from app.schemas.common import DecimalOut, Fee, Leverage, Price, Symbol
 
 
@@ -114,3 +114,15 @@ class TradePage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class AuditEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    event_type: TradeEvent
+    old_values: dict[str, Any] | None
+    new_values: dict[str, Any] | None
+    changed_by: uuid.UUID
+    change_reason: str | None
+    created_at: datetime

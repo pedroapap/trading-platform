@@ -159,3 +159,33 @@ def test_finished_trades_cannot_change_status_again(api, action):
 
     assert response.status_code == 409
     assert response.json() == {"detail": f"Cannot {action} a closed trade"}
+
+
+def test_audit_log_lists_events_oldest_first(api, user):
+    trade = create(api)
+    api.patch(f"/api/trades/{trade['id']}", json={"stop_loss": "44000"})
+    api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    response = api.get(f"/api/trades/{trade['id']}/audit-log")
+
+    assert response.status_code == 200
+    log = response.json()
+    assert [e["event_type"] for e in log] == ["entry", "update", "exit"]
+    assert log[1]["old_values"] == {"stop_loss": None}
+    assert log[1]["new_values"] == {"stop_loss": "44000"}
+    assert log[2]["new_values"]["pnl"] == "495"
+    assert all(e["changed_by"] == str(user.id) for e in log)
+
+
+def test_audit_log_of_a_create_then_close_has_two_events(api):
+    trade = create(api)
+    api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    log = api.get(f"/api/trades/{trade['id']}/audit-log").json()
+
+    assert [e["event_type"] for e in log] == ["entry", "exit"]
+    assert log[0]["created_at"] < log[1]["created_at"]
+
+
+def test_audit_log_of_an_unknown_trade_is_not_found(api):
+    assert api.get(f"/api/trades/{uuid.uuid4()}/audit-log").status_code == 404
