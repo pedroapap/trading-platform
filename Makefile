@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev down test lint fmt db-shell migrate revision
+.PHONY: help setup dev down test lint fmt db-shell migrate revision user
 
 BACKEND := backend
 COMPOSE := docker compose
@@ -35,6 +35,9 @@ migrate: ## Apply database migrations
 
 revision: ## Autogenerate a migration: make revision m="add trades"
 	cd $(BACKEND) && uv run alembic revision --autogenerate -m "$(m)"
+
+user: ## Create the login account: make user email=you@example.com
+	cd $(BACKEND) && uv run python -m app.cli create-user --email "$(email)"
 
 db-shell: ## Open psql in the db container
 	$(COMPOSE) exec db sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
