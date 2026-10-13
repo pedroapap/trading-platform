@@ -107,3 +107,10 @@ class TradeFilters(BaseModel):
     entry_to: AwareDatetime | None = None
     limit: int = Field(default=100, ge=1, le=500)
     offset: int = Field(default=0, ge=0)
+
+
+class TradePage(BaseModel):
+    items: list[TradeRead]
+    total: int
+    limit: int
+    offset: int
