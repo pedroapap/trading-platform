@@ -3,7 +3,9 @@ name = "trading-platform"
 version = "0.1.0"
 description = "Self-hosted trading journal, strategy builder and backtester"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic-settings>=2.15.0",
+]
 
 [dependency-groups]
 dev = [
