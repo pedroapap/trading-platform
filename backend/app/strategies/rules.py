@@ -92,3 +92,77 @@ Operand = Annotated[
         custom_error_message="An operand needs a 'value', 'price' or 'indicator' key",
     ),
 ]
+
+
+Operator = Literal["<", "<=", ">", ">=", "crosses_above", "crosses_below"]
+
+MAX_DEPTH = 4
+MAX_CONDITIONS = 20
+
+
+class Condition(_Rule):
+    """`left op right` on each bar; a cross means it became true on this bar."""
+
+    left: Operand
+    op: Operator
+    right: Operand
+
+    @model_validator(mode="after")
+    def _compares_market_data(self) -> Self:
+        if isinstance(self.left, Value) and isinstance(self.right, Value):
+            raise ValueError("a condition must involve a price or an indicator")
+        return self
+
+
+class AllOf(_Rule):
+    """True when every child is true."""
+
+    all: tuple["Node", ...] = Field(min_length=1)
+
+
+class AnyOf(_Rule):
+    """True when at least one child is true."""
+
+    any: tuple["Node", ...] = Field(min_length=1)
+
+
+def _node_kind(data: object) -> str | None:
+    if isinstance(data, dict):
+        return next((key for key in ("all", "any", "op") if key in data), None)
+    return {Condition: "op", AllOf: "all", AnyOf: "any"}.get(type(data))
+
+
+Node = Annotated[
+    Annotated[Condition, Tag("op")] | Annotated[AllOf, Tag("all")] | Annotated[AnyOf, Tag("any")],
+    Discriminator(
+        _node_kind,
+        custom_error_type="invalid_rule",
+        custom_error_message="A rule is a condition (left/op/right) or an 'all'/'any' group",
+    ),
+]
+
+AllOf.model_rebuild()
+AnyOf.model_rebuild()
+
+
+def conditions(node: Condition | AllOf | AnyOf) -> list[Condition]:
+    """Every condition in the tree, depth first."""
+    if isinstance(node, Condition):
+        return [node]
+    children = node.all if isinstance(node, AllOf) else node.any
+    return [condition for child in children for condition in conditions(child)]
+
+
+def depth(node: Condition | AllOf | AnyOf) -> int:
+    if isinstance(node, Condition):
+        return 1
+    children = node.all if isinstance(node, AllOf) else node.any
+    return 1 + max(depth(child) for child in children)
+
+
+def check_limits(node: Condition | AllOf | AnyOf) -> None:
+    """Keep rule trees small enough to read and to evaluate quickly."""
+    if depth(node) > MAX_DEPTH:
+        raise ValueError(f"rules may be nested at most {MAX_DEPTH} levels deep")
+    if len(conditions(node)) > MAX_CONDITIONS:
+        raise ValueError(f"rules may contain at most {MAX_CONDITIONS} conditions")
