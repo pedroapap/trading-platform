@@ -29,7 +29,9 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
+from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
+from app.strategies.definition import StrategyDefinition
 
 
 @dataclass(frozen=True)
@@ -62,6 +64,22 @@ class SimulatedTrade:
 class BacktestResult:
     trades: list[SimulatedTrade]
     equity: pd.Series
+
+
+def run(
+    bars: pd.DataFrame, definition: StrategyDefinition, config: BacktestConfig
+) -> BacktestResult:
+    """Backtest a strategy definition on `bars`."""
+    entries, exits = strategy_signals(definition, bars)
+    return simulate(
+        bars,
+        entries,
+        exits,
+        config,
+        definition.direction,
+        definition.stop_loss_pct,
+        definition.take_profit_pct,
+    )
 
 
 def simulate(

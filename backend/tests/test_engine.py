@@ -6,9 +6,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.backtest.engine import BacktestConfig, SimulatedTrade, simulate
+from app.backtest.engine import BacktestConfig, SimulatedTrade, run, simulate
+from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
 from app.services.pnl import trade_pnl
+from app.strategies.definition import StrategyDefinition
 from tests.helpers import ENTRY_TIME, random_bars
 
 
@@ -571,3 +573,56 @@ def test_when_a_bar_reaches_both_a_short_stop_loss_counts():
     [trade] = result.trades
     assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
     assert trade.exit_price == approx(108.9 * 1.01)
+
+
+def rsi_strategy(direction: Direction) -> StrategyDefinition:
+    """Trades RSI(5) swings, with a stop-loss and a take-profit, so that every kind of exit
+    happens within a few hundred random bars."""
+    return StrategyDefinition.model_validate(
+        {
+            "direction": direction,
+            "entry": {"left": {"indicator": "rsi", "period": 5}, "op": "<", "right": {"value": 35}},
+            "exit": {"left": {"indicator": "rsi", "period": 5}, "op": ">", "right": {"value": 60}},
+            "stop_loss_pct": 3,
+            "take_profit_pct": 4,
+        }
+    )
+
+
+COSTS = BacktestConfig(initial_capital=10_000, position_size_pct=90, fee_pct=0.1, slippage_pct=0.05)
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_run_trades_the_definition(direction):
+    bars = random_bars()
+    definition = rsi_strategy(direction)
+
+    result = run(bars, definition, COSTS)
+
+    entries, exits = strategy_signals(definition, bars)
+    expected = simulate(bars, entries, exits, COSTS, direction, stop_loss_pct=3, take_profit_pct=4)
+    assert result.trades == expected.trades
+    assert result.equity.equals(expected.equity)
+    assert {trade.exit_reason for trade in result.trades} >= {
+        ExitReason.SIGNAL,
+        ExitReason.STOP_LOSS,
+        ExitReason.TAKE_PROFIT,
+    }
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_the_engine_never_looks_ahead(direction):
+    bars = random_bars(200)
+    other = random_bars(200, seed=8)
+    definition = rsi_strategy(direction)
+    result = run(bars, definition, COSTS)
+    assert len(result.trades) > 10
+
+    for t in range(len(bars)):
+        # Replace every bar after t with bars from another random walk.
+        changed = pd.concat([bars.iloc[: t + 1], other.iloc[t + 1 :]])
+        changed_result = run(changed, definition, COSTS)
+
+        assert changed_result.equity.iloc[: t + 1].equals(result.equity.iloc[: t + 1])
+        finished = [trade for trade in result.trades if trade.exit_time <= bars.index[t]]
+        assert changed_result.trades[: len(finished)] == finished
