@@ -1,14 +1,15 @@
 """The trading journal: entries are drafted, published, then edited only with a reason."""
 
 import uuid
+from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.enums import JournalStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
-from app.models import JournalEntry, Trade, User
-from app.schemas.journal import JournalEntryCreate, JournalEntryUpdate
+from app.models import JournalEntry, JournalEntryVersion, Trade, User
+from app.schemas.journal import JournalContent, JournalEntryCreate, JournalEntryUpdate
 
 
 def _require_own_trade(db: Session, user: User, trade_id: uuid.UUID | None) -> None:
@@ -61,3 +62,22 @@ def update_entry(
     db.commit()
     db.refresh(entry)
     return entry
+
+
+def publish_entry(db: Session, user: User, entry_id: uuid.UUID) -> JournalEntry:
+    """Publish a draft: its content becomes version 1, which later edits build on."""
+    entry = _get_for_change(db, user, entry_id)
+    if entry.status != JournalStatus.DRAFT:
+        raise ConflictError("The entry is already published")
+    entry.status = JournalStatus.PUBLISHED
+    entry.current_version = 1
+    entry.published_at = func.clock_timestamp()
+    db.add(JournalEntryVersion(entry_id=entry.id, version=1, content=_content(entry)))
+    db.commit()
+    db.refresh(entry)
+    return entry
+
+
+def _content(entry: JournalEntry) -> dict[str, Any]:
+    """The entry's content as a JSON snapshot."""
+    return JournalContent.model_validate(entry, from_attributes=True).model_dump(mode="json")

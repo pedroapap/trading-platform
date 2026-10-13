@@ -5,7 +5,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.enums import Emotion, EntryType, JournalStatus
-from app.errors import InvalidOperationError, NotFoundError
+from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import JournalEntryVersion
 from app.schemas.journal import JournalEntryCreate, JournalEntryUpdate
 from app.services import journal, users
@@ -117,3 +117,43 @@ def test_invalid_entries_are_rejected(fields):
 def test_required_fields_cannot_be_cleared(field):
     with pytest.raises(ValidationError, match=f"{field} cannot be null"):
         JournalEntryUpdate.model_validate({field: None})
+
+
+def test_publishing_freezes_the_content_as_version_one(db_session, user):
+    trade = make_trade(db_session, user)
+    entry = create(db_session, user, trade_id=str(trade.id), emotion="calm", tags=["plan"])
+
+    published = journal.publish_entry(db_session, user, entry.id)
+
+    assert (published.status, published.current_version) == (JournalStatus.PUBLISHED, 1)
+    assert published.published_at is not None
+    [version] = db_session.scalars(
+        select(JournalEntryVersion).where(JournalEntryVersion.entry_id == entry.id)
+    ).all()
+    assert (version.version, version.changed_fields, version.edit_reason) == (1, None, None)
+    assert version.content == {
+        "entry_type": "pre_trade",
+        "trade_id": str(trade.id),
+        "title": "BTC range breakout",
+        "thesis": None,
+        "market_context": None,
+        "risk_assessment": None,
+        "lessons": None,
+        "emotion": "calm",
+        "tags": ["plan"],
+    }
+
+
+def test_an_entry_is_published_once(db_session, user):
+    entry = create(db_session, user)
+    journal.publish_entry(db_session, user, entry.id)
+
+    with pytest.raises(ConflictError, match="already published"):
+        journal.publish_entry(db_session, user, entry.id)
+
+
+def test_only_the_author_can_publish(db_session, user, other_user):
+    entry = create(db_session, user)
+
+    with pytest.raises(NotFoundError):
+        journal.publish_entry(db_session, other_user, entry.id)
