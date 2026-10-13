@@ -18,8 +18,8 @@ def random_walk(length: int = 300, seed: int = 7) -> pd.Series:
     return pd.Series(100 + np.cumsum(steps))
 
 
-def assert_series(actual: pd.Series, expected: list[float]) -> None:
-    np.testing.assert_allclose(actual.to_numpy(), expected, rtol=1e-12, equal_nan=True)
+def assert_series(actual: pd.Series, expected: list[float], atol: float = 0) -> None:
+    np.testing.assert_allclose(actual.to_numpy(), expected, rtol=1e-12, atol=atol, equal_nan=True)
 
 
 def naive_sma(values: list[float], period: int) -> list[float]:
@@ -149,3 +149,54 @@ def test_rsi_of_a_one_way_price(values, expected):
 @pytest.mark.parametrize("values", [[1.0] * 14, [1.0], []])
 def test_rsi_of_a_short_series_is_all_missing(values):
     assert indicators.rsi(pd.Series(values, dtype=float), 14).isna().all()
+
+
+def naive_macd(values: list[float], fast: int, slow: int, signal: int) -> dict[str, list[float]]:
+    line = [a - b for a, b in zip(naive_ema(values, fast), naive_ema(values, slow), strict=True)]
+    signal_line = naive_ema(line, signal)
+    histogram = [a - b for a, b in zip(line, signal_line, strict=True)]
+    return {"line": line, "signal": signal_line, "histogram": histogram}
+
+
+@pytest.mark.parametrize(("fast", "slow", "signal"), [(12, 26, 9), (3, 10, 4)])
+def test_macd_matches_the_naive_formula(fast, slow, signal):
+    prices = random_walk()
+
+    result = indicators.macd(prices, fast, slow, signal)
+
+    expected = naive_macd(prices.tolist(), fast, slow, signal)
+    assert list(result.columns) == ["line", "signal", "histogram"]
+    for column in result.columns:
+        # Differences of prices near 100 can be near zero, where a few ULPs of the prices are a
+        # large relative error, so compare in price units.
+        assert_series(result[column], expected[column], atol=1e-12)
+
+
+def test_macd_warm_up():
+    result = indicators.macd(random_walk(), 12, 26, 9)
+
+    assert result["line"].first_valid_index() == 25
+    assert result["signal"].first_valid_index() == 33
+    assert result["histogram"].first_valid_index() == 33
+
+
+def test_macd_keeps_the_index():
+    prices = random_walk(50)
+    prices.index = pd.date_range("2026-01-01", periods=50, freq="min", tz="UTC")
+
+    assert indicators.macd(prices, 12, 26, 9).index.equals(prices.index)
+
+
+@pytest.mark.parametrize("length", [25, 1, 0])
+def test_macd_of_a_short_series_is_all_missing(length):
+    result = indicators.macd(random_walk(length), 12, 26, 9)
+
+    assert len(result) == length
+    assert result.isna().all().all()
+
+
+def test_macd_signal_waits_for_enough_line_values():
+    result = indicators.macd(random_walk(33), 12, 26, 9)
+
+    assert result["line"].notna().sum() == 8
+    assert result[["signal", "histogram"]].isna().all().all()

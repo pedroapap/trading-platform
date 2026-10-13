@@ -1,8 +1,9 @@
 """Technical indicators on price series.
 
 Conventions match TradingView and TA-Lib, so values agree with common charts. Every function
-takes a float Series and returns a float Series aligned with it: NaN during the warm-up, and
-only NaN when the input is too short to warm up.
+takes a float Series and returns floats aligned with it: a Series, or for indicators with
+several lines a DataFrame whose columns are the rule language's `output` names. Values are NaN
+during the warm-up, and only NaN when the input is too short to warm up.
 """
 
 import numpy as np
@@ -33,6 +34,15 @@ def rsi(values: pd.Series, period: int) -> pd.Series:
     loss = _smooth((-change).clip(lower=0), period, alpha=1 / period)
     strength = 100 * gain / (gain + loss)
     return strength.mask((gain == 0) & (loss == 0), 50.0)
+
+
+def macd(values: pd.Series, fast: int, slow: int, signal: int) -> pd.DataFrame:
+    """MACD `line` (EMA(fast) - EMA(slow)), its `signal` line (an EMA of the line) and the
+    `histogram` (line - signal). The line starts at index `slow - 1`; the signal and histogram
+    at `slow + signal - 2`."""
+    line = ema(values, fast) - ema(values, slow)
+    signal_line = ema(line, signal)
+    return pd.DataFrame({"line": line, "signal": signal_line, "histogram": line - signal_line})
 
 
 def _smooth(values: pd.Series, period: int, alpha: float) -> pd.Series:
