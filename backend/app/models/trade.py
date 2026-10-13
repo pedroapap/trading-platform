@@ -6,7 +6,7 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.enums import Direction, TradeStatus
-from app.models.base import Base, TimestampMixin, str_enum
+from app.models.base import Base, TimestampMixin, enum_check, str_enum
 
 Price = Numeric(19, 8)
 
@@ -16,6 +16,8 @@ class Trade(TimestampMixin, Base):
 
     __tablename__ = "trades"
     __table_args__ = (
+        enum_check("direction", Direction),
+        enum_check("status", TradeStatus),
         CheckConstraint("entry_price > 0", name="entry_price_positive"),
         CheckConstraint("entry_size > 0", name="entry_size_positive"),
         CheckConstraint("entry_fee >= 0", name="entry_fee_non_negative"),

@@ -12,3 +12,10 @@ class TradeStatus(StrEnum):
     OPEN = "open"
     CLOSED = "closed"
     CANCELLED = "cancelled"
+
+
+class TradeEvent(StrEnum):
+    ENTRY = "entry"
+    UPDATE = "update"
+    EXIT = "exit"
+    CANCEL = "cancel"
