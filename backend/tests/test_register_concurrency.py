@@ -8,9 +8,9 @@ import threading
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
-from app.db import get_db
+from app.db import get_db, get_session_factory
 from app.main import app
 from app.models import User
 
@@ -29,6 +29,8 @@ def test_concurrent_registrations_create_one_account(engine):
         statuses.append(client.post("/api/auth/register", json=body).status_code)
 
     app.dependency_overrides[get_db] = committed_session
+    # Startup's own work must also use the test database.
+    app.dependency_overrides[get_session_factory] = lambda: sessionmaker(engine)
     try:
         with TestClient(app) as client:
             threads = [threading.Thread(target=register, args=(client, i)) for i in range(5)]
@@ -40,6 +42,7 @@ def test_concurrent_registrations_create_one_account(engine):
             accounts = session.scalar(select(func.count()).select_from(User))
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_session_factory, None)
         with engine.begin() as conn:
             conn.execute(delete(User))
 

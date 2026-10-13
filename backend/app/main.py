@@ -8,12 +8,18 @@ from fastapi import FastAPI
 from app.api.errors import register_error_handlers
 from app.api.routes import auth, backtests, health, market_data, strategies, trades
 from app.config import get_settings
+from app.db import get_session_factory
+from app.services import backtests as backtest_service
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
     if get_settings().jwt_secret is None:
         raise RuntimeError("JWT_SECRET is not set; run `make setup` or see .env.example")
+    # Honour test overrides, which point this at the test database.
+    factory = application.dependency_overrides.get(get_session_factory, get_session_factory)
+    with factory()() as db:
+        backtest_service.fail_interrupted_backtests(db)
     yield
 
 

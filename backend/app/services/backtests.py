@@ -8,7 +8,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import func, insert, select
+from sqlalchemy import func, insert, select, update
 from sqlalchemy.orm import Session, defer
 
 from app.backtest import engine
@@ -98,6 +98,25 @@ def get_equity_curve(db: Session, user: User, backtest_id: uuid.UUID) -> list[di
     if found is None:
         raise NotFoundError("Backtest not found")
     return found.equity_curve or []
+
+
+INTERRUPTED = "Interrupted: the server restarted before the run finished"
+
+
+def fail_interrupted_backtests(db: Session) -> int:
+    """Backtest jobs live in the server process, so after a restart nothing will finish the
+    backtests it left pending or running: mark them failed. Returns how many."""
+    result = db.execute(
+        update(Backtest)
+        .where(Backtest.status.in_([BacktestStatus.PENDING, BacktestStatus.RUNNING]))
+        .values(
+            status=BacktestStatus.FAILED,
+            error_message=INTERRUPTED,
+            completed_at=func.clock_timestamp(),
+        )
+    )
+    db.commit()
+    return result.rowcount
 
 
 def run_backtest_job(sessions: SessionFactory, backtest_id: uuid.UUID) -> None:
