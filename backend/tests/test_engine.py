@@ -61,6 +61,7 @@ def test_long_round_trips_by_hand():
 
     assert result.trades == [
         SimulatedTrade(
+            direction=Direction.LONG,
             entry_time=TIMES[2],
             entry_price=100,
             exit_time=TIMES[5],
@@ -74,6 +75,7 @@ def test_long_round_trips_by_hand():
             exit_reason=ExitReason.SIGNAL,
         ),
         SimulatedTrade(
+            direction=Direction.LONG,
             entry_time=TIMES[7],
             entry_price=105,
             exit_time=TIMES[8],
@@ -123,6 +125,7 @@ def test_fees_and_slippage_by_hand():
 
     assert result.trades == [
         SimulatedTrade(
+            direction=Direction.LONG,
             entry_time=TIMES[2],
             entry_price=approx(101),
             exit_time=TIMES[5],
@@ -142,17 +145,18 @@ def test_fees_and_slippage_by_hand():
     )
 
 
-def test_pnl_agrees_with_live_trades():
+@pytest.mark.parametrize("direction", list(Direction))
+def test_pnl_agrees_with_live_trades(direction):
     bars = random_bars()
     rng = np.random.default_rng(1)
     config = BacktestConfig(10_000, position_size_pct=80, fee_pct=0.1, slippage_pct=0.05)
 
-    result = simulate(bars, rng.random(300) < 0.1, rng.random(300) < 0.1, config)
+    result = simulate(bars, rng.random(300) < 0.1, rng.random(300) < 0.1, config, direction)
 
     assert len(result.trades) > 5
     for trade in result.trades:
         live = trade_pnl(
-            Direction.LONG,
+            direction,
             Decimal(trade.entry_price),
             Decimal(trade.size),
             Decimal(trade.exit_price),
@@ -161,3 +165,76 @@ def test_pnl_agrees_with_live_trades():
         )
         assert trade.pnl == pytest.approx(float(live.amount), abs=1e-9)
         assert trade.pnl_pct == pytest.approx(float(live.pct), abs=1e-4)
+
+
+# fmt: off
+FALLING_BARS = bars_from([
+    # open, high, low, close
+    (100, 101,  99, 100),  # 0
+    (100, 101,  98,  99),  # 1  entry signal
+    (100, 101,  95,  96),  # 2  sell 100 @ 99 (100 less 1% slippage)
+    ( 96,  97,  90,  91),  # 3
+    ( 91,  92,  88,  90),  # 4  exit signal
+    ( 90,  93,  89,  92),  # 5  buy back 100 @ 90.9 (90 plus 1% slippage)
+    ( 92,  93,  91,  92),  # 6
+])
+# fmt: on
+
+
+def test_a_short_by_hand():
+    # 1% fee and 1% slippage. The 9,999 committed covers a notional of 9,900 plus its 99 fee,
+    # so selling at 99 makes the size 100. Buying back at 90.9 costs a fee of 90.9.
+    result = simulate(
+        FALLING_BARS,
+        entries=at(7, 1),
+        exits=at(7, 4),
+        config=BacktestConfig(initial_capital=9_999, fee_pct=1, slippage_pct=1),
+        direction=Direction.SHORT,
+    )
+
+    assert result.trades == [
+        SimulatedTrade(
+            direction=Direction.SHORT,
+            entry_time=FALLING_BARS.index[2],
+            entry_price=approx(99),
+            exit_time=FALLING_BARS.index[5],
+            exit_price=approx(90.9),
+            size=approx(100),
+            entry_fee=approx(99),
+            exit_fee=approx(90.9),
+            slippage=approx(100 * (100 - 99) + 100 * (90.9 - 90)),
+            pnl=approx(100 * (99 - 90.9) - 99 - 90.9),  # 620.1
+            pnl_pct=approx(620.1 / 9_900 * 100),
+            exit_reason=ExitReason.SIGNAL,
+        )
+    ]
+    # While held: 9,999 - 99 - 100 * (close - 99), which is 19,800 - 100 * close.
+    assert result.equity.tolist() == approx(
+        [9_999, 9_999, 10_200, 10_700, 10_800, 10_619.1, 10_619.1]
+    )
+
+
+# fmt: off
+RALLY_BARS = bars_from([
+    # open, high, low, close
+    (100, 101,  99, 100),  # 0  entry signal
+    (100, 160,  99, 150),  # 1  sell 100 @ 100 with all 10,000
+    (150, 210, 149, 200),  # 2  exit signal
+    (250, 260, 240, 250),  # 3  buy back @ 250: -15,000; entry signal ignored: equity is gone
+    (250, 251, 249, 250),  # 4  entry signal ignored
+    (250, 251, 249, 250),  # 5
+])
+# fmt: on
+
+
+def test_no_new_position_once_equity_is_gone():
+    result = simulate(
+        RALLY_BARS,
+        entries=at(6, 0, 3, 4),
+        exits=at(6, 2),
+        config=BacktestConfig(initial_capital=10_000),
+        direction=Direction.SHORT,
+    )
+
+    assert [trade.pnl for trade in result.trades] == [-15_000]
+    assert result.equity.tolist() == [10_000, 5_000, 0, -5_000, -5_000, -5_000]
