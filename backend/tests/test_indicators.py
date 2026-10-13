@@ -200,3 +200,57 @@ def test_macd_signal_waits_for_enough_line_values():
 
     assert result["line"].notna().sum() == 8
     assert result[["signal", "histogram"]].isna().all().all()
+
+
+def naive_bbands(values: list[float], period: int, std: float) -> dict[str, list[float]]:
+    middle = naive_sma(values, period)
+    width = [NAN] * len(values)
+    for i in range(period - 1, len(values)):
+        window = values[i - period + 1 : i + 1]
+        width[i] = std * math.sqrt(sum((v - middle[i]) ** 2 for v in window) / period)
+    return {
+        "upper": [m + w for m, w in zip(middle, width, strict=True)],
+        "middle": middle,
+        "lower": [m - w for m, w in zip(middle, width, strict=True)],
+    }
+
+
+def test_bbands_by_hand():
+    # mean 5; squared deviations 9+1+1+1+0+0+4+16 = 32, so the population std is sqrt(32/8) = 2
+    result = indicators.bbands(pd.Series([2.0, 4, 4, 4, 5, 5, 7, 9]), 8, 2)
+
+    assert result.iloc[:7].isna().all().all()
+    assert result.iloc[7].tolist() == [9, 5, 1]
+
+
+@pytest.mark.parametrize(("period", "std"), [(2, 1.0), (20, 2.0), (50, 2.5)])
+def test_bbands_match_the_naive_formula(period, std):
+    prices = random_walk()
+
+    result = indicators.bbands(prices, period, std)
+
+    expected = naive_bbands(prices.tolist(), period, std)
+    assert list(result.columns) == ["upper", "middle", "lower"]
+    for column in result.columns:
+        assert_series(result[column], expected[column])
+
+
+def test_bbands_of_a_flat_price_collapse_onto_the_middle():
+    result = indicators.bbands(pd.Series([5.0] * 10), 3, 2)
+
+    assert (result.iloc[2:] == 5).all().all()
+
+
+def test_bbands_keep_the_index():
+    prices = random_walk(30)
+    prices.index = pd.date_range("2026-01-01", periods=30, freq="min", tz="UTC")
+
+    assert indicators.bbands(prices, 20, 2).index.equals(prices.index)
+
+
+@pytest.mark.parametrize("length", [19, 1, 0])
+def test_bbands_of_a_short_series_is_all_missing(length):
+    result = indicators.bbands(random_walk(length), 20, 2)
+
+    assert len(result) == length
+    assert result.isna().all().all()

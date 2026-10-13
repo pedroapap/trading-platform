@@ -45,6 +45,14 @@ def macd(values: pd.Series, fast: int, slow: int, signal: int) -> pd.DataFrame:
     return pd.DataFrame({"line": line, "signal": signal_line, "histogram": line - signal_line})
 
 
+def bbands(values: pd.Series, period: int, std: float) -> pd.DataFrame:
+    """Bollinger Bands: the `middle` SMA, with `upper` and `lower` bands `std` population
+    standard deviations (ddof 0, as TradingView and TA-Lib use) above and below it."""
+    middle = sma(values, period)
+    width = std * values.rolling(period, min_periods=period).std(ddof=0)
+    return pd.DataFrame({"upper": middle + width, "middle": middle, "lower": middle - width})
+
+
 def _smooth(values: pd.Series, period: int, alpha: float) -> pd.Series:
     """`s[t] = alpha * x[t] + (1 - alpha) * s[t-1]`, seeded with the SMA of the first `period`
     valid values (leading NaNs are skipped)."""
