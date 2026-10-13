@@ -9,6 +9,7 @@ from app.schemas.trade import (
     AuditEventRead,
     TradeCancel,
     TradeClose,
+    TradeCorrection,
     TradeCreate,
     TradeFilters,
     TradePage,
@@ -61,6 +62,14 @@ def cancel_trade(
     body: Annotated[TradeCancel | None, Body()] = None,
 ) -> Trade:
     return trades.cancel_trade(db, user, trade_id, body or TradeCancel())
+
+
+@router.post("/{trade_id}/correct", response_model=TradeRead)
+def correct_trade(
+    trade_id: uuid.UUID, body: TradeCorrection, db: DbSession, user: CurrentUser
+) -> Trade:
+    """Fix a closed trade's recorded data; the reason is kept in the audit log."""
+    return trades.correct_trade(db, user, trade_id, body)
 
 
 @router.get("/{trade_id}/audit-log", response_model=list[AuditEventRead])

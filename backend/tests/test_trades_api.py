@@ -189,3 +189,38 @@ def test_audit_log_of_a_create_then_close_has_two_events(api):
 
 def test_audit_log_of_an_unknown_trade_is_not_found(api):
     assert api.get(f"/api/trades/{uuid.uuid4()}/audit-log").status_code == 404
+
+
+def test_correct_a_closed_trade(api):
+    trade = create(api)
+    api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    response = api.post(
+        f"/api/trades/{trade['id']}/correct",
+        json={"exit_price": "46100", "reason": "Wrong fill price"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["pnl"] == "545"
+    correction = api.get(f"/api/trades/{trade['id']}/audit-log").json()[-1]
+    assert correction["event_type"] == "correction"
+    assert correction["change_reason"] == "Wrong fill price"
+
+
+def test_correction_needs_a_reason(api):
+    trade = create(api)
+    api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    response = api.post(f"/api/trades/{trade['id']}/correct", json={"exit_price": "46100"})
+
+    assert response.status_code == 422
+
+
+def test_open_trades_are_edited_not_corrected(api):
+    trade = create(api)
+
+    response = api.post(
+        f"/api/trades/{trade['id']}/correct", json={"entry_price": "1", "reason": "Typo"}
+    )
+
+    assert response.status_code == 409
