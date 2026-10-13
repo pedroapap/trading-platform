@@ -7,6 +7,7 @@ the session joins it via savepoints, so code under test may call `commit()` free
 
 import os
 from collections.abc import Iterator
+from contextlib import nullcontext
 from pathlib import Path
 
 import pytest
@@ -17,7 +18,7 @@ from sqlalchemy import URL, Engine, create_engine, make_url, text
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.db import get_db
+from app.db import SessionFactory, get_db, get_session_factory
 from app.main import app
 from app.models import User
 from app.security import create_access_token
@@ -84,12 +85,18 @@ def client(db_session: Session) -> Iterator[TestClient]:
     def override_get_db() -> Iterator[Session]:
         yield db_session
 
+    def override_get_session_factory() -> SessionFactory:
+        # Background jobs use the test's session too, so they see its uncommitted data.
+        return lambda: nullcontext(db_session)
+
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_session_factory] = override_get_session_factory
     try:
         with TestClient(app) as test_client:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+        app.dependency_overrides.pop(get_session_factory, None)
 
 
 @pytest.fixture

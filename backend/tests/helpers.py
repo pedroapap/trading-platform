@@ -25,6 +25,17 @@ MINIMAL_DEFINITION = {
 }
 
 
+# Trades RSI(5) swings with a stop-loss and a take-profit: a few hundred random bars give it
+# every kind of exit.
+RSI_SWINGS = {
+    "direction": "long",
+    "entry": {"left": {"indicator": "rsi", "period": 5}, "op": "<", "right": {"value": 35}},
+    "exit": {"left": {"indicator": "rsi", "period": 5}, "op": ">", "right": {"value": 60}},
+    "stop_loss_pct": 3,
+    "take_profit_pct": 4,
+}
+
+
 def make_trade(db: Session, user: User, **overrides: object) -> Trade:
     """Insert an open BTCUSD long (1 @ 100) directly, bypassing services."""
     values: dict[str, object] = {

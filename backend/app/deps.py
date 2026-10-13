@@ -7,11 +7,12 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from app.db import get_db
+from app.db import SessionFactory, get_db, get_session_factory
 from app.models import User
 from app.security import InvalidTokenError, decode_access_token
 
 DbSession = Annotated[Session, Depends(get_db)]
+JobSessions = Annotated[SessionFactory, Depends(get_session_factory)]
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 

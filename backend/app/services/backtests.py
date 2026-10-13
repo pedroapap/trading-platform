@@ -15,6 +15,7 @@ from app.backtest import engine
 from app.backtest.charts import downsample_equity
 from app.backtest.engine import BacktestConfig, SimulatedTrade
 from app.backtest.metrics import summarize
+from app.db import SessionFactory
 from app.enums import BacktestStatus
 from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
 from app.models import Backtest, BacktestTrade, Strategy, StrategyVersion, User
@@ -54,6 +55,20 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     db.commit()
     db.refresh(backtest)
     return backtest
+
+
+def get_backtest(db: Session, user: User, backtest_id: uuid.UUID) -> Backtest:
+    query = select(Backtest).where(Backtest.id == backtest_id, Backtest.user_id == user.id)
+    backtest = db.scalar(query)
+    if backtest is None:
+        raise NotFoundError("Backtest not found")
+    return backtest
+
+
+def run_backtest_job(sessions: SessionFactory, backtest_id: uuid.UUID) -> None:
+    """Run a backtest as a background job, in a session of its own."""
+    with sessions() as db:
+        run_backtest(db, backtest_id)
 
 
 def run_backtest(db: Session, backtest_id: uuid.UUID) -> Backtest:

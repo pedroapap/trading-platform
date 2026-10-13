@@ -16,16 +16,7 @@ from app.schemas.backtest import BacktestCreate
 from app.services import backtests
 from app.services.market_data import load_bars
 from app.strategies.definition import StrategyDefinition
-from tests.helpers import ENTRY_TIME, make_strategy, random_bars, store_bars
-
-# Trades RSI(5) swings, so a few hundred random bars give every kind of exit.
-RSI_SWINGS = {
-    "direction": "long",
-    "entry": {"left": {"indicator": "rsi", "period": 5}, "op": "<", "right": {"value": 35}},
-    "exit": {"left": {"indicator": "rsi", "period": 5}, "op": ">", "right": {"value": 60}},
-    "stop_loss_pct": 3,
-    "take_profit_pct": 4,
-}
+from tests.helpers import ENTRY_TIME, RSI_SWINGS, make_strategy, random_bars, store_bars
 
 
 @pytest.fixture
