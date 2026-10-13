@@ -295,3 +295,147 @@ def test_no_new_position_once_equity_is_gone():
 
     assert [trade.pnl for trade in result.trades] == [-15_000]
     assert result.equity.tolist() == [10_000, 5_000, 0, -5_000, -5_000, -5_000]
+
+
+def run_with_stop(rows, *, capital=10_100, direction=Direction.LONG, exits=None):
+    """An entry signal on bar 0 with 1% slippage and a 10% stop-loss."""
+    bars = bars_from(rows)
+    config = BacktestConfig(initial_capital=capital, slippage_pct=1)
+    entries = at(len(bars), 0)
+    return bars, simulate(bars, entries, exits, config, direction, stop_loss_pct=10)
+
+
+# In the long stop-loss tests, bar 0's signal buys on bar 1 at its open of 100 plus 1%
+# slippage, 101, with all of 10,100, so 100 units, and the 10% stop is at 90.9.
+
+
+def test_a_stop_loss_reached_within_a_bar_fills_at_the_stop():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 103,  98, 102),  # the low of 98 stays above the stop
+        (101, 103,  90,  92),  # the low of 90 reaches it: sell at 90.9 less 1%
+        ( 92,  93,  91,  92),
+    ])
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(90.9 * 0.99)
+    assert trade.pnl == approx(100 * (90.9 * 0.99 - 101))  # -1,100.9
+    assert result.equity.tolist() == approx([10_100, 10_200, 8_999.1, 8_999.1])
+
+
+def test_a_gap_past_the_stop_fills_at_the_open():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 103,  98, 102),
+        ( 88,  89,  85,  86),  # opens below the stop: sell at the open of 88 less 1%
+        ( 86,  87,  85,  86),
+    ])
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(88 * 0.99)
+
+
+def test_a_stop_loss_can_be_reached_on_the_entry_bar():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 101,  89,  95),  # buys at the open, then the low of 89 reaches the stop
+        ( 95,  96,  94,  95),
+    ])
+    # fmt: on
+
+    [trade] = result.trades
+    assert trade.entry_time == trade.exit_time == bars.index[1]
+    assert trade.exit_reason == ExitReason.STOP_LOSS
+    assert trade.exit_price == approx(90.9 * 0.99)
+
+
+def test_a_pending_exit_signal_fills_at_the_open_before_the_stop():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 103,  98, 102),  # exit signal
+        (101, 103,  90,  92),  # sells at the open; the low reaching the stop comes later
+        ( 92,  93,  91,  92),
+    ], exits=at(4, 1))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.SIGNAL)
+    assert trade.exit_price == approx(101 * 0.99)
+
+
+def test_an_entry_signal_on_the_stop_bar_reenters_on_the_next_bar():
+    # fmt: off
+    bars = bars_from([
+        (100, 101,  99, 100),  # entry signal
+        (100, 103,  98, 102),
+        (101, 103,  90,  92),  # stopped out; entry signal
+        ( 92,  93,  91,  92),  # buys again
+        ( 92,  93,  91,  92),
+    ])
+    # fmt: on
+    config = BacktestConfig(initial_capital=10_100, slippage_pct=1)
+
+    result = simulate(bars, at(5, 0, 2), None, config, stop_loss_pct=10)
+
+    assert [(trade.entry_time, trade.exit_reason) for trade in result.trades] == [
+        (bars.index[1], ExitReason.STOP_LOSS),
+        (bars.index[3], ExitReason.END_OF_DATA),
+    ]
+
+
+# In the short stop-loss tests, bar 0's signal sells on bar 1 at its open of 100 less 1%
+# slippage, 99, with all of 9,900, so 100 units, and the 10% stop is at 108.9.
+
+
+def test_a_short_stop_loss_is_reached_by_the_high():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 102,  97,  98),  # the high of 102 stays below the stop
+        ( 99, 110,  98, 105),  # the high of 110 reaches it: buy back at 108.9 plus 1%
+        (105, 106, 104, 105),
+    ], capital=9_900, direction=Direction.SHORT)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(108.9 * 1.01)
+    assert trade.pnl == approx(-100 * (108.9 * 1.01 - 99))
+
+
+def test_a_short_gap_past_the_stop_fills_at_the_open():
+    # fmt: off
+    bars, result = run_with_stop([
+        (100, 101,  99, 100),
+        (100, 102,  97,  98),
+        (112, 115, 111, 113),  # opens above the stop: buy back at the open of 112 plus 1%
+        (113, 114, 112, 113),
+    ], capital=9_900, direction=Direction.SHORT)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(112 * 1.01)
+
+
+@pytest.mark.parametrize("hit", [1, 16, 17, 48, 49, 1_500])
+def test_a_stop_loss_is_found_however_far_from_the_entry(hit):
+    # Flat bars except one whose low reaches the stop. Hits on both sides of the scan's chunk
+    # boundaries (it scans 16 bars from the entry on bar 1, then 32, 64, ...).
+    rows = [(100, 101, 99, 100)] * 2_000
+    rows[hit] = (100, 101, 80, 100)
+    bars = bars_from(rows)
+
+    result = simulate(bars, at(2_000, 0), None, BacktestConfig(10_000), stop_loss_pct=10)
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[hit], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(90)

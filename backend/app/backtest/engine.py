@@ -11,6 +11,10 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   against the trade.
 - A short sells at entry and buys back at exit, so its loss has no limit; once equity is
   at or below zero, no new position opens.
+- A stop-loss is a percentage of the entry fill price, checked against each bar's low
+  (long) or high (short) from the entry bar on. Once reached it fills like a market
+  order: at the stop, or at the open when the bar gaps past it, with slippage. A signal
+  exit pending from the previous close fills at the open, before the stop.
 - A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
@@ -61,6 +65,7 @@ def simulate(
     exits: np.ndarray | None,
     config: BacktestConfig,
     direction: Direction = Direction.LONG,
+    stop_loss_pct: float | None = None,
 ) -> BacktestResult:
     """Trades and equity from boolean entry and exit signals aligned with `bars`."""
     opens = bars["open"].to_numpy(dtype=float)
@@ -69,6 +74,8 @@ def simulate(
     slip = config.slippage_pct / 100
     # +1 when the position gains as the price rises (long), -1 when it loses (short).
     sign = 1 if direction == Direction.LONG else -1
+    # Each bar's extreme against the position, where a stop-loss is reached.
+    adverse = bars["low" if sign == 1 else "high"].to_numpy(dtype=float)
     # The bars where signals fill: the one after each signal (none after the last bar).
     entry_fills = np.flatnonzero(entries[:-1]) + 1
     exit_fills = np.flatnonzero(exits[:-1]) + 1 if exits is not None else np.empty(0, dtype=int)
@@ -83,11 +90,20 @@ def simulate(
         notional = cash * config.position_size_pct / 100 / (1 + fee)
         entry_fee = notional * fee
         size = notional / entry_price
-        exit_ = _first_from(exit_fills, entry + 1)
-        if exit_ is None:
-            exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
+        signal_exit = _first_from(exit_fills, entry + 1)
+        # A signal exit fills at its bar's open, before a stop could be reached on that bar.
+        watched = slice(entry, len(bars) if signal_exit is None else signal_exit)
+        stopped = None
+        if stop_loss_pct is not None:
+            stop = entry_price * (1 - sign * stop_loss_pct / 100)
+            stopped = _first_reached(watched, (adverse, stop, -sign))
+        if stopped is not None:
+            exit_, reason = stopped, ExitReason.STOP_LOSS
+            unslipped_exit = _fill_price(opens[stopped], stop, -sign)
+        elif signal_exit is not None:
+            exit_, unslipped_exit, reason = signal_exit, opens[signal_exit], ExitReason.SIGNAL
         else:
-            unslipped_exit, reason = opens[exit_], ExitReason.SIGNAL
+            exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
         held = slice(entry, exit_)
         equity[held] = cash - entry_fee + sign * size * (closes[held] - entry_price)
         exit_price = unslipped_exit * (1 - sign * slip)
@@ -121,3 +137,29 @@ def _first_from(bars: np.ndarray, start: int) -> int | None:
     """The first of the sorted bar numbers that is at least `start`."""
     position = np.searchsorted(bars, start)
     return int(bars[position]) if position < len(bars) else None
+
+
+# A level a price can reach: (values per bar, level, side). Side +1 means reaching it from
+# below (at or above the level), -1 from above (at or below it).
+Trigger = tuple[np.ndarray, float, int]
+
+
+def _first_reached(bars: slice, *triggers: Trigger) -> int | None:
+    """The first of `bars` on which any trigger's level is reached. Scans chunks that double
+    in size, so a level reached k bars in costs O(k), however long the data is."""
+    start, size = bars.start, 16
+    while start < bars.stop:
+        end = min(start + size, bars.stop)
+        reached = np.zeros(end - start, dtype=bool)
+        for values, level, side in triggers:
+            reached |= side * (values[start:end] - level) >= 0
+        if (hits := np.flatnonzero(reached)).size:
+            return start + int(hits[0])
+        start, size = end, size * 2
+    return None
+
+
+def _fill_price(open_: float, level: float, side: int) -> float:
+    """Where an order at `level` fills on a bar that reached it: at the level, or at the open
+    when the bar opened already past it."""
+    return open_ if side * (open_ - level) >= 0 else level
