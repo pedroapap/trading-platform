@@ -6,13 +6,13 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.enums import TradeEvent
 from app.errors import NotFoundError
 from app.models import Trade, TradeAuditLog, User
-from app.schemas.trade import TradeCreate
+from app.schemas.trade import TradeCreate, TradeFilters
 
 ENTRY_FIELDS = (
     "symbol",
@@ -83,3 +83,22 @@ def get_trade(db: Session, user: User, trade_id: uuid.UUID) -> Trade:
     if trade is None:
         raise NotFoundError("Trade not found")
     return trade
+
+
+def list_trades(db: Session, user: User, filters: TradeFilters) -> tuple[list[Trade], int]:
+    """Matching trades, newest entry first, plus the total count before pagination."""
+    query = select(Trade).where(Trade.user_id == user.id)
+    if filters.symbol is not None:
+        query = query.where(Trade.symbol == filters.symbol)
+    if filters.status is not None:
+        query = query.where(Trade.status == filters.status)
+    if filters.strategy_id is not None:
+        query = query.where(Trade.strategy_id == filters.strategy_id)
+    if filters.entry_from is not None:
+        query = query.where(Trade.entry_time >= filters.entry_from)
+    if filters.entry_to is not None:
+        query = query.where(Trade.entry_time < filters.entry_to)
+
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    page = query.order_by(Trade.entry_time.desc(), Trade.id).limit(filters.limit)
+    return list(db.scalars(page.offset(filters.offset))), total or 0

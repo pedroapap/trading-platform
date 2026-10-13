@@ -93,3 +93,17 @@ class TradeRead(BaseModel):
     pnl_pct: DecimalOut | None = Field(description="Return on margin (notional / leverage), %")
     created_at: datetime
     updated_at: datetime
+
+
+class TradeFilters(BaseModel):
+    """Query parameters for listing trades; entry times are filtered as [entry_from, entry_to)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: Symbol | None = None
+    status: TradeStatus | None = None
+    strategy_id: uuid.UUID | None = None
+    entry_from: AwareDatetime | None = None
+    entry_to: AwareDatetime | None = None
+    limit: int = Field(default=100, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)

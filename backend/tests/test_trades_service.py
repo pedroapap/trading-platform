@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from decimal import Decimal
 
 import pytest
@@ -7,8 +8,9 @@ from sqlalchemy import func, select
 from app.enums import TradeEvent, TradeStatus
 from app.errors import NotFoundError
 from app.models import Trade, TradeAuditLog
-from app.schemas.trade import TradeCreate
+from app.schemas.trade import TradeCreate, TradeFilters
 from app.services import trades, users
+from tests.helpers import ENTRY_TIME, make_trade
 
 NEW_TRADE = TradeCreate(
     symbol="btcusd",
@@ -67,3 +69,73 @@ def test_get_hides_missing_and_foreign_trades(db_session, user):
         trades.get_trade(db_session, user, uuid.uuid4())
     with pytest.raises(NotFoundError):
         trades.get_trade(db_session, user, foreign.id)
+
+
+@pytest.fixture
+def journal(db_session, user):
+    """Four trades on consecutive days (oldest first), one belonging to another user."""
+    strategy_id = uuid.uuid4()
+    day = timedelta(days=1)
+    closed = {
+        "status": TradeStatus.CLOSED,
+        "exit_price": Decimal("110"),
+        "exit_time": ENTRY_TIME + 2 * day,
+        "pnl": Decimal("10"),
+        "pnl_pct": Decimal("10"),
+    }
+    made = {
+        "btc_closed": make_trade(db_session, user, **closed),
+        "eth_open": make_trade(db_session, user, symbol="ETHUSD", entry_time=ENTRY_TIME + day),
+        "btc_strategy": make_trade(
+            db_session, user, strategy_id=strategy_id, entry_time=ENTRY_TIME + 2 * day
+        ),
+        "btc_latest": make_trade(db_session, user, entry_time=ENTRY_TIME + 3 * day),
+    }
+    other = users.create_user(db_session, "other@example.com", "another-long-password")
+    make_trade(db_session, other)
+    return made | {"strategy_id": strategy_id}
+
+
+def listed(db, user, **filters) -> tuple[list, int]:
+    return trades.list_trades(db, user, TradeFilters(**filters))
+
+
+def test_list_returns_own_trades_newest_first(db_session, user, journal):
+    items, total = listed(db_session, user)
+
+    assert total == 4
+    assert [t.id for t in items] == [
+        journal["btc_latest"].id,
+        journal["btc_strategy"].id,
+        journal["eth_open"].id,
+        journal["btc_closed"].id,
+    ]
+
+
+def test_list_filters_by_symbol_status_and_strategy(db_session, user, journal):
+    eth, _ = listed(db_session, user, symbol="ethusd")
+    closed, _ = listed(db_session, user, status="closed")
+    by_strategy, _ = listed(db_session, user, strategy_id=journal["strategy_id"])
+
+    assert [t.id for t in eth] == [journal["eth_open"].id]
+    assert [t.id for t in closed] == [journal["btc_closed"].id]
+    assert [t.id for t in by_strategy] == [journal["btc_strategy"].id]
+
+
+def test_list_filters_entry_time_as_half_open_range(db_session, user, journal):
+    items, total = listed(
+        db_session,
+        user,
+        entry_from=ENTRY_TIME + timedelta(days=1),
+        entry_to=ENTRY_TIME + timedelta(days=3),
+    )
+
+    assert total == 2
+    assert {t.id for t in items} == {journal["eth_open"].id, journal["btc_strategy"].id}
+
+
+def test_list_paginates_but_reports_the_full_total(db_session, user, journal):
+    items, total = listed(db_session, user, limit=2, offset=1)
+
+    assert total == 4
+    assert [t.id for t in items] == [journal["btc_strategy"].id, journal["eth_open"].id]
