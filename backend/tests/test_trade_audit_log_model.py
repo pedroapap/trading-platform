@@ -17,6 +17,13 @@ def add_event(db, trade, user, event=TradeEvent.ENTRY) -> TradeAuditLog:
     return row
 
 
+@pytest.mark.parametrize("event", list(TradeEvent))
+def test_every_event_type_is_accepted(db_session, user, event):
+    row = add_event(db_session, make_trade(db_session, user), user, event)
+
+    assert row.event_type is event
+
+
 def test_events_are_ordered_and_timestamped(db_session, user):
     trade = make_trade(db_session, user)
 

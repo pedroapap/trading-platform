@@ -19,3 +19,4 @@ class TradeEvent(StrEnum):
     UPDATE = "update"
     EXIT = "exit"
     CANCEL = "cancel"
+    CORRECTION = "correction"
