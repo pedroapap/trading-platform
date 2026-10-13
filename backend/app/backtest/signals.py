@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from app.backtest import indicators
+from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import (
     AllOf,
     AnyOf,
@@ -54,6 +55,17 @@ def evaluate(node: Condition | AllOf | AnyOf, resolver: OperandResolver) -> np.n
     if isinstance(node, AnyOf):
         return np.logical_or.reduce([evaluate(child, resolver) for child in node.any])
     return _OPERATORS[node.op](resolver.resolve(node.left), resolver.resolve(node.right))
+
+
+def strategy_signals(
+    definition: StrategyDefinition, bars: pd.DataFrame
+) -> tuple[np.ndarray, np.ndarray | None]:
+    """Entry and exit signals (None without an exit rule). Indicators that both use are
+    computed once."""
+    resolver = OperandResolver(bars)
+    entries = evaluate(definition.entry, resolver)
+    exits = None if definition.exit is None else evaluate(definition.exit, resolver)
+    return entries, exits
 
 
 def _compute(operand: Operand, values: pd.Series) -> pd.Series | pd.DataFrame:

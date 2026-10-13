@@ -6,9 +6,10 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.backtest import indicators
-from app.backtest.signals import OperandResolver, evaluate
+from app.backtest.signals import OperandResolver, evaluate, strategy_signals
+from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import Node, Operand
-from tests.helpers import random_bars
+from tests.helpers import MINIMAL_DEFINITION, random_bars
 
 NAN = math.nan
 
@@ -62,7 +63,10 @@ def test_an_indicator_is_computed_on_its_source(operand, direct):
     np.testing.assert_array_equal(resolved, direct(bars))
 
 
-def test_each_indicator_is_computed_once(monkeypatch):
+@pytest.fixture
+def indicator_calls(monkeypatch) -> list[str]:
+    """Calls to `indicators.rsi` and `indicators.macd` during the test, in order. (Not SMA or
+    EMA: MACD and Bollinger Bands call those internally.)"""
     calls: list[str] = []
 
     def spy(name):
@@ -76,6 +80,10 @@ def test_each_indicator_is_computed_once(monkeypatch):
 
     monkeypatch.setattr(indicators, "rsi", spy("rsi"))
     monkeypatch.setattr(indicators, "macd", spy("macd"))
+    return calls
+
+
+def test_each_indicator_is_computed_once(indicator_calls):
     resolver = OperandResolver(random_bars())
 
     for operand in [
@@ -87,7 +95,7 @@ def test_each_indicator_is_computed_once(monkeypatch):
     ]:
         resolver.resolve(parse_operand(operand))
 
-    assert sorted(calls) == ["macd", "rsi", "rsi"]
+    assert sorted(indicator_calls) == ["macd", "rsi", "rsi"]
 
 
 parse_rule = TypeAdapter(Node).validate_python
@@ -164,3 +172,81 @@ def test_nested_groups():
     }
 
     assert holds(rule, close=[1, 2, 3, 4]) == [F, T, F, T]
+
+
+def test_entry_and_exit_rules_share_indicators(indicator_calls):
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "entry": {"left": {"indicator": "rsi"}, "op": "<", "right": {"value": 30}},
+            "exit": {"left": {"indicator": "rsi"}, "op": ">", "right": {"value": 70}},
+        }
+    )
+
+    strategy_signals(definition, random_bars())
+
+    assert indicator_calls == ["rsi"]
+
+
+def test_without_an_exit_rule_there_are_no_exit_signals():
+    entries, exits = strategy_signals(
+        StrategyDefinition.model_validate(MINIMAL_DEFINITION), random_bars()
+    )
+
+    assert entries.dtype == bool
+    assert len(entries) == 300
+    assert exits is None
+
+
+MACD = {"indicator": "macd", "fast": 3, "slow": 8, "signal": 4}
+BBANDS = {"indicator": "bbands", "period": 10}
+
+# Every indicator, output, price field and operator, with short periods so that all of them
+# matter within a few dozen bars.
+EVERY_RULE = {
+    "direction": "long",
+    "entry": {
+        "any": [
+            {
+                "all": [
+                    {"left": {"indicator": "rsi", "period": 5}, "op": "<", "right": {"value": 45}},
+                    {
+                        "left": CLOSE,
+                        "op": "crosses_above",
+                        "right": {"indicator": "sma", "period": 10},
+                    },
+                ]
+            },
+            {"left": MACD, "op": "crosses_above", "right": MACD | {"output": "signal"}},
+            {"left": {"price": "low"}, "op": "<=", "right": BBANDS | {"output": "lower"}},
+        ]
+    },
+    "exit": {
+        "any": [
+            {"left": {"indicator": "rsi", "period": 5}, "op": ">=", "right": {"value": 60}},
+            {
+                "left": {"indicator": "ema", "period": 5, "source": "open"},
+                "op": "crosses_below",
+                "right": BBANDS | {"output": "middle"},
+            },
+            {"left": {"price": "high"}, "op": ">", "right": BBANDS | {"output": "upper"}},
+            {"left": MACD | {"output": "histogram"}, "op": "<", "right": {"value": -0.5}},
+            {"left": {"price": "volume"}, "op": ">", "right": {"value": 9.8}},
+        ]
+    },
+}
+
+
+def test_signals_never_look_ahead():
+    definition = StrategyDefinition.model_validate(EVERY_RULE)
+    bars = random_bars(120)
+    entries, exits = strategy_signals(definition, bars)
+    # Guard against a vacuous pass: both kinds of signal really fire and really don't.
+    assert 0 < entries.sum() < len(bars)
+    assert 0 < exits.sum() < len(bars)
+
+    for t in range(len(bars)):
+        early_entries, early_exits = strategy_signals(definition, bars.iloc[: t + 1])
+
+        np.testing.assert_array_equal(early_entries, entries[: t + 1])
+        np.testing.assert_array_equal(early_exits, exits[: t + 1])
