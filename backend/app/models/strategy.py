@@ -4,7 +4,7 @@ from typing import Any
 
 from sqlalchemy import CheckConstraint, ForeignKey, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, foreign, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 
@@ -20,6 +20,16 @@ class Strategy(TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str | None] = mapped_column(Text)
     current_version: Mapped[int] = mapped_column(server_default=text("1"))
+
+    # The version whose definition is in force, loaded together with the strategy.
+    current: Mapped["StrategyVersion"] = relationship(
+        primaryjoin=lambda: (
+            (Strategy.id == foreign(StrategyVersion.strategy_id))
+            & (Strategy.current_version == foreign(StrategyVersion.version))
+        ),
+        viewonly=True,
+        lazy="joined",
+    )
 
 
 class StrategyVersion(Base):
