@@ -10,9 +10,10 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.enums import TradeEvent, TradeStatus
-from app.errors import ConflictError, NotFoundError
+from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog, User
-from app.schemas.trade import TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import TradeClose, TradeCreate, TradeFilters, TradeUpdate
+from app.services.pnl import trade_pnl
 
 ENTRY_FIELDS = (
     "symbol",
@@ -26,6 +27,7 @@ ENTRY_FIELDS = (
     "leverage",
     "strategy_id",
 )
+EXIT_FIELDS = ("status", "exit_price", "exit_time", "exit_size", "exit_fee", "pnl", "pnl_pct")
 
 
 def _json_value(value: object) -> object:
@@ -133,6 +135,41 @@ def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate
         for field, value in changes.items():
             setattr(trade, field, value)
         _record(db, trade, user, TradeEvent.UPDATE, old, new)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return trade
+
+
+def close_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeClose) -> Trade:
+    trade = _get_for_change(db, user, trade_id)
+    _require_open(trade, "close")
+    if data.exit_time < trade.entry_time:
+        raise InvalidOperationError("Exit time cannot be before the entry time")
+    exit_size = trade.entry_size if data.exit_size is None else data.exit_size
+    if exit_size > trade.entry_size:
+        raise InvalidOperationError("Exit size cannot exceed the entry size")
+    result = trade_pnl(
+        trade.direction,
+        trade.entry_price,
+        trade.entry_size,
+        data.exit_price,
+        exit_size,
+        trade.entry_fee,
+        data.exit_fee,
+        trade.leverage,
+    )
+    old = _snapshot(trade, EXIT_FIELDS)
+    try:
+        trade.status = TradeStatus.CLOSED
+        trade.exit_price = data.exit_price
+        trade.exit_time = data.exit_time
+        trade.exit_size = exit_size
+        trade.exit_fee = data.exit_fee
+        trade.pnl = result.amount
+        trade.pnl_pct = result.pct
+        _record(db, trade, user, TradeEvent.EXIT, old, _snapshot(trade, EXIT_FIELDS))
         db.commit()
     except Exception:
         db.rollback()

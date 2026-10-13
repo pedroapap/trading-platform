@@ -5,10 +5,10 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import func, select
 
-from app.enums import TradeEvent, TradeStatus
-from app.errors import ConflictError, NotFoundError
+from app.enums import Direction, TradeEvent, TradeStatus
+from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog
-from app.schemas.trade import TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import TradeClose, TradeCreate, TradeFilters, TradeUpdate
 from app.services import trades, users
 from tests.helpers import ENTRY_TIME, make_trade
 
@@ -200,3 +200,69 @@ def test_update_of_a_foreign_trade_is_not_found(db_session, user):
 
     with pytest.raises(NotFoundError):
         trades.update_trade(db_session, user, foreign.id, TradeUpdate(stop_loss="90"))
+
+
+def exit_at(price: str, **fields) -> TradeClose:
+    return TradeClose(exit_price=price, exit_time="2026-01-06T09:00:00Z", **fields)
+
+
+def test_close_records_exit_and_pnl(db_session, user):
+    trade = trades.create_trade(db_session, user, NEW_TRADE)  # long 0.5 @ 45000
+
+    closed = trades.close_trade(db_session, user, trade.id, exit_at("46000", exit_fee="5"))
+
+    assert closed.status is TradeStatus.CLOSED
+    assert closed.exit_size == Decimal("0.5")  # defaults to the full position
+    assert closed.pnl == Decimal("495")  # 0.5 * 1000 - 5
+    assert closed.pnl_pct == Decimal("2.2")  # 495 / 22500
+    exit_event = events(db_session, trade)[-1]
+    assert exit_event.event_type is TradeEvent.EXIT
+    assert exit_event.old_values["status"] == "open"
+    assert exit_event.old_values["pnl"] is None
+    assert exit_event.new_values == {
+        "status": "closed",
+        "exit_price": "46000",
+        "exit_time": "2026-01-06T09:00:00+00:00",
+        "exit_size": "0.5",
+        "exit_fee": "5",
+        "pnl": "495",
+        "pnl_pct": "2.2",
+    }
+
+
+def test_close_short_partially(db_session, user):
+    short = NEW_TRADE.model_copy(update={"direction": Direction.SHORT})
+    trade = trades.create_trade(db_session, user, short)
+
+    closed = trades.close_trade(db_session, user, trade.id, exit_at("44000", exit_size="0.25"))
+
+    assert closed.pnl == Decimal("250")
+    assert closed.exit_size == Decimal("0.25")
+
+
+@pytest.mark.parametrize(
+    ("close", "message"),
+    [
+        (
+            TradeClose(exit_price="46000", exit_time="2026-01-05T14:29:59Z"),
+            "Exit time cannot be before the entry time",
+        ),
+        (exit_at("46000", exit_size="0.6"), "Exit size cannot exceed the entry size"),
+    ],
+)
+def test_close_rejects_exits_inconsistent_with_the_entry(db_session, user, close, message):
+    trade = trades.create_trade(db_session, user, NEW_TRADE)
+
+    with pytest.raises(InvalidOperationError, match=message):
+        trades.close_trade(db_session, user, trade.id, close)
+
+    assert trade.status is TradeStatus.OPEN
+    assert len(events(db_session, trade)) == 1
+
+
+def test_closing_twice_is_a_conflict(db_session, user):
+    trade = trades.create_trade(db_session, user, NEW_TRADE)
+    trades.close_trade(db_session, user, trade.id, exit_at("46000"))
+
+    with pytest.raises(ConflictError, match="Cannot close a closed trade"):
+        trades.close_trade(db_session, user, trade.id, exit_at("47000"))
