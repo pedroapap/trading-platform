@@ -35,3 +35,12 @@ def test_divides():
     assert Timeframe.H4.divides(Timeframe.D1)
     assert not Timeframe.H1.divides(Timeframe.M15)
     assert Timeframe.D1.divides(Timeframe.D1)
+
+
+def test_ceil_moves_to_the_next_bar_start():
+    assert Timeframe.H1.ceil(datetime(2026, 1, 5, 14, 30, tzinfo=UTC)) == datetime(
+        2026, 1, 5, 15, tzinfo=UTC
+    )
+    assert Timeframe.H1.ceil(datetime(2026, 1, 5, 14, tzinfo=UTC)) == datetime(
+        2026, 1, 5, 14, tzinfo=UTC
+    )

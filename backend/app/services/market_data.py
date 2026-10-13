@@ -1,9 +1,10 @@
 """Import price files into market_data, and query the stored bars."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import chain
-from typing import TextIO
+from typing import Any, TextIO
 
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import select, text
@@ -133,13 +134,66 @@ def _import(
     return summary
 
 
-def get_bars(db: Session, symbol: str, query: BarQuery) -> list[MarketData]:
-    """Stored bars of exactly `query.timeframe`, oldest first."""
-    statement = select(MarketData).where(
-        MarketData.symbol == normalize_symbol(symbol), MarketData.timeframe == query.timeframe
+@dataclass(frozen=True)
+class Bars:
+    bars: Sequence[Any]  # rows with ts, open, high, low, close and volume
+    aggregated_from: Timeframe | None  # None when the bars are stored at this timeframe
+
+
+def _range_filter(start: datetime | None, end: datetime | None) -> str:
+    return (" AND ts >= :start" if start else "") + (" AND ts < :end" if end else "")
+
+
+def _stored_timeframes(
+    db: Session, symbol: str, start: datetime | None, end: datetime | None
+) -> set[Timeframe]:
+    """Timeframes with at least one bar in the range (one index probe per timeframe)."""
+    statement = text(
+        "SELECT tf FROM unnest(CAST(:timeframes AS text[])) AS tf WHERE EXISTS ("
+        " SELECT 1 FROM market_data WHERE symbol = :symbol AND timeframe = tf"
+        f"{_range_filter(start, end)})"
     )
-    if query.start is not None:
-        statement = statement.where(MarketData.ts >= query.start)
-    if query.end is not None:
-        statement = statement.where(MarketData.ts < query.end)
-    return list(db.scalars(statement.order_by(MarketData.ts).limit(query.limit)))
+    params = {"timeframes": list(Timeframe), "symbol": symbol, "start": start, "end": end}
+    return {Timeframe(tf) for tf in db.scalars(statement, params)}
+
+
+def get_bars(db: Session, symbol: str, query: BarQuery) -> Bars:
+    """Bars at `query.timeframe`: stored ones, or built from the coarsest stored timeframe
+    that divides it. The range is widened to whole bars, so no bar is built from a partial
+    bucket at the start."""
+    symbol = normalize_symbol(symbol)
+    start = query.timeframe.ceil(query.start) if query.start else None
+    end = query.timeframe.ceil(query.end) if query.end else None
+    stored = _stored_timeframes(db, symbol, start, end)
+    sources = [tf for tf in stored if tf.divides(query.timeframe)]
+    if not sources:
+        if stored:
+            available = ", ".join(sorted(stored, key=lambda tf: tf.seconds))
+            raise InvalidOperationError(
+                f"{symbol} has no {query.timeframe} bars, or finer bars to build them from,"
+                f" in this range (stored: {available})"
+            )
+        return Bars([], None)
+    source = max(sources, key=lambda tf: tf.seconds)
+    params = {"symbol": symbol, "source": source.value, "start": start, "end": end}
+
+    if source == query.timeframe:
+        statement = select(MarketData).where(
+            MarketData.symbol == symbol, MarketData.timeframe == source
+        )
+        if start is not None:
+            statement = statement.where(MarketData.ts >= start)
+        if end is not None:
+            statement = statement.where(MarketData.ts < end)
+        return Bars(list(db.scalars(statement.order_by(MarketData.ts).limit(query.limit))), None)
+
+    aggregate = text(
+        "SELECT time_bucket(CAST(:width AS interval), ts) AS ts, first(open, ts) AS open,"
+        " max(high) AS high, min(low) AS low, last(close, ts) AS close,"
+        " sum(volume) AS volume"
+        " FROM market_data WHERE symbol = :symbol AND timeframe = :source"
+        f"{_range_filter(start, end)}"
+        " GROUP BY 1 ORDER BY 1 LIMIT :limit"
+    )
+    rows = db.execute(aggregate, params | {"width": query.timeframe.delta, "limit": query.limit})
+    return Bars(rows.all(), source)

@@ -26,6 +26,11 @@ class Timeframe(StrEnum):
         since_epoch = ts - EPOCH
         return since_epoch % self.delta == timedelta(0)
 
+    def ceil(self, ts: datetime) -> datetime:
+        """The first bar start at or after `ts`."""
+        remainder = (ts - EPOCH) % self.delta
+        return ts if remainder == timedelta(0) else ts + (self.delta - remainder)
+
     def divides(self, other: "Timeframe") -> bool:
         """Whether bars of `other` can be built exactly from bars of this timeframe."""
         return other.seconds % self.seconds == 0

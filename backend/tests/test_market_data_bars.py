@@ -47,9 +47,8 @@ def test_range_is_half_open_and_limit_pages(api):
     assert len(first_two) == 2
 
 
-def test_unknown_symbols_and_unstored_timeframes_are_empty(api):
+def test_unknown_symbols_are_empty(api):
     assert bars(api, symbol="ETHUSDT") == []
-    assert bars(api, timeframe="5m") == []
 
 
 def test_query_is_validated(api):

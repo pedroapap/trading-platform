@@ -39,9 +39,10 @@ def import_file(
 def get_bars(
     symbol: str, query: Annotated[BarQuery, Query()], db: DbSession, _: CurrentUser
 ) -> BarsResponse:
-    bars = market_data.get_bars(db, symbol, query)
+    result = market_data.get_bars(db, symbol, query)
     return BarsResponse(
         symbol=market_data.normalize_symbol(symbol),
         timeframe=query.timeframe,
-        bars=[BarRead.model_validate(bar) for bar in bars],
+        aggregated_from=result.aggregated_from,
+        bars=[BarRead.model_validate(bar) for bar in result.bars],
     )
