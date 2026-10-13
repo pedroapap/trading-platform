@@ -119,3 +119,14 @@ class JournalPage(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class JournalVersionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    version: int
+    content: JournalContent
+    # Fields that differ from the previous version; None for the publication.
+    changed_fields: list[str] | None
+    edit_reason: str | None
+    created_at: datetime

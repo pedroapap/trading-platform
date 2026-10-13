@@ -125,6 +125,13 @@ def publish_entry(db: Session, user: User, entry_id: uuid.UUID) -> JournalEntry:
     return entry
 
 
+def list_versions(db: Session, user: User, entry_id: uuid.UUID) -> list[JournalEntryVersion]:
+    """The entry's published versions, oldest first; none for a draft."""
+    entry = get_entry(db, user, entry_id)
+    query = select(JournalEntryVersion).where(JournalEntryVersion.entry_id == entry.id)
+    return list(db.scalars(query.order_by(JournalEntryVersion.version)))
+
+
 def _content(entry: JournalEntry) -> dict[str, Any]:
     """The entry's content as a JSON snapshot."""
     return JournalContent.model_validate(entry, from_attributes=True).model_dump(mode="json")

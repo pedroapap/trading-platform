@@ -186,3 +186,34 @@ def test_other_users_entries_are_not_listed(api, client, db_session, three_entri
 
 def test_list_filters_are_validated(api):
     assert api.get(params={"tag": "two words"}).status_code == 422
+
+
+def test_the_version_history_shows_every_published_state(api):
+    entry = new_entry(api, emotion="calm")
+    path = f"/{entry['id']}"
+    assert api.get(f"{path}/versions").json() == []  # a draft has no versions
+
+    api.post(f"{path}/publish")
+    api.patch(path, json={"emotion": "fearful", "edit_reason": "Was not calm, honestly"})
+    api.patch(path, json={"lessons": "Size down", "edit_reason": "Review"})
+
+    versions = api.get(f"{path}/versions").json()
+    assert [
+        (v["version"], v["content"]["emotion"], v["changed_fields"], v["edit_reason"])
+        for v in versions
+    ] == [
+        (1, "calm", None, None),
+        (2, "fearful", ["emotion"], "Was not calm, honestly"),
+        (3, "fearful", ["lessons"], "Review"),
+    ]
+    assert versions[2]["content"]["lessons"] == "Size down"
+
+
+def test_another_users_version_history_is_not_found(api, client, db_session):
+    entry = new_entry(api)
+    other = users.create_user(db_session, "other@example.com", "another-long-password")
+    headers = {"Authorization": f"Bearer {create_access_token(str(other.id))}"}
+
+    response = client.get(f"/api/journal/{entry['id']}/versions", headers=headers)
+
+    assert response.status_code == 404

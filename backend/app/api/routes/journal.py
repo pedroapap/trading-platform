@@ -4,12 +4,14 @@ from typing import Annotated
 from fastapi import APIRouter, Query, status
 
 from app.deps import CurrentUser, DbSession
+from app.models import JournalEntryVersion
 from app.schemas.journal import (
     JournalEntryCreate,
     JournalEntryRead,
     JournalEntryUpdate,
     JournalFilters,
     JournalPage,
+    JournalVersionRead,
 )
 from app.services import journal
 
@@ -54,3 +56,12 @@ def update_entry(
 def publish_entry(entry_id: uuid.UUID, db: DbSession, user: CurrentUser) -> JournalEntryRead:
     """Publish a draft as version 1; from then on, edits need a reason."""
     return JournalEntryRead.model_validate(journal.publish_entry(db, user, entry_id))
+
+
+@router.get("/{entry_id}/versions", response_model=list[JournalVersionRead])
+def list_versions(
+    entry_id: uuid.UUID, db: DbSession, user: CurrentUser
+) -> list[JournalEntryVersion]:
+    """Every published version, oldest first: the publication, then each edit with its
+    reason and the fields it changed. Empty for a draft."""
+    return journal.list_versions(db, user, entry_id)
