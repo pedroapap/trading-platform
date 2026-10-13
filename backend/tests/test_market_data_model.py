@@ -77,3 +77,32 @@ def test_a_bar_is_unique_per_symbol_timeframe_and_time(db_session):
     db_session.add(bar(close=Decimal("100")))
     with pytest.raises(IntegrityError, match="pk_market_data"):
         db_session.flush()
+
+
+def test_old_chunks_have_a_compression_policy(db_session):
+    query = text(
+        "SELECT config ->> 'compress_after' FROM timescaledb_information.jobs"
+        " WHERE hypertable_name = 'market_data' AND proc_name = 'policy_compression'"
+    )
+
+    assert db_session.scalar(query) == "30 days"
+
+
+def test_compressed_bars_stay_readable_and_skip_duplicates(db_session):
+    old = datetime(2025, 1, 1, tzinfo=UTC)
+    db_session.add(bar(ts=old))
+    db_session.flush()
+    compressed = db_session.scalar(
+        text("SELECT count(compress_chunk(c)) FROM show_chunks('market_data') c")
+    )
+
+    db_session.execute(
+        text(
+            "INSERT INTO market_data (symbol, timeframe, ts, open, high, low, close, volume,"
+            " source) VALUES ('BTCUSD', '1m', :ts, 1, 1, 1, 1, 0, 'test') ON CONFLICT DO NOTHING"
+        ),
+        {"ts": old},
+    )
+
+    assert compressed == 1
+    assert db_session.get(MarketData, ("BTCUSD", Timeframe.M1, old)).close == Decimal("104")
