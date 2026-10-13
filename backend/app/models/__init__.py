@@ -2,8 +2,17 @@
 
 from app.models.base import Base
 from app.models.market_data import MarketData
+from app.models.strategy import Strategy, StrategyVersion
 from app.models.trade import Trade
 from app.models.trade_audit_log import TradeAuditLog
 from app.models.user import User
 
-__all__ = ["Base", "MarketData", "Trade", "TradeAuditLog", "User"]
+__all__ = [
+    "Base",
+    "MarketData",
+    "Strategy",
+    "StrategyVersion",
+    "Trade",
+    "TradeAuditLog",
+    "User",
+]

@@ -42,8 +42,9 @@ class Trade(TimestampMixin, Base):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, server_default=func.gen_random_uuid())
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
-    # Foreign key to strategies is added together with that table.
-    strategy_id: Mapped[uuid.UUID | None]
+    strategy_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("strategies.id", ondelete="RESTRICT")
+    )
 
     symbol: Mapped[str] = mapped_column(String(20))
     direction: Mapped[Direction] = mapped_column(str_enum(Direction, "direction"))

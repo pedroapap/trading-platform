@@ -17,7 +17,7 @@ from app.schemas.trade import (
     TradeUpdate,
 )
 from app.services import trades, users
-from tests.helpers import ENTRY_TIME, make_trade
+from tests.helpers import ENTRY_TIME, make_strategy, make_trade
 
 NEW_TRADE = TradeCreate(
     symbol="btcusd",
@@ -81,7 +81,7 @@ def test_get_hides_missing_and_foreign_trades(db_session, user):
 @pytest.fixture
 def journal(db_session, user):
     """Four trades on consecutive days (oldest first), one belonging to another user."""
-    strategy_id = uuid.uuid4()
+    strategy_id = make_strategy(db_session, user).id
     day = timedelta(days=1)
     closed = {
         "status": TradeStatus.CLOSED,
