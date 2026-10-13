@@ -2,6 +2,7 @@
 implementations of the textbook formulas (the `naive_*` helpers below)."""
 
 import math
+from itertools import pairwise
 
 import numpy as np
 import pandas as pd
@@ -81,3 +82,70 @@ def test_ema_skips_leading_missing_values():
 @pytest.mark.parametrize("values", [[1.0, 2.0], [NAN, NAN, NAN], []])
 def test_ema_of_too_little_data_is_all_missing(values):
     assert indicators.ema(pd.Series(values, dtype=float), 3).isna().all()
+
+
+# StockCharts ChartSchool's RSI example (cs-rsi.xls): closes and the published RSI(14), 2 dp.
+# fmt: off
+STOCKCHARTS_CLOSES = [
+    44.3389, 44.0902, 44.1497, 43.6124, 44.3278, 44.8264, 45.0955, 45.4245, 45.8433, 46.0826,
+    45.8931, 46.0328, 45.6140, 46.2820, 46.2820, 46.0028, 46.0328, 46.4116, 46.2222, 45.6439,
+    46.2122, 46.2521, 45.7137, 46.4515, 45.7835, 45.3548, 44.0288, 44.1783, 44.2181, 44.5672,
+    43.4205, 42.6628, 43.1314,
+]
+STOCKCHARTS_RSI_14 = [
+    70.53, 66.32, 66.55, 69.41, 66.36, 57.97, 62.93, 63.26, 56.06, 62.38,
+    54.71, 50.42, 39.99, 41.46, 41.87, 45.46, 37.30, 33.08, 37.77,
+]
+# fmt: on
+
+
+def naive_rsi(values: list[float], period: int) -> list[float]:
+    changes = [b - a for a, b in pairwise(values)]
+    gain = sum(max(change, 0) for change in changes[:period]) / period
+    loss = sum(max(-change, 0) for change in changes[:period]) / period
+    result = [NAN] * len(values)
+    for i in range(period, len(values)):
+        if i > period:
+            gain = (gain * (period - 1) + max(changes[i - 1], 0)) / period
+            loss = (loss * (period - 1) + max(-changes[i - 1], 0)) / period
+        result[i] = 100 - 100 / (1 + gain / loss)
+    return result
+
+
+def test_rsi_matches_stockcharts():
+    result = indicators.rsi(pd.Series(STOCKCHARTS_CLOSES), 14)
+
+    assert result[:14].isna().all()
+    np.testing.assert_allclose(result[14:], STOCKCHARTS_RSI_14, atol=0.005)
+
+
+@pytest.mark.parametrize("period", [2, 14, 30])
+def test_rsi_matches_the_naive_formula(period):
+    prices = random_walk()
+
+    assert_series(indicators.rsi(prices, period), naive_rsi(prices.tolist(), period))
+
+
+@pytest.mark.parametrize("period", [2, 14])
+def test_rsi_starts_at_index_period(period):
+    assert indicators.rsi(random_walk(), period).first_valid_index() == period
+
+
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [
+        ([5.0] * 20, 50),
+        ([float(i) for i in range(20)], 100),
+        ([float(i) for i in range(20, 0, -1)], 0),
+    ],
+    ids=["flat", "only-rising", "only-falling"],
+)
+def test_rsi_of_a_one_way_price(values, expected):
+    result = indicators.rsi(pd.Series(values), 14)
+
+    assert (result[14:] == expected).all()
+
+
+@pytest.mark.parametrize("values", [[1.0] * 14, [1.0], []])
+def test_rsi_of_a_short_series_is_all_missing(values):
+    assert indicators.rsi(pd.Series(values, dtype=float), 14).isna().all()
