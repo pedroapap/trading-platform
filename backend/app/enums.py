@@ -26,3 +26,4 @@ class ExitReason(StrEnum):
     """Why a backtest closed a position."""
 
     SIGNAL = "signal"
+    END_OF_DATA = "end_of_data"

@@ -11,6 +11,7 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   against the trade.
 - A short sells at entry and buys back at exit, so its loss has no limit; once equity is
   at or below zero, no new position opens.
+- A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
 
@@ -83,11 +84,13 @@ def simulate(
         entry_fee = notional * fee
         size = notional / entry_price
         exit_ = _first_from(exit_fills, entry + 1)
-        held = slice(entry, len(bars) if exit_ is None else exit_)
-        equity[held] = cash - entry_fee + sign * size * (closes[held] - entry_price)
         if exit_ is None:
-            break  # still open at the end: marked to market, but not a trade
-        exit_price = opens[exit_] * (1 - sign * slip)
+            exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
+        else:
+            unslipped_exit, reason = opens[exit_], ExitReason.SIGNAL
+        held = slice(entry, exit_)
+        equity[held] = cash - entry_fee + sign * size * (closes[held] - entry_price)
+        exit_price = unslipped_exit * (1 - sign * slip)
         exit_fee = size * exit_price * fee
         pnl = sign * size * (exit_price - entry_price) - entry_fee - exit_fee
         cash += pnl
@@ -102,10 +105,10 @@ def simulate(
                 size=size,
                 entry_fee=entry_fee,
                 exit_fee=exit_fee,
-                slippage=sign * size * (entry_price - opens[entry] + opens[exit_] - exit_price),
+                slippage=sign * size * (entry_price - opens[entry] + unslipped_exit - exit_price),
                 pnl=pnl,
                 pnl_pct=pnl / (size * entry_price) * 100,
-                exit_reason=ExitReason.SIGNAL,
+                exit_reason=reason,
             )
         )
         earliest_entry = exit_ + 1

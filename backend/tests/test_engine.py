@@ -104,12 +104,69 @@ def test_without_signals_equity_stays_at_the_initial_capital():
     assert result.equity.tolist() == [10_000] * 12
 
 
-def test_an_open_position_is_marked_to_market_until_the_end():
+def test_a_position_open_at_the_end_closes_at_the_last_close():
     # Bar 1's signal buys 100 @ 100 on bar 2 with the whole 10,000; nothing sells.
     result = simulate(TWELVE_BARS, at(12, 1), None, BacktestConfig(initial_capital=10_000))
 
+    assert result.trades == [
+        SimulatedTrade(
+            direction=Direction.LONG,
+            entry_time=TIMES[2],
+            entry_price=100,
+            exit_time=TIMES[11],
+            exit_price=103,
+            size=100,
+            entry_fee=0,
+            exit_fee=0,
+            slippage=0,
+            pnl=300,
+            pnl_pct=3,
+            exit_reason=ExitReason.END_OF_DATA,
+        )
+    ]
     closes = TWELVE_BARS["close"].tolist()
     assert result.equity.tolist() == [10_000, 10_000] + [100 * close for close in closes[2:]]
+
+
+def test_a_position_opened_on_the_last_bar_closes_at_its_close():
+    # Bar 10's signal buys 100 on bar 11 at its open of 102, then sells at its close of 103.
+    result = simulate(TWELVE_BARS, at(12, 10), None, BacktestConfig(initial_capital=10_200))
+
+    assert result.trades == [
+        SimulatedTrade(
+            direction=Direction.LONG,
+            entry_time=TIMES[11],
+            entry_price=102,
+            exit_time=TIMES[11],
+            exit_price=103,
+            size=100,
+            entry_fee=0,
+            exit_fee=0,
+            slippage=0,
+            pnl=100,
+            pnl_pct=approx(100 / 10_200 * 100),
+            exit_reason=ExitReason.END_OF_DATA,
+        )
+    ]
+    assert result.equity.tolist() == [10_200] * 11 + [10_300]
+
+
+def test_closing_at_the_end_pays_slippage_and_fees():
+    # As in the fees and slippage test, 100 are bought at 101 for a fee of 101. They are sold
+    # at bar 11's close of 103 less 1%, 101.97, for a fee of 101.97.
+    config = BacktestConfig(initial_capital=10_201, fee_pct=1, slippage_pct=1)
+
+    result = simulate(TWELVE_BARS, at(12, 1), None, config)
+
+    [trade] = result.trades
+    assert trade.exit_price == approx(101.97)
+    assert trade.exit_fee == approx(101.97)
+    assert trade.slippage == approx(100 * (101 - 100) + 100 * (103 - 101.97))
+    assert trade.pnl == approx(100 * (101.97 - 101) - 101 - 101.97)  # -105.97
+    closes = TWELVE_BARS["close"].tolist()
+    assert result.equity.tolist() == approx(
+        [10_201, 10_201] + [100 * close for close in closes[2:11]] + [10_201 - 105.97]
+    )
 
 
 def test_fees_and_slippage_by_hand():
