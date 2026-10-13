@@ -2,12 +2,12 @@
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 
 import numpy as np
 import pandas as pd
 
-from app.backtest.engine import SimulatedTrade
+from app.backtest.engine import BacktestResult, SimulatedTrade
 
 YEAR = pd.Timedelta(days=365.25)
 
@@ -117,3 +117,33 @@ def trade_stats(trades: Sequence[SimulatedTrade], index: pd.DatetimeIndex) -> Tr
 
 def _mean(values: np.ndarray) -> float | None:
     return float(values.mean()) if len(values) else None
+
+
+@dataclass(frozen=True)
+class Metrics:
+    """Every metric of a backtest; see the functions above for definitions."""
+
+    total_return_pct: float
+    cagr_pct: float | None
+    max_drawdown_pct: float
+    sharpe_ratio: float | None
+    sortino_ratio: float | None
+    num_trades: int
+    win_rate_pct: float | None
+    profit_factor: float | None
+    expectancy: float | None
+    average_win: float | None
+    average_loss: float | None
+    exposure_pct: float
+
+
+def summarize(result: BacktestResult, periods_per_year: int = 365) -> Metrics:
+    equity = result.equity
+    return Metrics(
+        total_return_pct=total_return_pct(equity),
+        cagr_pct=cagr_pct(equity),
+        max_drawdown_pct=max_drawdown_pct(equity),
+        sharpe_ratio=sharpe_ratio(equity, periods_per_year),
+        sortino_ratio=sortino_ratio(equity, periods_per_year),
+        **asdict(trade_stats(result.trades, equity.index)),
+    )

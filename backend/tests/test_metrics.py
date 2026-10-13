@@ -1,12 +1,14 @@
 import math
+from dataclasses import asdict
 
 import numpy as np
 import pandas as pd
 import pytest
 
 from app.backtest import metrics
-from app.backtest.engine import SimulatedTrade
+from app.backtest.engine import BacktestConfig, SimulatedTrade, simulate
 from app.enums import Direction, ExitReason
+from tests.helpers import random_bars
 
 
 def curve(values: list[float], freq: str = "D") -> pd.Series:
@@ -171,3 +173,25 @@ def test_sortino_ratio_without_a_losing_day_is_undefined():
 
     assert metrics.sharpe_ratio(rising) is not None
     assert metrics.sortino_ratio(rising) is None
+
+
+def test_summarize_collects_every_metric():
+    # Ten days of hourly bars, so that the daily ratios are defined.
+    bars = random_bars(240)
+    bars.index = pd.date_range("2026-01-01", periods=240, freq="h", tz="UTC")
+    rng = np.random.default_rng(5)
+    result = simulate(bars, rng.random(240) < 0.1, rng.random(240) < 0.1, BacktestConfig(10_000))
+
+    summary = metrics.summarize(result, periods_per_year=252)
+
+    equity = result.equity
+    assert summary == metrics.Metrics(
+        total_return_pct=metrics.total_return_pct(equity),
+        cagr_pct=metrics.cagr_pct(equity),
+        max_drawdown_pct=metrics.max_drawdown_pct(equity),
+        sharpe_ratio=metrics.sharpe_ratio(equity, 252),
+        sortino_ratio=metrics.sortino_ratio(equity, 252),
+        **asdict(metrics.trade_stats(result.trades, equity.index)),
+    )
+    assert summary.num_trades > 5
+    assert None not in (summary.cagr_pct, summary.sharpe_ratio, summary.sortino_ratio)
