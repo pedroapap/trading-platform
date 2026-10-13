@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import numpy as np
+import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.enums import Direction
@@ -46,3 +48,20 @@ def make_strategy(db: Session, user: User, name: str = "RSI dip") -> Strategy:
     db.flush()
     db.refresh(strategy)
     return strategy
+
+
+def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:
+    """Consistent 1-minute OHLCV bars following a random walk around 100."""
+    rng = np.random.default_rng(seed)
+    close = 100 + np.cumsum(rng.normal(0, 1, length))
+    open_ = np.concatenate([[100.0], close[:-1]]) + rng.normal(0, 0.2, length)
+    return pd.DataFrame(
+        {
+            "open": open_,
+            "high": np.maximum(open_, close) + rng.uniform(0, 0.5, length),
+            "low": np.minimum(open_, close) - rng.uniform(0, 0.5, length),
+            "close": close,
+            "volume": rng.uniform(1, 10, length),
+        },
+        index=pd.date_range(ENTRY_TIME, periods=length, freq="min"),
+    )
