@@ -41,12 +41,17 @@ def make_trade(db: Session, user: User, **overrides: object) -> Trade:
     return trade
 
 
-def make_strategy(db: Session, user: User, name: str = "RSI dip") -> Strategy:
+def make_strategy(
+    db: Session,
+    user: User,
+    name: str = "RSI dip",
+    definition: dict[str, object] = MINIMAL_DEFINITION,
+) -> Strategy:
     """Insert a strategy with version 1 directly, bypassing services."""
     strategy = Strategy(user_id=user.id, name=name)
     db.add(strategy)
     db.flush()
-    db.add(StrategyVersion(strategy_id=strategy.id, version=1, definition=MINIMAL_DEFINITION))
+    db.add(StrategyVersion(strategy_id=strategy.id, version=1, definition=definition))
     db.flush()
     db.refresh(strategy)
     return strategy
