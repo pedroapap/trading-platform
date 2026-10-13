@@ -1,3 +1,6 @@
+import math
+
+import numpy as np
 import pandas as pd
 import pytest
 
@@ -115,3 +118,56 @@ def test_trade_stats_without_losses():
     assert (stats.win_rate_pct, stats.average_win) == (100, 20)
     assert stats.profit_factor is None
     assert stats.average_loss is None
+
+
+# Daily returns of +1%, -1%, +3%, 0% and +1%: their mean is 0.8%, and their squared deviations
+# from it sum to 0.00088, so the sample standard deviation is sqrt(0.00088 / 4).
+DAILY = curve(list(100 * np.cumprod([1, 1.01, 0.99, 1.03, 1.0, 1.01])))
+DAILY_SHARPE = 0.008 / math.sqrt(0.00088 / 4)
+# Only the -1% day is downside: sqrt(0.01^2 / 5), over all five days.
+DAILY_SORTINO = 0.008 / math.sqrt(0.0001 / 5)
+
+
+def test_sharpe_ratio_by_hand():
+    assert metrics.sharpe_ratio(DAILY) == pytest.approx(DAILY_SHARPE * math.sqrt(365))
+
+
+def test_sortino_ratio_by_hand():
+    assert metrics.sortino_ratio(DAILY) == pytest.approx(DAILY_SORTINO * math.sqrt(365))
+
+
+def test_ratios_for_stock_exchange_days():
+    assert metrics.sharpe_ratio(DAILY, 252) == pytest.approx(DAILY_SHARPE * math.sqrt(252))
+    assert metrics.sortino_ratio(DAILY, 252) == pytest.approx(DAILY_SORTINO * math.sqrt(252))
+
+
+def test_ratios_use_the_daily_closes_of_intraday_equity():
+    # The same six days as hourly equity that wanders within each day.
+    closes = np.repeat(DAILY.to_numpy(), 24)
+    wander = np.random.default_rng(3).normal(0, 1, len(closes))
+    wander[23::24] = 0  # each day's last hour is its close
+    hourly = curve(list(closes + wander), freq="h")
+
+    assert metrics.sharpe_ratio(hourly) == pytest.approx(DAILY_SHARPE * math.sqrt(365))
+    assert metrics.sortino_ratio(hourly) == pytest.approx(DAILY_SORTINO * math.sqrt(365))
+
+
+def test_ratios_need_two_daily_returns():
+    within_a_day = curve([100, 120, 90, 130], freq="h")
+
+    assert metrics.sharpe_ratio(within_a_day) is None
+    assert metrics.sortino_ratio(within_a_day) is None
+
+
+def test_ratios_of_flat_equity_are_undefined():
+    flat = curve([100] * 10)
+
+    assert metrics.sharpe_ratio(flat) is None
+    assert metrics.sortino_ratio(flat) is None
+
+
+def test_sortino_ratio_without_a_losing_day_is_undefined():
+    rising = curve([100, 101, 103, 106])
+
+    assert metrics.sharpe_ratio(rising) is not None
+    assert metrics.sortino_ratio(rising) is None

@@ -41,6 +41,44 @@ def max_drawdown_pct(equity: pd.Series) -> float:
     return float(((peaks - equity) / peaks).max() * 100)
 
 
+def daily_returns(equity: pd.Series) -> pd.Series:
+    """Returns between consecutive daily closes of the equity curve. Days are UTC; days
+    without bars are skipped."""
+    closes = equity.resample("1D").last().dropna()
+    return closes.pct_change().dropna()
+
+
+# `periods_per_year` annualizes daily ratios: 365 where markets trade every day (crypto), 252
+# for stock exchanges. The risk-free rate is taken as zero.
+
+
+def sharpe_ratio(equity: pd.Series, periods_per_year: int = 365) -> float | None:
+    """Annualized Sharpe ratio of the daily returns. None with fewer than two daily returns
+    or when they never vary."""
+    returns = daily_returns(equity)
+    if len(returns) < 2:
+        return None
+    return _annualized(returns.mean(), returns.std(), periods_per_year)
+
+
+def sortino_ratio(equity: pd.Series, periods_per_year: int = 365) -> float | None:
+    """Annualized Sortino ratio of the daily returns: the mean over the downside deviation,
+    the root mean square of the losing days' returns counted over all days (as empyrical
+    computes it). None with fewer than two daily returns or without a losing day."""
+    returns = daily_returns(equity)
+    if len(returns) < 2:
+        return None
+    downside = math.sqrt((returns.clip(upper=0) ** 2).mean())
+    return _annualized(returns.mean(), downside, periods_per_year)
+
+
+def _annualized(mean: float, deviation: float, periods_per_year: int) -> float | None:
+    if deviation == 0:
+        return None
+    ratio = float(mean / deviation * math.sqrt(periods_per_year))
+    return ratio if math.isfinite(ratio) else None
+
+
 @dataclass(frozen=True)
 class TradeStats:
     num_trades: int
