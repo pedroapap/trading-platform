@@ -1,9 +1,16 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Path, status
 
 from app.deps import CurrentUser, DbSession
-from app.schemas.strategy import StrategyCreate, StrategyRead, StrategyUpdate
+from app.models import StrategyVersion
+from app.schemas.strategy import (
+    StrategyCreate,
+    StrategyRead,
+    StrategyUpdate,
+    StrategyVersionRead,
+)
 from app.services import strategies
 
 router = APIRouter(prefix="/strategies", tags=["strategies"])
@@ -30,3 +37,21 @@ def update_strategy(
 ) -> StrategyRead:
     """Rename, re-describe, or change the definition (which creates a new version)."""
     return StrategyRead.from_model(strategies.update_strategy(db, user, strategy_id, body))
+
+
+@router.get("/{strategy_id}/versions", response_model=list[StrategyVersionRead])
+def list_versions(
+    strategy_id: uuid.UUID, db: DbSession, user: CurrentUser
+) -> list[StrategyVersion]:
+    """Every saved definition, oldest first, with the fields each version changed."""
+    return strategies.list_versions(db, user, strategy_id)
+
+
+@router.get("/{strategy_id}/versions/{number}", response_model=StrategyVersionRead)
+def get_version(
+    strategy_id: uuid.UUID,
+    number: Annotated[int, Path(ge=1)],
+    db: DbSession,
+    user: CurrentUser,
+) -> StrategyVersion:
+    return strategies.get_version(db, user, strategy_id, number)

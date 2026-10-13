@@ -90,3 +90,29 @@ def test_duplicate_names_conflict(api):
 
 def test_strategies_require_a_token(client):
     assert client.get("/api/strategies").status_code == 401
+
+
+def test_versions_record_the_history(api):
+    strategy = create(api)
+    url = f"/api/strategies/{strategy['id']}"
+    api.patch(url, json={"definition": MINIMAL_DEFINITION | {"stop_loss_pct": 3}})
+    api.patch(url, json={"definition": MINIMAL_DEFINITION | {"direction": "short"}})
+
+    history = api.get(f"{url}/versions").json()
+
+    assert [(v["version"], v["changed_fields"]) for v in history] == [
+        (1, None),
+        (2, ["stop_loss_pct"]),
+        (3, ["direction", "stop_loss_pct"]),
+    ]
+    assert api.get(f"{url}/versions/1").json() == history[0]
+    assert api.get(f"{url}/versions/1").json()["definition"] == strategy["definition"]
+
+
+def test_unknown_versions_are_not_found(api):
+    strategy = create(api)
+    url = f"/api/strategies/{strategy['id']}/versions"
+
+    assert api.get(f"{url}/2").json() == {"detail": "The strategy has no version 2"}
+    assert api.get(f"{url}/0").status_code == 422
+    assert api.get(f"/api/strategies/{uuid.uuid4()}/versions").status_code == 404

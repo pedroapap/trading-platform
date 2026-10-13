@@ -56,3 +56,12 @@ class StrategyRead(BaseModel):
             created_at=strategy.created_at,
             updated_at=strategy.updated_at,
         )
+
+
+class StrategyVersionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    version: int
+    definition: StrategyDefinition
+    changed_fields: list[str] | None
+    created_at: datetime

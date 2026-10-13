@@ -93,3 +93,22 @@ def update_strategy(
         raise
     db.refresh(strategy)
     return strategy
+
+
+def list_versions(db: Session, user: User, strategy_id: uuid.UUID) -> list[StrategyVersion]:
+    """The strategy's versions, oldest first."""
+    strategy = get_strategy(db, user, strategy_id)
+    query = select(StrategyVersion).where(StrategyVersion.strategy_id == strategy.id)
+    return list(db.scalars(query.order_by(StrategyVersion.version)))
+
+
+def get_version(db: Session, user: User, strategy_id: uuid.UUID, number: int) -> StrategyVersion:
+    strategy = get_strategy(db, user, strategy_id)
+    version = db.scalar(
+        select(StrategyVersion).where(
+            StrategyVersion.strategy_id == strategy.id, StrategyVersion.version == number
+        )
+    )
+    if version is None:
+        raise NotFoundError(f"The strategy has no version {number}")
+    return version
