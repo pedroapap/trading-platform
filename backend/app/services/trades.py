@@ -9,10 +9,10 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.enums import TradeEvent
-from app.errors import NotFoundError
+from app.enums import TradeEvent, TradeStatus
+from app.errors import ConflictError, NotFoundError
 from app.models import Trade, TradeAuditLog, User
-from app.schemas.trade import TradeCreate, TradeFilters
+from app.schemas.trade import TradeCreate, TradeFilters, TradeUpdate
 
 ENTRY_FIELDS = (
     "symbol",
@@ -102,3 +102,39 @@ def list_trades(db: Session, user: User, filters: TradeFilters) -> tuple[list[Tr
     total = db.scalar(select(func.count()).select_from(query.subquery()))
     page = query.order_by(Trade.entry_time.desc(), Trade.id).limit(filters.limit)
     return list(db.scalars(page.offset(filters.offset))), total or 0
+
+
+def _get_for_change(db: Session, user: User, trade_id: uuid.UUID) -> Trade:
+    """Load and row-lock the trade so concurrent changes are applied one at a time."""
+    query = select(Trade).where(Trade.id == trade_id, Trade.user_id == user.id)
+    trade = db.scalar(query.with_for_update())
+    if trade is None:
+        raise NotFoundError("Trade not found")
+    return trade
+
+
+def _require_open(trade: Trade, action: str) -> None:
+    if trade.status != TradeStatus.OPEN:
+        raise ConflictError(f"Cannot {action} a {trade.status} trade")
+
+
+def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate) -> Trade:
+    """Correct an open trade's entry details; only fields that actually change are audited."""
+    trade = _get_for_change(db, user, trade_id)
+    _require_open(trade, "edit")
+    changes = {
+        field: value for field, value in data.changes().items() if getattr(trade, field) != value
+    }
+    if not changes:
+        return trade
+    old = {field: _json_value(getattr(trade, field)) for field in changes}
+    new = {field: _json_value(value) for field, value in changes.items()}
+    try:
+        for field, value in changes.items():
+            setattr(trade, field, value)
+        _record(db, trade, user, TradeEvent.UPDATE, old, new)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return trade
