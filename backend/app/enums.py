@@ -36,3 +36,28 @@ class ExitReason(StrEnum):
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     END_OF_DATA = "end_of_data"
+
+
+class EntryType(StrEnum):
+    PRE_TRADE = "pre_trade"
+    POST_TRADE = "post_trade"
+    NOTE = "note"
+
+
+class Emotion(StrEnum):
+    """How the trader felt, for spotting which states cost money."""
+
+    CALM = "calm"
+    CONFIDENT = "confident"
+    EXCITED = "excited"
+    GREEDY = "greedy"
+    FOMO = "fomo"
+    FEARFUL = "fearful"
+    FRUSTRATED = "frustrated"
+    IMPATIENT = "impatient"
+    UNCERTAIN = "uncertain"
+
+
+class JournalStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"

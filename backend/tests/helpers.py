@@ -9,7 +9,7 @@ import pandas as pd
 from sqlalchemy.orm import Session
 
 from app.enums import Direction
-from app.models import Backtest, Strategy, StrategyVersion, Trade, User
+from app.models import Backtest, JournalEntry, Strategy, StrategyVersion, Trade, User
 from app.services.market_data import import_bars
 
 USER_EMAIL = "trader@example.com"
@@ -85,6 +85,16 @@ def make_backtest(db: Session, user: User, strategy: Strategy, **overrides: obje
     db.flush()
     db.refresh(backtest)
     return backtest
+
+
+def make_journal_entry(db: Session, user: User, **overrides: object) -> JournalEntry:
+    """Insert a draft note directly, bypassing services."""
+    values: dict[str, object] = {"entry_type": "note", "title": "Watching BTC"}
+    entry = JournalEntry(user_id=user.id, **(values | overrides))
+    db.add(entry)
+    db.flush()
+    db.refresh(entry)
+    return entry
 
 
 def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:
