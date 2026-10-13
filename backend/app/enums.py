@@ -20,3 +20,9 @@ class TradeEvent(StrEnum):
     EXIT = "exit"
     CANCEL = "cancel"
     CORRECTION = "correction"
+
+
+class ExitReason(StrEnum):
+    """Why a backtest closed a position."""
+
+    SIGNAL = "signal"
