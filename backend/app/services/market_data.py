@@ -68,6 +68,20 @@ def import_bars(
 
     `stream` must be seekable: the first lines are read to detect the format.
     """
+    try:
+        return _import(db, stream, symbol, timeframe, format_name, chunk_rows)
+    except UnicodeDecodeError:
+        raise InvalidOperationError("The file is not UTF-8 text") from None
+
+
+def _import(
+    db: Session,
+    stream: TextIO,
+    symbol: str,
+    timeframe: Timeframe | None,
+    format_name: str | None,
+    chunk_rows: int,
+) -> ImportSummary:
     symbol = _normalize_symbol(symbol)
     sample = "".join(stream.readline() for _ in range(formats.SAMPLE_LINES))
     stream.seek(0)

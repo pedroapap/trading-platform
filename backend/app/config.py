@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     # Optional here so migrations and CLI tools run without it; the API refuses to start unset.
     jwt_secret: SecretStr | None = None
     jwt_expire_minutes: int = 60 * 24 * 7
+    max_upload_mb: int = 200
 
     @field_validator("jwt_secret", mode="before")
     @classmethod
