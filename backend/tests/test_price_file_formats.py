@@ -26,7 +26,7 @@ class PipeFormat:
 
 @pytest.fixture
 def registry(monkeypatch):
-    monkeypatch.setattr(formats, "_FORMATS", {})
+    monkeypatch.setattr("app.market_data.formats.base._FORMATS", {})
     return formats.register(PipeFormat())
 
 
@@ -51,3 +51,22 @@ def test_unknown_names_and_unrecognised_files_are_errors(registry):
         formats.get_format("csv")
     with pytest.raises(UnknownFormatError, match="Could not recognise the file format"):
         formats.detect("time,open,high,low,close\n")
+
+
+def test_parse_timestamps_accepts_iso_text_and_epochs_in_any_unit():
+    raw = pd.Series(
+        [
+            "2026-01-05T00:01:00Z",
+            "2026-01-05 01:01:00+01:00",
+            "2026-01-05 00:01",  # naive means UTC
+            "1767571260",  # seconds
+            "1767571260000",  # milliseconds
+            "1767571260000000",  # microseconds
+            "1767571260000000000",  # nanoseconds
+        ]
+    )
+
+    parsed = formats.base.parse_timestamps(raw)
+
+    assert parsed.dtype == "datetime64[us, UTC]"
+    assert (parsed == pd.Timestamp("2026-01-05 00:01", tz="UTC")).all()
