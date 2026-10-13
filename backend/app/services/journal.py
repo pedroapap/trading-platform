@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 from app.enums import JournalStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import JournalEntry, JournalEntryVersion, Trade, User
-from app.schemas.journal import JournalContent, JournalEntryCreate, JournalEntryUpdate
+from app.schemas.journal import (
+    JournalContent,
+    JournalEntryCreate,
+    JournalEntryUpdate,
+    JournalFilters,
+)
 
 
 def _require_own_trade(db: Session, user: User, trade_id: uuid.UUID | None) -> None:
@@ -37,6 +42,26 @@ def get_entry(db: Session, user: User, entry_id: uuid.UUID) -> JournalEntry:
     if entry is None:
         raise NotFoundError("Journal entry not found")
     return entry
+
+
+def list_entries(
+    db: Session, user: User, filters: JournalFilters
+) -> tuple[list[JournalEntry], int]:
+    """Matching entries, newest first, plus the total count before pagination."""
+    query = select(JournalEntry).where(JournalEntry.user_id == user.id)
+    for field in ("entry_type", "trade_id", "status", "emotion"):
+        if (value := getattr(filters, field)) is not None:
+            query = query.where(getattr(JournalEntry, field) == value)
+    if filters.tag is not None:
+        query = query.where(JournalEntry.tags.contains([filters.tag]))
+    if filters.created_from is not None:
+        query = query.where(JournalEntry.created_at >= filters.created_from)
+    if filters.created_to is not None:
+        query = query.where(JournalEntry.created_at < filters.created_to)
+
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    page = query.order_by(JournalEntry.created_at.desc()).limit(filters.limit)
+    return list(db.scalars(page.offset(filters.offset))), total or 0
 
 
 def _get_for_change(db: Session, user: User, entry_id: uuid.UUID) -> JournalEntry:

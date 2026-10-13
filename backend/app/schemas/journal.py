@@ -4,6 +4,7 @@ from typing import Annotated, Self
 
 from pydantic import (
     AfterValidator,
+    AwareDatetime,
     BaseModel,
     BeforeValidator,
     ConfigDict,
@@ -94,3 +95,27 @@ class JournalEntryRead(JournalContent):
     published_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class JournalFilters(BaseModel):
+    """Query parameters for listing entries, newest first; creation times are filtered as
+    [created_from, created_to)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    entry_type: EntryType | None = None
+    trade_id: uuid.UUID | None = None
+    status: JournalStatus | None = None
+    emotion: Emotion | None = None
+    tag: Tag | None = None
+    created_from: AwareDatetime | None = None
+    created_to: AwareDatetime | None = None
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
+class JournalPage(BaseModel):
+    items: list[JournalEntryRead]
+    total: int
+    limit: int
+    offset: int

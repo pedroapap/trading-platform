@@ -118,3 +118,71 @@ def test_entries_are_private(api, client, db_session):
 
 def test_the_journal_requires_a_token(client):
     assert client.post("/api/journal", json={}).status_code == 401
+
+
+@pytest.fixture
+def three_entries(api, db_session, user) -> dict[str, dict]:
+    """A note, then a published pre-trade entry and a post-trade draft about one trade."""
+    trade_id = str(make_trade(db_session, user).id)
+    note = new_entry(api, entry_type="note", title="Macro", tags=["macro"])
+    plan = new_entry(
+        api,
+        entry_type="pre_trade",
+        title="BTC plan",
+        trade_id=trade_id,
+        emotion="fomo",
+        tags=["breakout", "fomo"],
+    )
+    plan = api.post(f"/{plan['id']}/publish").json()
+    review = new_entry(
+        api, entry_type="post_trade", title="BTC review", trade_id=trade_id, tags=["breakout"]
+    )
+    return {"note": note, "plan": plan, "review": review, "trade_id": trade_id}
+
+
+def listed(api, **params) -> tuple[list[str], int]:
+    page = api.get(params=params).json()
+    return [entry["title"] for entry in page["items"]], page["total"]
+
+
+def test_entries_are_listed_newest_first(api, three_entries):
+    titles = [three_entries[key]["title"] for key in ("review", "plan", "note")]
+
+    assert listed(api) == (titles, 3)
+    assert listed(api, limit=1, offset=1) == ([three_entries["plan"]["title"]], 3)
+
+
+@pytest.mark.parametrize(
+    ("params", "expected"),
+    [
+        ({"entry_type": "pre_trade"}, ["plan"]),
+        ({"status": "published"}, ["plan"]),
+        ({"emotion": "fomo"}, ["plan"]),
+        ({"tag": " Breakout "}, ["review", "plan"]),
+        ({"tag": "macro"}, ["note"]),
+    ],
+)
+def test_entries_can_be_filtered(api, three_entries, params, expected):
+    titles = [three_entries[key]["title"] for key in expected]
+
+    assert listed(api, **params) == (titles, len(titles))
+
+
+def test_entries_can_be_filtered_by_trade_and_creation_time(api, three_entries):
+    plan_created = three_entries["plan"]["created_at"]
+    review, plan, note = (three_entries[key]["title"] for key in ("review", "plan", "note"))
+
+    assert listed(api, trade_id=three_entries["trade_id"]) == ([review, plan], 2)
+    assert listed(api, created_from=plan_created) == ([review, plan], 2)
+    assert listed(api, created_to=plan_created) == ([note], 1)
+
+
+def test_other_users_entries_are_not_listed(api, client, db_session, three_entries):
+    other = users.create_user(db_session, "other@example.com", "another-long-password")
+    headers = {"Authorization": f"Bearer {create_access_token(str(other.id))}"}
+
+    assert client.get("/api/journal", headers=headers).json()["total"] == 0
+
+
+def test_list_filters_are_validated(api):
+    assert api.get(params={"tag": "two words"}).status_code == 422

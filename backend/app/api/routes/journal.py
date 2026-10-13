@@ -1,9 +1,16 @@
 import uuid
+from typing import Annotated
 
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
 
 from app.deps import CurrentUser, DbSession
-from app.schemas.journal import JournalEntryCreate, JournalEntryRead, JournalEntryUpdate
+from app.schemas.journal import (
+    JournalEntryCreate,
+    JournalEntryRead,
+    JournalEntryUpdate,
+    JournalFilters,
+    JournalPage,
+)
 from app.services import journal
 
 router = APIRouter(prefix="/journal", tags=["journal"])
@@ -13,6 +20,20 @@ router = APIRouter(prefix="/journal", tags=["journal"])
 def create_entry(body: JournalEntryCreate, db: DbSession, user: CurrentUser) -> JournalEntryRead:
     """Start a draft."""
     return JournalEntryRead.model_validate(journal.create_entry(db, user, body))
+
+
+@router.get("")
+def list_entries(
+    filters: Annotated[JournalFilters, Query()], db: DbSession, user: CurrentUser
+) -> JournalPage:
+    """Entries, newest first, filtered by type, trade, status, emotion, tag or creation time."""
+    items, total = journal.list_entries(db, user, filters)
+    return JournalPage(
+        items=[JournalEntryRead.model_validate(entry) for entry in items],
+        total=total,
+        limit=filters.limit,
+        offset=filters.offset,
+    )
 
 
 @router.get("/{entry_id}")
