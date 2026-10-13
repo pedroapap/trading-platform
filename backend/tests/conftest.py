@@ -38,18 +38,19 @@ def _recreate_database(url: URL) -> None:
     admin.dispose()
 
 
-def _migrate(url: URL) -> None:
+@pytest.fixture(scope="session")
+def alembic_config() -> Config:
     config = Config(BACKEND_DIR / "alembic.ini", attributes={"configure_logger": False})
-    rendered = url.render_as_string(hide_password=False).replace("%", "%%")
+    rendered = _test_database_url().render_as_string(hide_password=False).replace("%", "%%")
     config.set_main_option("sqlalchemy.url", rendered)
-    command.upgrade(config, "head")
+    return config
 
 
 @pytest.fixture(scope="session")
-def engine() -> Iterator[Engine]:
+def engine(alembic_config: Config) -> Iterator[Engine]:
     url = _test_database_url()
     _recreate_database(url)
-    _migrate(url)
+    command.upgrade(alembic_config, "head")
     engine = create_engine(url)
     yield engine
     engine.dispose()
