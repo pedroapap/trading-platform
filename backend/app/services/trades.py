@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.enums import TradeEvent, TradeStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
-from app.models import Trade, TradeAuditLog, User
+from app.models import Strategy, Trade, TradeAuditLog, User
 from app.schemas.trade import (
     TradeCancel,
     TradeClose,
@@ -74,7 +74,17 @@ def _record(
     )
 
 
+def _require_own_strategy(db: Session, user: User, strategy_id: uuid.UUID | None) -> None:
+    """The foreign key only proves the strategy exists; it must also be the user's own."""
+    if strategy_id is None:
+        return
+    owned = select(Strategy.id).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    if db.scalar(owned) is None:
+        raise InvalidOperationError("Unknown strategy")
+
+
 def create_trade(db: Session, user: User, data: TradeCreate) -> Trade:
+    _require_own_strategy(db, user, data.strategy_id)
     trade = Trade(user_id=user.id, **data.model_dump())
     try:
         db.add(trade)
@@ -136,6 +146,7 @@ def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate
     }
     if not changes:
         return trade
+    _require_own_strategy(db, user, changes.get("strategy_id"))
     old = {field: _json_value(getattr(trade, field)) for field in changes}
     new = {field: _json_value(value) for field, value in changes.items()}
     try:
@@ -233,6 +244,7 @@ def correct_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCorre
         changes["exit_size"] = changes["entry_size"]
     if not changes:
         return trade
+    _require_own_strategy(db, user, changes.get("strategy_id"))
 
     def effective(field: str) -> Any:
         return changes.get(field, getattr(trade, field))
