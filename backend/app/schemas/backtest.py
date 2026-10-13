@@ -6,7 +6,7 @@ from typing import Annotated, Self
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.backtest.metrics import Metrics
-from app.enums import BacktestStatus
+from app.enums import BacktestStatus, Direction, ExitReason
 from app.market_data.timeframes import Timeframe
 from app.schemas.common import DecimalOut, Price, Symbol
 
@@ -66,3 +66,59 @@ class BacktestRead(BaseModel):
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None
+
+
+class BacktestFilters(BaseModel):
+    """Query parameters for listing backtests, newest first."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    strategy_id: uuid.UUID | None = None
+    limit: int = Field(default=50, ge=1, le=500)
+    offset: int = Field(default=0, ge=0)
+
+
+class BacktestPage(BaseModel):
+    items: list[BacktestRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class BacktestTradeQuery(BaseModel):
+    """Query parameters for a backtest's trades, in the order they were made."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(default=1000, ge=1, le=10_000)
+    offset: int = Field(default=0, ge=0)
+
+
+class BacktestTradeRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    number: int
+    direction: Direction
+    entry_time: datetime
+    entry_price: DecimalOut
+    exit_time: datetime
+    exit_price: DecimalOut
+    size: DecimalOut
+    entry_fee: DecimalOut
+    exit_fee: DecimalOut
+    slippage: DecimalOut
+    pnl: DecimalOut
+    pnl_pct: DecimalOut
+    exit_reason: ExitReason
+
+
+class BacktestTradePage(BaseModel):
+    items: list[BacktestTradeRead]
+    total: int
+    limit: int
+    offset: int
+
+
+class EquityPoint(BaseModel):
+    ts: datetime
+    equity: float

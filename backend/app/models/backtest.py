@@ -89,7 +89,8 @@ class Backtest(Base):
     # Downsampled for charts: [{"ts": ..., "equity": ...}, ...].
     equity_curve: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
 
-    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    # The insert's own time, not its transaction's, so creation order is exact.
+    created_at: Mapped[datetime] = mapped_column(server_default=func.clock_timestamp())
     started_at: Mapped[datetime | None]
     completed_at: Mapped[datetime | None]
 

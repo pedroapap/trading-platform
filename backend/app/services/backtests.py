@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 from sqlalchemy import func, insert, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.backtest import engine
 from app.backtest.charts import downsample_equity
@@ -19,7 +19,7 @@ from app.db import SessionFactory
 from app.enums import BacktestStatus
 from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
 from app.models import Backtest, BacktestTrade, Strategy, StrategyVersion, User
-from app.schemas.backtest import BacktestCreate
+from app.schemas.backtest import BacktestCreate, BacktestFilters
 from app.services import market_data
 from app.strategies.definition import StrategyDefinition
 
@@ -57,12 +57,47 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     return backtest
 
 
+def _own_backtests(user: User):
+    # The equity curve is only loaded by the endpoint that returns it.
+    return select(Backtest).where(Backtest.user_id == user.id).options(defer(Backtest.equity_curve))
+
+
 def get_backtest(db: Session, user: User, backtest_id: uuid.UUID) -> Backtest:
-    query = select(Backtest).where(Backtest.id == backtest_id, Backtest.user_id == user.id)
-    backtest = db.scalar(query)
+    backtest = db.scalar(_own_backtests(user).where(Backtest.id == backtest_id))
     if backtest is None:
         raise NotFoundError("Backtest not found")
     return backtest
+
+
+def list_backtests(db: Session, user: User, filters: BacktestFilters) -> tuple[list[Backtest], int]:
+    """Matching backtests, newest first, plus the total count before pagination."""
+    query = _own_backtests(user)
+    if filters.strategy_id is not None:
+        query = query.where(Backtest.strategy_id == filters.strategy_id)
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    page = query.order_by(Backtest.created_at.desc()).limit(filters.limit).offset(filters.offset)
+    return list(db.scalars(page)), total or 0
+
+
+def list_trades(
+    db: Session, user: User, backtest_id: uuid.UUID, limit: int, offset: int
+) -> tuple[list[BacktestTrade], int]:
+    """The backtest's trades in the order it made them, plus their total count."""
+    backtest = get_backtest(db, user, backtest_id)
+    query = select(BacktestTrade).where(BacktestTrade.backtest_id == backtest.id)
+    total = db.scalar(select(func.count()).select_from(query.subquery()))
+    page = query.order_by(BacktestTrade.number).limit(limit).offset(offset)
+    return list(db.scalars(page)), total or 0
+
+
+def get_equity_curve(db: Session, user: User, backtest_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The downsampled equity curve; empty until the backtest has completed."""
+    found = db.execute(
+        select(Backtest.equity_curve).where(Backtest.id == backtest_id, Backtest.user_id == user.id)
+    ).one_or_none()
+    if found is None:
+        raise NotFoundError("Backtest not found")
+    return found.equity_curve or []
 
 
 def run_backtest_job(sessions: SessionFactory, backtest_id: uuid.UUID) -> None:
