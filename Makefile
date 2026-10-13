@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev down test lint fmt db-shell
+.PHONY: help setup dev down test lint fmt db-shell migrate revision
 
 BACKEND := backend
 COMPOSE := docker compose
@@ -25,6 +25,13 @@ lint: ## Lint and check formatting
 
 fmt: ## Fix lint issues and format
 	cd $(BACKEND) && uv run ruff check --fix . && uv run ruff format .
+
+migrate: ## Apply database migrations
+	$(COMPOSE) up -d --wait db
+	cd $(BACKEND) && uv run alembic upgrade head
+
+revision: ## Autogenerate a migration: make revision m="add trades"
+	cd $(BACKEND) && uv run alembic revision --autogenerate -m "$(m)"
 
 db-shell: ## Open psql in the db container
 	$(COMPOSE) exec db sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
