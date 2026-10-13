@@ -1,6 +1,7 @@
 """Backtests: a strategy version run over a symbol's bars."""
 
 import hashlib
+import logging
 import uuid
 from dataclasses import asdict
 from typing import Any
@@ -15,11 +16,13 @@ from app.backtest.charts import downsample_equity
 from app.backtest.engine import BacktestConfig, SimulatedTrade
 from app.backtest.metrics import summarize
 from app.enums import BacktestStatus
-from app.errors import ConflictError, InvalidOperationError, NotFoundError
+from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
 from app.models import Backtest, BacktestTrade, Strategy, StrategyVersion, User
 from app.schemas.backtest import BacktestCreate
 from app.services import market_data
 from app.strategies.definition import StrategyDefinition
+
+logger = logging.getLogger(__name__)
 
 
 def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
@@ -54,10 +57,26 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
 
 
 def run_backtest(db: Session, backtest_id: uuid.UUID) -> Backtest:
-    """Run a pending backtest and store its trades, metrics and equity curve."""
+    """Run a pending backtest and store its trades, metrics and equity curve. If the run
+    fails, nothing it produced is kept and the backtest is marked failed with the reason."""
     backtest = _start(db, backtest_id)
-    _execute(db, backtest)
+    try:
+        _execute(db, backtest)
+    except Exception as exc:
+        db.rollback()
+        if not isinstance(exc, DomainError):
+            logger.exception("Backtest %s failed", backtest_id)
+        backtest.status = BacktestStatus.FAILED
+        backtest.error_message = _failure_reason(exc)
+        backtest.completed_at = func.clock_timestamp()
+        db.commit()
     return backtest
+
+
+def _failure_reason(exc: Exception) -> str:
+    if isinstance(exc, DomainError):
+        return str(exc)
+    return f"Unexpected error ({type(exc).__name__}): {exc}"[:2000]
 
 
 def _start(db: Session, backtest_id: uuid.UUID) -> Backtest:

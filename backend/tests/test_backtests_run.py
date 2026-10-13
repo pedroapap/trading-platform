@@ -3,7 +3,7 @@ from dataclasses import asdict
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
 from app.backtest import engine
 from app.backtest.engine import BacktestConfig
@@ -11,7 +11,7 @@ from app.backtest.metrics import summarize
 from app.enums import BacktestStatus
 from app.errors import ConflictError, NotFoundError
 from app.market_data.timeframes import Timeframe
-from app.models import Backtest, BacktestTrade
+from app.models import Backtest, BacktestTrade, MarketData
 from app.schemas.backtest import BacktestCreate
 from app.services import backtests
 from app.services.market_data import load_bars
@@ -103,3 +103,35 @@ def test_a_backtest_runs_once(db_session, user, strategy):
 def test_an_unknown_backtest_cannot_run(db_session):
     with pytest.raises(NotFoundError):
         backtests.run_backtest(db_session, uuid.uuid4())
+
+
+def assert_failed_without_results(db_session, backtest: Backtest, reason: str) -> None:
+    db_session.refresh(backtest)
+    assert backtest.status == BacktestStatus.FAILED
+    assert backtest.error_message == reason
+    assert backtest.started_at <= backtest.completed_at
+    assert (backtest.metrics, backtest.equity_curve, backtest.data_hash) == (None, None, None)
+    trades = select(BacktestTrade).where(BacktestTrade.backtest_id == backtest.id)
+    assert db_session.scalars(trades).all() == []
+
+
+def test_a_failed_run_keeps_no_partial_results(db_session, user, strategy, monkeypatch):
+    # Fail after the trades are inserted, while storing the equity curve.
+    def broken(equity):
+        raise RuntimeError("chart data is broken")
+
+    monkeypatch.setattr(backtests, "downsample_equity", broken)
+
+    backtest = backtests.run_backtest(db_session, create(db_session, user, strategy).id)
+
+    reason = "Unexpected error (RuntimeError): chart data is broken"
+    assert_failed_without_results(db_session, backtest, reason)
+
+
+def test_a_run_whose_bars_are_gone_fails_with_the_reason(db_session, user, strategy):
+    backtest = create(db_session, user, strategy)
+    db_session.execute(delete(MarketData))
+
+    backtests.run_backtest(db_session, backtest.id)
+
+    assert_failed_without_results(db_session, backtest, "There are no BTCUSD bars in this range")
