@@ -15,9 +15,12 @@ from app.market_data.formats.base import (
     get_format,
     register,
 )
+from app.market_data.formats.binance import BinanceKlinesFormat
 from app.market_data.formats.generic import GenericOhlcvFormat
 
+# Detection tries formats in this order.
 register(GenericOhlcvFormat())
+register(BinanceKlinesFormat())
 
 __all__ = [
     "BAR_COLUMNS",
