@@ -6,6 +6,7 @@ from datetime import datetime
 from itertools import chain
 from typing import Any, TextIO
 
+import pandas as pd
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
@@ -157,46 +158,97 @@ def _stored_timeframes(
     return {Timeframe(tf) for tf in db.scalars(statement, params)}
 
 
+BAR_FIELDS = ("open", "high", "low", "close", "volume")
+
+# Each field of a bar built from finer bars, aggregated over its time bucket.
+_AGGREGATED = {
+    "open": "first(open, ts)",
+    "high": "max(high)",
+    "low": "min(low)",
+    "close": "last(close, ts)",
+    "volume": "sum(volume)",
+}
+
+
+def _whole_bars(
+    timeframe: Timeframe, start: datetime | None, end: datetime | None
+) -> tuple[datetime | None, datetime | None]:
+    """The range widened to whole bars, so no bar is built from a partial bucket at the start."""
+    return (timeframe.ceil(start) if start else None, timeframe.ceil(end) if end else None)
+
+
+def _source_timeframe(
+    db: Session, symbol: str, timeframe: Timeframe, start: datetime | None, end: datetime | None
+) -> Timeframe | None:
+    """The coarsest stored timeframe with bars in the range that `timeframe` bars can be
+    built from (itself included); None when the range holds no bars of the symbol."""
+    stored = _stored_timeframes(db, symbol, start, end)
+    sources = [tf for tf in stored if tf.divides(timeframe)]
+    if stored and not sources:
+        available = ", ".join(sorted(stored, key=lambda tf: tf.seconds))
+        raise InvalidOperationError(
+            f"{symbol} has no {timeframe} bars, or finer bars to build them from,"
+            f" in this range (stored: {available})"
+        )
+    return max(sources, key=lambda tf: tf.seconds, default=None)
+
+
+def _bars_statement(
+    timeframe: Timeframe,
+    source: Timeframe,
+    start: datetime | None,
+    end: datetime | None,
+    value_type: str | None = None,
+) -> str:
+    """SQL for the :symbol's `timeframe` bars in the range, built from `source` bars, oldest
+    first; values are cast to `value_type` if given."""
+    aggregated = source != timeframe
+    expressions = _AGGREGATED if aggregated else {field: field for field in BAR_FIELDS}
+    if value_type:
+        expressions = {field: f"CAST({sql} AS {value_type})" for field, sql in expressions.items()}
+    columns = ", ".join(f"{sql} AS {field}" for field, sql in expressions.items())
+    ts = "time_bucket(CAST(:width AS interval), ts)" if aggregated else "ts"
+    return (
+        f"SELECT {ts} AS ts, {columns} FROM market_data"
+        f" WHERE symbol = :symbol AND timeframe = :source{_range_filter(start, end)}"
+        f"{' GROUP BY 1' if aggregated else ''} ORDER BY 1"
+    )
+
+
 def get_bars(db: Session, symbol: str, query: BarQuery) -> Bars:
     """Bars at `query.timeframe`: stored ones, or built from the coarsest stored timeframe
-    that divides it. The range is widened to whole bars, so no bar is built from a partial
-    bucket at the start."""
+    that divides it."""
     symbol = normalize_symbol(symbol)
-    start = query.timeframe.ceil(query.start) if query.start else None
-    end = query.timeframe.ceil(query.end) if query.end else None
-    stored = _stored_timeframes(db, symbol, start, end)
-    sources = [tf for tf in stored if tf.divides(query.timeframe)]
-    if not sources:
-        if stored:
-            available = ", ".join(sorted(stored, key=lambda tf: tf.seconds))
-            raise InvalidOperationError(
-                f"{symbol} has no {query.timeframe} bars, or finer bars to build them from,"
-                f" in this range (stored: {available})"
-            )
+    start, end = _whole_bars(query.timeframe, query.start, query.end)
+    source = _source_timeframe(db, symbol, query.timeframe, start, end)
+    if source is None:
         return Bars([], None)
-    source = max(sources, key=lambda tf: tf.seconds)
+    statement = _bars_statement(query.timeframe, source, start, end) + " LIMIT :limit"
     params = {"symbol": symbol, "source": source.value, "start": start, "end": end}
+    params |= {"width": query.timeframe.delta, "limit": query.limit}
+    rows = db.execute(text(statement), params).all()
+    return Bars(rows, None if source == query.timeframe else source)
 
-    if source == query.timeframe:
-        statement = select(MarketData).where(
-            MarketData.symbol == symbol, MarketData.timeframe == source
-        )
-        if start is not None:
-            statement = statement.where(MarketData.ts >= start)
-        if end is not None:
-            statement = statement.where(MarketData.ts < end)
-        return Bars(list(db.scalars(statement.order_by(MarketData.ts).limit(query.limit))), None)
 
-    aggregate = text(
-        "SELECT time_bucket(CAST(:width AS interval), ts) AS ts, first(open, ts) AS open,"
-        " max(high) AS high, min(low) AS low, last(close, ts) AS close,"
-        " sum(volume) AS volume"
-        " FROM market_data WHERE symbol = :symbol AND timeframe = :source"
-        f"{_range_filter(start, end)}"
-        " GROUP BY 1 ORDER BY 1 LIMIT :limit"
-    )
-    rows = db.execute(aggregate, params | {"width": query.timeframe.delta, "limit": query.limit})
-    return Bars(rows.all(), source)
+def load_bars(
+    db: Session,
+    symbol: str,
+    timeframe: Timeframe,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> pd.DataFrame:
+    """Every bar for a backtest, as `get_bars` builds them but without a row limit: float
+    columns indexed by bar start time (UTC)."""
+    symbol = normalize_symbol(symbol)
+    start, end = _whole_bars(timeframe, start, end)
+    source = _source_timeframe(db, symbol, timeframe, start, end)
+    if source is None:
+        raise InvalidOperationError(f"There are no {symbol} bars in this range")
+    statement = _bars_statement(timeframe, source, start, end, value_type="float8")
+    params = {"symbol": symbol, "source": source.value, "start": start, "end": end}
+    rows = db.execute(text(statement), params | {"width": timeframe.delta}).all()
+    bars = pd.DataFrame(rows, columns=["ts", *BAR_FIELDS])
+    return bars.set_index(pd.DatetimeIndex(pd.to_datetime(bars.pop("ts"), utc=True), name="ts"))
 
 
 @dataclass(frozen=True)
