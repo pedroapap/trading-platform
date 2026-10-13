@@ -1,5 +1,6 @@
 """Constants and helpers shared by tests (import from here, not from conftest)."""
 
+import io
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.enums import Direction
 from app.models import Backtest, Strategy, StrategyVersion, Trade, User
+from app.services.market_data import import_bars
 
 USER_EMAIL = "trader@example.com"
 USER_PASSWORD = "a-long-enough-password"
@@ -84,3 +86,8 @@ def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:
         },
         index=pd.date_range(ENTRY_TIME, periods=length, freq="min"),
     )
+
+
+def store_bars(db: Session, bars: pd.DataFrame, symbol: str = "BTCUSD") -> None:
+    """Store bars, such as random_bars makes, through the CSV importer."""
+    import_bars(db, io.StringIO(bars.rename_axis("timestamp").to_csv()), symbol)

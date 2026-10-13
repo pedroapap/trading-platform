@@ -230,6 +230,24 @@ def get_bars(db: Session, symbol: str, query: BarQuery) -> Bars:
     return Bars(rows, None if source == query.timeframe else source)
 
 
+def require_bars(
+    db: Session,
+    symbol: str,
+    timeframe: Timeframe,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> None:
+    """Raise unless the range has `timeframe` bars of the symbol, stored or buildable from
+    finer stored bars."""
+    symbol = normalize_symbol(symbol)
+    if _source_timeframe(db, symbol, timeframe, *_whole_bars(timeframe, start, end)) is None:
+        raise _no_bars(symbol)
+
+
+def _no_bars(symbol: str) -> InvalidOperationError:
+    return InvalidOperationError(f"There are no {symbol} bars in this range")
+
+
 def load_bars(
     db: Session,
     symbol: str,
@@ -243,7 +261,7 @@ def load_bars(
     start, end = _whole_bars(timeframe, start, end)
     source = _source_timeframe(db, symbol, timeframe, start, end)
     if source is None:
-        raise InvalidOperationError(f"There are no {symbol} bars in this range")
+        raise _no_bars(symbol)
     statement = _bars_statement(timeframe, source, start, end, value_type="float8")
     params = {"symbol": symbol, "source": source.value, "start": start, "end": end}
     rows = db.execute(text(statement), params | {"width": timeframe.delta}).all()
