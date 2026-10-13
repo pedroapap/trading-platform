@@ -43,3 +43,4 @@ known-third-party = ["alembic"]
 testpaths = ["tests"]
 pythonpath = ["."]
 addopts = "-ra --strict-markers"
+markers = ["slow: takes seconds; skip with -m 'not slow'"]
