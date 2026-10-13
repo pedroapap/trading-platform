@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.enums import Direction, TradeStatus
-from app.schemas.trade import TradeClose, TradeCreate, TradeRead, TradeUpdate
+from app.schemas.trade import TradeClose, TradeCorrection, TradeCreate, TradeRead, TradeUpdate
 
 VALID = {
     "symbol": " btcusd ",
@@ -109,3 +109,12 @@ def test_read_serializes_decimals_as_exact_strings():
     assert body["exit_price"] == "46000.12345678"
     assert body["leverage"] == "1"
     assert body["exit_size"] is None
+
+
+def test_correction_requires_a_reason_and_excludes_it_from_changes():
+    with pytest.raises(ValidationError):
+        TradeCorrection.model_validate({"exit_price": "46000"})
+
+    correction = TradeCorrection.model_validate({"reason": "Typo", "exit_price": "46000"})
+
+    assert correction.changes() == {"exit_price": Decimal("46000")}

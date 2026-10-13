@@ -8,7 +8,14 @@ from sqlalchemy import func, select
 from app.enums import Direction, TradeEvent, TradeStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog
-from app.schemas.trade import TradeCancel, TradeClose, TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import (
+    TradeCancel,
+    TradeClose,
+    TradeCorrection,
+    TradeCreate,
+    TradeFilters,
+    TradeUpdate,
+)
 from app.services import trades, users
 from tests.helpers import ENTRY_TIME, make_trade
 
@@ -293,3 +300,59 @@ def test_cancel_only_applies_to_open_trades(db_session, user):
         trades.cancel_trade(db_session, user, closed.id, TradeCancel())
     with pytest.raises(ConflictError, match="Cannot cancel a cancelled trade"):
         trades.cancel_trade(db_session, user, cancelled.id, TradeCancel())
+
+
+@pytest.fixture
+def closed_trade(db_session, user):
+    """Long 0.5 @ 45000 closed at 46000 with a 5 exit fee: P&L 495 (2.2%)."""
+    trade = trades.create_trade(db_session, user, NEW_TRADE)
+    return trades.close_trade(db_session, user, trade.id, exit_at("46000", exit_fee="5"))
+
+
+def correct(db, user, trade, **fields):
+    return trades.correct_trade(db, user, trade.id, TradeCorrection(reason="Typo", **fields))
+
+
+def test_correcting_the_exit_price_recomputes_pnl(db_session, user, closed_trade):
+    corrected = correct(db_session, user, closed_trade, exit_price="46100")
+
+    assert corrected.pnl == Decimal("545")
+    assert corrected.pnl_pct == Decimal("2.4222")
+    event = events(db_session, closed_trade)[-1]
+    assert event.event_type is TradeEvent.CORRECTION
+    assert event.change_reason == "Typo"
+    assert event.old_values == {"exit_price": "46000", "pnl": "495", "pnl_pct": "2.2"}
+    assert event.new_values == {"exit_price": "46100", "pnl": "545", "pnl_pct": "2.4222"}
+
+
+def test_a_full_exit_follows_a_corrected_entry_size(db_session, user, closed_trade):
+    corrected = correct(db_session, user, closed_trade, entry_size="0.4")
+
+    assert corrected.exit_size == Decimal("0.4")
+    assert corrected.pnl == Decimal("395")  # 0.4 * 1000 - 5
+
+
+def test_correction_rejects_an_inconsistent_result(db_session, user, closed_trade):
+    with pytest.raises(InvalidOperationError, match="Exit time cannot be before the entry"):
+        correct(db_session, user, closed_trade, entry_time="2026-01-07T00:00:00Z")
+
+    assert closed_trade.entry_time == ENTRY_TIME
+    assert len(events(db_session, closed_trade)) == 2
+
+
+def test_correction_without_real_changes_writes_no_event(db_session, user, closed_trade):
+    correct(db_session, user, closed_trade, exit_price="46000.0")
+
+    assert [e.event_type for e in events(db_session, closed_trade)] == [
+        TradeEvent.ENTRY,
+        TradeEvent.EXIT,
+    ]
+
+
+def test_only_closed_trades_can_be_corrected(db_session, user):
+    trade = trades.create_trade(db_session, user, NEW_TRADE)
+
+    with pytest.raises(
+        ConflictError, match="Only closed trades can be corrected; this one is open"
+    ):
+        correct(db_session, user, trade, entry_price="45100")

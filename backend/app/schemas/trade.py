@@ -55,6 +55,19 @@ class TradeUpdate(BaseModel):
         return self.model_dump(exclude_unset=True)
 
 
+class TradeCorrection(TradeUpdate):
+    """Fix a closed trade's recorded data. Omitted fields are unchanged; a reason is required."""
+
+    reason: str = Field(min_length=3, max_length=500)
+    exit_price: Price | None = None
+    exit_time: AwareDatetime | None = None
+    exit_size: Price | None = None
+    exit_fee: Fee | None = None
+
+    def changes(self) -> dict[str, Any]:
+        return self.model_dump(exclude_unset=True, exclude={"reason"})
+
+
 class TradeClose(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

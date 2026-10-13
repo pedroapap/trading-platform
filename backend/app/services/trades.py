@@ -12,7 +12,14 @@ from sqlalchemy.orm import Session
 from app.enums import TradeEvent, TradeStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog, User
-from app.schemas.trade import TradeCancel, TradeClose, TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import (
+    TradeCancel,
+    TradeClose,
+    TradeCorrection,
+    TradeCreate,
+    TradeFilters,
+    TradeUpdate,
+)
 from app.services.pnl import trade_pnl
 
 ENTRY_FIELDS = (
@@ -204,3 +211,57 @@ def list_events(db: Session, user: User, trade_id: uuid.UUID) -> list[TradeAudit
     trade = get_trade(db, user, trade_id)
     query = select(TradeAuditLog).where(TradeAuditLog.trade_id == trade.id)
     return list(db.scalars(query.order_by(TradeAuditLog.id)))
+
+
+def correct_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCorrection) -> Trade:
+    """Fix a closed trade's entry or exit data, re-validating the exit and recomputing P&L.
+
+    A fully closed trade stays fully closed: if only the entry size is corrected, the exit
+    size follows it.
+    """
+    trade = _get_for_change(db, user, trade_id)
+    if trade.status != TradeStatus.CLOSED:
+        raise ConflictError(f"Only closed trades can be corrected; this one is {trade.status}")
+    changes = {
+        field: value for field, value in data.changes().items() if getattr(trade, field) != value
+    }
+    if (
+        "entry_size" in changes
+        and "exit_size" not in changes
+        and trade.exit_size == trade.entry_size
+    ):
+        changes["exit_size"] = changes["entry_size"]
+    if not changes:
+        return trade
+
+    def effective(field: str) -> Any:
+        return changes.get(field, getattr(trade, field))
+
+    if effective("exit_time") < effective("entry_time"):
+        raise InvalidOperationError("Exit time cannot be before the entry time")
+    if effective("exit_size") > effective("entry_size"):
+        raise InvalidOperationError("Exit size cannot exceed the entry size")
+    result = trade_pnl(
+        effective("direction"),
+        effective("entry_price"),
+        effective("entry_size"),
+        effective("exit_price"),
+        effective("exit_size"),
+        effective("entry_fee"),
+        effective("exit_fee"),
+        effective("leverage"),
+    )
+    for field, recomputed in (("pnl", result.amount), ("pnl_pct", result.pct)):
+        if getattr(trade, field) != recomputed:
+            changes[field] = recomputed
+    old = {field: _json_value(getattr(trade, field)) for field in changes}
+    new = {field: _json_value(new_value) for field, new_value in changes.items()}
+    try:
+        for field, new_value in changes.items():
+            setattr(trade, field, new_value)
+        _record(db, trade, user, TradeEvent.CORRECTION, old, new, data.reason)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return trade
