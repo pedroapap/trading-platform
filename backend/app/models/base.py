@@ -1,7 +1,8 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import Any, ClassVar
 
-from sqlalchemy import DateTime, MetaData, func
+from sqlalchemy import DateTime, Enum, MetaData, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # Deterministic constraint names so migrations can reference and drop them.
@@ -23,3 +24,15 @@ class Base(DeclarativeBase):
 class TimestampMixin:
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+
+def str_enum(enum_class: type[StrEnum], name: str) -> Enum:
+    """Store a StrEnum as VARCHAR of its values, guarded by a CHECK constraint (no PG ENUM type)."""
+    return Enum(
+        enum_class,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        validate_strings=True,
+        values_callable=lambda members: [member.value for member in members],
+    )
