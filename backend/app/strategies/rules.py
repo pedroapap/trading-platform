@@ -6,7 +6,15 @@ backtester compute each distinct indicator once.
 
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Discriminator, Field, Tag, model_validator
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    Discriminator,
+    Field,
+    Tag,
+    model_validator,
+)
 
 PriceField = Literal["open", "high", "low", "close", "volume"]
 Period = Annotated[int, Field(ge=1, le=1000)]
@@ -114,16 +122,24 @@ class Condition(_Rule):
         return self
 
 
+def _not_empty(children: tuple) -> tuple:
+    # An after-validator rather than min_length, which would also fire when a child is
+    # invalid and add a confusing "too short" error next to the real one.
+    if not children:
+        raise ValueError("a group needs at least one rule")
+    return children
+
+
 class AllOf(_Rule):
     """True when every child is true."""
 
-    all: tuple["Node", ...] = Field(min_length=1)
+    all: Annotated[tuple["Node", ...], AfterValidator(_not_empty)]
 
 
 class AnyOf(_Rule):
     """True when at least one child is true."""
 
-    any: tuple["Node", ...] = Field(min_length=1)
+    any: Annotated[tuple["Node", ...], AfterValidator(_not_empty)]
 
 
 def _node_kind(data: object) -> str | None:

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
-from app.api.routes import auth, health, market_data, trades
+from app.api.routes import auth, health, market_data, strategies, trades
 from app.config import get_settings
 
 
@@ -28,5 +28,6 @@ app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(trades.router, prefix="/api")
 app.include_router(market_data.router, prefix="/api")
+app.include_router(strategies.router, prefix="/api")
 
 register_error_handlers(app)

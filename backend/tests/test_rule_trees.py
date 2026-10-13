@@ -52,7 +52,7 @@ def test_trees_round_trip_through_json():
     [
         ({"left": {"value": 1}, "op": "<", "right": {"value": 2}}, "must involve a price or"),
         ({**RSI_BELOW_30, "op": "=="}, "Input should be '<', '<=', '>', '>='"),
-        ({"all": []}, "at least 1 item"),
+        ({"all": []}, "a group needs at least one rule"),
         ({"none": [RSI_BELOW_30]}, "A rule is a condition"),
         ({"all": [RSI_BELOW_30], "any": [RSI_BELOW_30]}, "Extra inputs are not permitted"),
     ],
