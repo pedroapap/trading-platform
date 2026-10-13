@@ -106,3 +106,56 @@ def test_patch_of_a_closed_trade_is_a_conflict(api, db_session, user):
 
     assert response.status_code == 409
     assert response.json() == {"detail": "Cannot edit a closed trade"}
+
+
+EXIT = {"exit_price": "46000", "exit_time": "2026-01-06T09:00:00Z", "exit_fee": "5"}
+
+
+def test_close_returns_the_closed_trade_with_pnl(api):
+    trade = create(api)
+
+    response = api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "closed"
+    assert body["exit_size"] == "0.5"
+    assert body["pnl"] == "495"
+    assert body["pnl_pct"] == "2.2"
+
+
+def test_close_rejects_an_exit_before_the_entry(api):
+    trade = create(api)
+    early = EXIT | {"exit_time": "2026-01-05T14:00:00Z"}
+
+    response = api.post(f"/api/trades/{trade['id']}/close", json=early)
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Exit time cannot be before the entry time"}
+
+
+def test_close_unknown_trade_is_not_found(api):
+    assert api.post(f"/api/trades/{uuid.uuid4()}/close", json=EXIT).status_code == 404
+
+
+def test_cancel_works_with_or_without_a_reason(api):
+    first, second = create(api), create(api)
+
+    plain = api.post(f"/api/trades/{first['id']}/cancel")
+    with_reason = api.post(f"/api/trades/{second['id']}/cancel", json={"reason": "Not filled"})
+
+    assert plain.status_code == 200
+    assert plain.json()["status"] == "cancelled"
+    assert with_reason.status_code == 200
+
+
+@pytest.mark.parametrize("action", ["close", "cancel"])
+def test_finished_trades_cannot_change_status_again(api, action):
+    trade = create(api)
+    api.post(f"/api/trades/{trade['id']}/close", json=EXIT)
+
+    body = EXIT if action == "close" else None
+    response = api.post(f"/api/trades/{trade['id']}/{action}", json=body)
+
+    assert response.status_code == 409
+    assert response.json() == {"detail": f"Cannot {action} a closed trade"}

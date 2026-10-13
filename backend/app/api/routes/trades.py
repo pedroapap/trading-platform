@@ -1,11 +1,19 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Body, Query, status
 
 from app.deps import CurrentUser, DbSession
 from app.models import Trade
-from app.schemas.trade import TradeCreate, TradeFilters, TradePage, TradeRead, TradeUpdate
+from app.schemas.trade import (
+    TradeCancel,
+    TradeClose,
+    TradeCreate,
+    TradeFilters,
+    TradePage,
+    TradeRead,
+    TradeUpdate,
+)
 from app.services import trades
 
 router = APIRouter(prefix="/trades", tags=["trades"])
@@ -37,3 +45,18 @@ def get_trade(trade_id: uuid.UUID, db: DbSession, user: CurrentUser) -> Trade:
 @router.patch("/{trade_id}", response_model=TradeRead)
 def update_trade(trade_id: uuid.UUID, body: TradeUpdate, db: DbSession, user: CurrentUser) -> Trade:
     return trades.update_trade(db, user, trade_id, body)
+
+
+@router.post("/{trade_id}/close", response_model=TradeRead)
+def close_trade(trade_id: uuid.UUID, body: TradeClose, db: DbSession, user: CurrentUser) -> Trade:
+    return trades.close_trade(db, user, trade_id, body)
+
+
+@router.post("/{trade_id}/cancel", response_model=TradeRead)
+def cancel_trade(
+    trade_id: uuid.UUID,
+    db: DbSession,
+    user: CurrentUser,
+    body: Annotated[TradeCancel | None, Body()] = None,
+) -> Trade:
+    return trades.cancel_trade(db, user, trade_id, body or TradeCancel())
