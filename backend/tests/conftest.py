@@ -20,6 +20,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 from app.models import User
+from app.security import create_access_token
 from app.services import users
 from tests.helpers import USER_EMAIL, USER_PASSWORD
 
@@ -94,3 +95,8 @@ def client(db_session: Session) -> Iterator[TestClient]:
 @pytest.fixture
 def user(db_session: Session) -> User:
     return users.create_user(db_session, USER_EMAIL, USER_PASSWORD)
+
+
+@pytest.fixture
+def auth_headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(str(user.id))}"}

@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from app.deps import DbSession
+from app.deps import CurrentUser, DbSession
 from app.models import User
 from app.schemas.auth import RegisterRequest, Token, UserRead
 from app.security import create_access_token
@@ -35,3 +35,8 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession) 
     if not user.is_active:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is disabled")
     return Token(access_token=create_access_token(str(user.id)))
+
+
+@router.get("/me", response_model=UserRead)
+def me(user: CurrentUser) -> User:
+    return user
