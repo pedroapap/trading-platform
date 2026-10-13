@@ -1,12 +1,12 @@
 import io
 from typing import Annotated
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, status
 
 from app.config import get_settings
 from app.deps import CurrentUser, DbSession
 from app.market_data.timeframes import Timeframe
-from app.schemas.market_data import ImportResult
+from app.schemas.market_data import BarQuery, BarRead, BarsResponse, ImportResult
 from app.services import market_data
 
 router = APIRouter(prefix="/market-data", tags=["market data"])
@@ -33,3 +33,15 @@ def import_file(
     stream = io.TextIOWrapper(file.file, encoding="utf-8-sig", newline="")
     summary = market_data.import_bars(db, stream, symbol, timeframe, format)
     return ImportResult.model_validate(summary)
+
+
+@router.get("/{symbol}/bars")
+def get_bars(
+    symbol: str, query: Annotated[BarQuery, Query()], db: DbSession, _: CurrentUser
+) -> BarsResponse:
+    bars = market_data.get_bars(db, symbol, query)
+    return BarsResponse(
+        symbol=market_data.normalize_symbol(symbol),
+        timeframe=query.timeframe,
+        bars=[BarRead.model_validate(bar) for bar in bars],
+    )

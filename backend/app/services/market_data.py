@@ -6,14 +6,16 @@ from itertools import chain
 from typing import TextIO
 
 from pydantic import TypeAdapter, ValidationError
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.errors import InvalidOperationError
 from app.market_data import formats
 from app.market_data.timeframes import Timeframe
 from app.market_data.validation import BarValidator, Rejection, infer_timeframe
+from app.models import MarketData
 from app.schemas.common import Symbol
+from app.schemas.market_data import BarQuery
 
 CHUNK_ROWS = 50_000
 MAX_REPORTED_REJECTIONS = 100
@@ -35,7 +37,7 @@ class ImportSummary:
     rejections: list[Rejection] = field(default_factory=list)
 
 
-def _normalize_symbol(symbol: str) -> str:
+def normalize_symbol(symbol: str) -> str:
     try:
         return _symbol.validate_python(symbol)
     except ValidationError:
@@ -82,7 +84,7 @@ def _import(
     format_name: str | None,
     chunk_rows: int,
 ) -> ImportSummary:
-    symbol = _normalize_symbol(symbol)
+    symbol = normalize_symbol(symbol)
     sample = "".join(stream.readline() for _ in range(formats.SAMPLE_LINES))
     stream.seek(0)
     fmt = formats.get_format(format_name) if format_name else formats.detect(sample)
@@ -129,3 +131,15 @@ def _import(
         db.rollback()
         raise
     return summary
+
+
+def get_bars(db: Session, symbol: str, query: BarQuery) -> list[MarketData]:
+    """Stored bars of exactly `query.timeframe`, oldest first."""
+    statement = select(MarketData).where(
+        MarketData.symbol == normalize_symbol(symbol), MarketData.timeframe == query.timeframe
+    )
+    if query.start is not None:
+        statement = statement.where(MarketData.ts >= query.start)
+    if query.end is not None:
+        statement = statement.where(MarketData.ts < query.end)
+    return list(db.scalars(statement.order_by(MarketData.ts).limit(query.limit)))
