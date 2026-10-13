@@ -10,7 +10,8 @@ from app.models import Base
 
 config = context.config
 
-if config.config_file_name is not None:
+# Programmatic callers (the test suite) opt out so Alembic doesn't reset their logging.
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
     fileConfig(config.config_file_name)
 
 # Callers (e.g. the test suite) may set sqlalchemy.url; otherwise use app settings.

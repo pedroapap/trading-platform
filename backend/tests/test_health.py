@@ -6,8 +6,8 @@ from app.db import get_db
 from app.main import app
 
 
-def test_health_reports_db_ok():
-    response = TestClient(app).get("/api/health")
+def test_health_reports_db_ok(client):
+    response = client.get("/api/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok", "db": "ok"}
@@ -27,7 +27,7 @@ def test_health_reports_db_down():
     try:
         response = TestClient(app).get("/api/health")
     finally:
-        app.dependency_overrides.clear()
+        app.dependency_overrides.pop(get_db, None)
 
     assert response.status_code == 503
     assert response.json() == {"status": "degraded", "db": "down"}
