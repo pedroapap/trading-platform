@@ -19,6 +19,9 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
+from app.models import User
+from app.services import users
+from tests.helpers import USER_EMAIL, USER_PASSWORD
 
 # Settings are read lazily, so this still applies to everything the tests touch.
 os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-" + "0" * 32)
@@ -86,3 +89,8 @@ def client(db_session: Session) -> Iterator[TestClient]:
             yield test_client
     finally:
         app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def user(db_session: Session) -> User:
+    return users.create_user(db_session, USER_EMAIL, USER_PASSWORD)

@@ -1,11 +1,13 @@
 """User accounts. The platform is single-user: self-registration only creates the first one."""
 
+from functools import lru_cache
+
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models import User
-from app.security import hash_password
+from app.security import hash_password, verify_password
 
 # Arbitrary advisory-lock key that serializes first-user registration.
 _REGISTRATION_LOCK = 7_316_421
@@ -41,3 +43,17 @@ def register_first_user(db: Session, email: str, password: str) -> User:
         db.rollback()
         raise RegistrationClosedError
     return create_user(db, email, password)
+
+
+@lru_cache
+def _dummy_hash() -> str:
+    return hash_password("timing-equalizer")
+
+
+def authenticate(db: Session, email: str, password: str) -> User | None:
+    user = db.scalar(select(User).where(User.email == normalize_email(email)))
+    if user is None:
+        # Spend the same hashing time as a real check so response time doesn't reveal emails.
+        verify_password(password, _dummy_hash())
+        return None
+    return user if verify_password(password, user.password_hash) else None

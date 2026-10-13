@@ -1,8 +1,12 @@
-from fastapi import APIRouter, HTTPException, status
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.deps import DbSession
 from app.models import User
-from app.schemas.auth import RegisterRequest, UserRead
+from app.schemas.auth import RegisterRequest, Token, UserRead
+from app.security import create_access_token
 from app.services import users
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -16,3 +20,18 @@ def register(body: RegisterRequest, db: DbSession) -> User:
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Registration is closed: the account already exists"
         ) from None
+
+
+@router.post("/login")
+def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], db: DbSession) -> Token:
+    """OAuth2 password flow: send `username` (the email) and `password` as form fields."""
+    user = users.authenticate(db, form.username, form.password)
+    if user is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Account is disabled")
+    return Token(access_token=create_access_token(str(user.id)))
