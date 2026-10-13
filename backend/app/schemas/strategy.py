@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from app.models import Strategy
 from app.strategies.definition import StrategyDefinition
@@ -17,6 +17,23 @@ class StrategyCreate(BaseModel):
     name: Name
     description: Description | None = None
     definition: StrategyDefinition
+
+
+class StrategyUpdate(BaseModel):
+    """Omitted fields are unchanged; only a changed definition creates a new version."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: Name | None = None
+    description: Description | None = None
+    definition: StrategyDefinition | None = None
+
+    @model_validator(mode="after")
+    def _required_fields_are_not_cleared(self) -> Self:
+        for name in ("name", "definition"):
+            if name in self.model_fields_set and getattr(self, name) is None:
+                raise ValueError(f"{name} cannot be null")
+        return self
 
 
 class StrategyRead(BaseModel):

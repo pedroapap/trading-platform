@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.errors import ConflictError, NotFoundError
 from app.models import StrategyVersion
-from app.schemas.strategy import StrategyCreate
+from app.schemas.strategy import StrategyCreate, StrategyUpdate
 from app.services import strategies, users
 from tests.helpers import MINIMAL_DEFINITION
 
@@ -66,3 +66,65 @@ def test_list_is_sorted_by_name_and_private(db_session, user):
         "Breakout",
         "Trend follow",
     ]
+
+
+def versions(db, strategy) -> list[StrategyVersion]:
+    query = select(StrategyVersion).where(StrategyVersion.strategy_id == strategy.id)
+    return list(db.scalars(query.order_by(StrategyVersion.version)))
+
+
+def update(db, user, strategy, **fields):
+    return strategies.update_strategy(db, user, strategy.id, StrategyUpdate(**fields))
+
+
+def test_metadata_changes_do_not_create_versions(db_session, user):
+    strategy = strategies.create_strategy(db_session, user, new(description="old"))
+
+    updated = update(db_session, user, strategy, name="RSI dip v2", description=None)
+
+    assert (updated.name, updated.description, updated.current_version) == ("RSI dip v2", None, 1)
+    assert len(versions(db_session, strategy)) == 1
+
+
+def test_a_changed_definition_becomes_the_next_version(db_session, user):
+    strategy = strategies.create_strategy(db_session, user, new())
+    changed = MINIMAL_DEFINITION | {"stop_loss_pct": 3.0, "take_profit_pct": 9.0}
+
+    updated = update(db_session, user, strategy, definition=changed)
+
+    assert updated.current_version == 2
+    assert updated.current.definition["stop_loss_pct"] == 3.0
+    first, second = versions(db_session, strategy)
+    assert first.definition["stop_loss_pct"] == 2.0  # history is untouched
+    assert second.changed_fields == ["stop_loss_pct", "take_profit_pct"]
+
+
+def test_an_identical_definition_is_not_a_new_version(db_session, user):
+    strategy = strategies.create_strategy(db_session, user, new())
+
+    update(db_session, user, strategy, definition=dict(MINIMAL_DEFINITION))
+
+    assert strategy.current_version == 1
+    assert len(versions(db_session, strategy)) == 1
+
+
+def test_renaming_onto_an_existing_name_is_a_conflict(db_session, user):
+    strategies.create_strategy(db_session, user, new("Breakout"))
+    strategy = strategies.create_strategy(db_session, user, new("RSI dip"))
+
+    with pytest.raises(ConflictError, match="named 'Breakout'"):
+        update(db_session, user, strategy, name="Breakout")
+
+
+def test_updating_a_foreign_strategy_is_not_found(db_session, user):
+    other = users.create_user(db_session, "other@example.com", "another-long-password")
+    foreign = strategies.create_strategy(db_session, other, new())
+
+    with pytest.raises(NotFoundError):
+        update(db_session, user, foreign, name="Mine now")
+
+
+def test_name_and_definition_cannot_be_cleared():
+    for field in ("name", "definition"):
+        with pytest.raises(ValueError, match=f"{field} cannot be null"):
+            StrategyUpdate.model_validate({field: None})
