@@ -7,8 +7,11 @@ COMPOSE := docker compose
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
 
-setup: ## Install backend dependencies
+setup: ## Install backend dependencies and create .env with a random JWT_SECRET
 	cd $(BACKEND) && uv sync
+	@test -f .env || { \
+		sed "s/^JWT_SECRET=$$/JWT_SECRET=$$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')/" \
+			.env.example > .env && echo "Created .env"; }
 
 dev: ## Run db + api with auto-reload
 	$(COMPOSE) up --build

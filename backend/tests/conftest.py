@@ -20,6 +20,9 @@ from app.config import get_settings
 from app.db import get_db
 from app.main import app
 
+# Settings are read lazily, so this still applies to everything the tests touch.
+os.environ.setdefault("JWT_SECRET", "test-only-jwt-secret-" + "0" * 32)
+
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 
 
