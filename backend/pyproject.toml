@@ -5,7 +5,9 @@ description = "Self-hosted trading journal, strategy builder and backtester"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.143.0",
+    "psycopg[binary]>=3.3.6",
     "pydantic-settings>=2.15.0",
+    "sqlalchemy>=2.1.4",
     "uvicorn[standard]>=0.54.0",
 ]
 
