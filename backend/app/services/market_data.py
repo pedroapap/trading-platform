@@ -7,7 +7,7 @@ from itertools import chain
 from typing import Any, TextIO
 
 from pydantic import TypeAdapter, ValidationError
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.errors import InvalidOperationError
@@ -197,3 +197,27 @@ def get_bars(db: Session, symbol: str, query: BarQuery) -> Bars:
     )
     rows = db.execute(aggregate, params | {"width": query.timeframe.delta, "limit": query.limit})
     return Bars(rows.all(), source)
+
+
+@dataclass(frozen=True)
+class Coverage:
+    symbol: str
+    timeframe: Timeframe
+    first_ts: datetime
+    last_ts: datetime
+    bars: int
+
+
+def coverage(db: Session) -> list[Coverage]:
+    """Stored bars per symbol and timeframe, ordered by symbol then bar size."""
+    rows = db.execute(
+        select(
+            MarketData.symbol,
+            MarketData.timeframe,
+            func.min(MarketData.ts),
+            func.max(MarketData.ts),
+            func.count(),
+        ).group_by(MarketData.symbol, MarketData.timeframe)
+    )
+    found = [Coverage(*row) for row in rows]
+    return sorted(found, key=lambda c: (c.symbol, c.timeframe.seconds))

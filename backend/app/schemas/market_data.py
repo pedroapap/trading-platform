@@ -55,3 +55,11 @@ class BarsResponse(BaseModel):
     # Set when the bars were built from finer stored bars, e.g. 1h bars from 1m data.
     aggregated_from: Timeframe | None
     bars: list[BarRead]
+
+
+class CoverageRead(BaseModel):
+    symbol: str
+    timeframe: Timeframe
+    first_ts: datetime
+    last_ts: datetime
+    bars: int

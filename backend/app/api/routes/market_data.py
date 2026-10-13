@@ -6,7 +6,13 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile, sta
 from app.config import get_settings
 from app.deps import CurrentUser, DbSession
 from app.market_data.timeframes import Timeframe
-from app.schemas.market_data import BarQuery, BarRead, BarsResponse, ImportResult
+from app.schemas.market_data import (
+    BarQuery,
+    BarRead,
+    BarsResponse,
+    CoverageRead,
+    ImportResult,
+)
 from app.services import market_data
 
 router = APIRouter(prefix="/market-data", tags=["market data"])
@@ -46,3 +52,12 @@ def get_bars(
         aggregated_from=result.aggregated_from,
         bars=[BarRead.model_validate(bar) for bar in result.bars],
     )
+
+
+@router.get("/symbols")
+def list_coverage(db: DbSession, _: CurrentUser) -> list[CoverageRead]:
+    """What is stored: one entry per symbol and timeframe, with its time range and bar count."""
+    return [
+        CoverageRead.model_validate(entry, from_attributes=True)
+        for entry in market_data.coverage(db)
+    ]
