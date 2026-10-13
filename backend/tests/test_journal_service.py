@@ -157,3 +157,91 @@ def test_only_the_author_can_publish(db_session, user, other_user):
 
     with pytest.raises(NotFoundError):
         journal.publish_entry(db_session, other_user, entry.id)
+
+
+def versions_of(db_session, entry) -> list[JournalEntryVersion]:
+    query = select(JournalEntryVersion).where(JournalEntryVersion.entry_id == entry.id)
+    return list(db_session.scalars(query.order_by(JournalEntryVersion.version)))
+
+
+def published(db_session, user, **fields):
+    entry = create(db_session, user, **fields)
+    return journal.publish_entry(db_session, user, entry.id)
+
+
+def test_an_edit_to_a_published_entry_becomes_its_next_version(db_session, user):
+    entry = published(db_session, user, thesis="Breakout above 100k", emotion="calm")
+
+    edited = update(
+        db_session,
+        user,
+        entry,
+        lessons="Entered late, chased the move",
+        emotion="fomo",
+        thesis="Breakout above 100k",  # unchanged
+        edit_reason="Added the review",
+    )
+
+    assert (edited.current_version, edited.lessons, edited.emotion) == (
+        2,
+        "Entered late, chased the move",
+        Emotion.FOMO,
+    )
+    first, second = versions_of(db_session, entry)
+    assert first.content["emotion"] == "calm"  # the published state is kept
+    assert (second.version, second.changed_fields, second.edit_reason) == (
+        2,
+        ["emotion", "lessons"],
+        "Added the review",
+    )
+    assert second.content["lessons"] == "Entered late, chased the move"
+
+
+def test_each_edit_records_what_changed_since_the_previous_version(db_session, user):
+    entry = published(db_session, user)
+    update(db_session, user, entry, tags=["late"], edit_reason="Tagged")
+
+    update(db_session, user, entry, title="BTC breakout (late)", edit_reason="Clearer title")
+
+    assert [(v.version, v.changed_fields) for v in versions_of(db_session, entry)] == [
+        (1, None),
+        (2, ["tags"]),
+        (3, ["title"]),
+    ]
+
+
+def test_an_edit_that_changes_nothing_records_nothing(db_session, user):
+    entry = published(db_session, user, tags=["plan"])
+
+    unchanged = update(db_session, user, entry, tags=["PLAN"], edit_reason="Same thing")
+
+    assert unchanged.current_version == 1
+    assert len(versions_of(db_session, entry)) == 1
+
+
+def test_a_published_entry_needs_an_edit_reason(db_session, user):
+    entry = published(db_session, user)
+
+    with pytest.raises(InvalidOperationError, match="needs an edit_reason"):
+        update(db_session, user, entry, title="Sneaky change")
+
+
+def test_a_draft_takes_no_edit_reason(db_session, user):
+    entry = create(db_session, user)
+
+    with pytest.raises(InvalidOperationError, match="without an edit_reason"):
+        update(db_session, user, entry, title="New title", edit_reason="Because")
+
+
+def test_an_edit_cannot_link_someone_elses_trade(db_session, user, other_user):
+    entry = published(db_session, user)
+    trade_id = str(make_trade(db_session, other_user).id)
+
+    with pytest.raises(InvalidOperationError, match="Unknown trade"):
+        update(db_session, user, entry, trade_id=trade_id, edit_reason="Linked")
+
+
+@pytest.mark.parametrize("reason", ["   ", "x" * 501])
+def test_edit_reasons_must_say_something_briefly(reason):
+    with pytest.raises(ValidationError):
+        JournalEntryUpdate.model_validate({"title": "New", "edit_reason": reason})

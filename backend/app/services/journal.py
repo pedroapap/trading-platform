@@ -51,12 +51,34 @@ def _get_for_change(db: Session, user: User, entry_id: uuid.UUID) -> JournalEntr
 def update_entry(
     db: Session, user: User, entry_id: uuid.UUID, data: JournalEntryUpdate
 ) -> JournalEntry:
-    """Change a draft in place."""
+    """Change a draft in place. A published entry needs an edit_reason, and an edit that
+    changes something becomes its next version, recording which fields changed."""
     entry = _get_for_change(db, user, entry_id)
-    if entry.status != JournalStatus.DRAFT:
-        raise ConflictError(f"Cannot edit a {entry.status} entry")
-    changes = data.model_dump(exclude_unset=True)
+    published = entry.status == JournalStatus.PUBLISHED
+    if published and data.edit_reason is None:
+        raise InvalidOperationError("Editing a published entry needs an edit_reason")
+    if not published and data.edit_reason is not None:
+        raise InvalidOperationError("A draft is edited without an edit_reason")
+    changes = data.model_dump(exclude_unset=True, exclude={"edit_reason"})
     _require_own_trade(db, user, changes.get("trade_id"))
+
+    if published:
+        before = _content(entry)
+        after = JournalContent.model_validate(before | changes).model_dump(mode="json")
+        changed = sorted(field for field in after if after[field] != before[field])
+        if not changed:
+            db.commit()  # nothing to record; releases the row lock
+            return entry
+        entry.current_version += 1
+        db.add(
+            JournalEntryVersion(
+                entry_id=entry.id,
+                version=entry.current_version,
+                content=after,
+                changed_fields=changed,
+                edit_reason=data.edit_reason,
+            )
+        )
     for field, value in changes.items():
         setattr(entry, field, value)
     db.commit()

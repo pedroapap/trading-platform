@@ -57,7 +57,8 @@ class JournalEntryCreate(JournalContent):
 
 
 class JournalEntryUpdate(BaseModel):
-    """Omitted fields are unchanged; null clears an optional one."""
+    """Omitted fields are unchanged; null clears an optional one. Editing a published entry
+    needs an edit_reason; a draft takes none."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -70,6 +71,10 @@ class JournalEntryUpdate(BaseModel):
     lessons: LongText | None = None
     emotion: Emotion | None = None
     tags: Tags | None = None
+    edit_reason: (
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+        | None
+    ) = None
 
     @model_validator(mode="after")
     def _required_fields_are_not_cleared(self) -> Self:
