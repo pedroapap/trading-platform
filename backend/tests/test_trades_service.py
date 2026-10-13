@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 from app.enums import Direction, TradeEvent, TradeStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog
-from app.schemas.trade import TradeClose, TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import TradeCancel, TradeClose, TradeCreate, TradeFilters, TradeUpdate
 from app.services import trades, users
 from tests.helpers import ENTRY_TIME, make_trade
 
@@ -266,3 +266,30 @@ def test_closing_twice_is_a_conflict(db_session, user):
 
     with pytest.raises(ConflictError, match="Cannot close a closed trade"):
         trades.close_trade(db_session, user, trade.id, exit_at("47000"))
+
+
+def test_cancel_marks_the_trade_and_keeps_the_reason(db_session, user):
+    trade = trades.create_trade(db_session, user, NEW_TRADE)
+
+    cancelled = trades.cancel_trade(
+        db_session, user, trade.id, TradeCancel(reason="Order not filled")
+    )
+
+    assert cancelled.status is TradeStatus.CANCELLED
+    event = events(db_session, trade)[-1]
+    assert event.event_type is TradeEvent.CANCEL
+    assert event.old_values == {"status": "open"}
+    assert event.new_values == {"status": "cancelled"}
+    assert event.change_reason == "Order not filled"
+
+
+def test_cancel_only_applies_to_open_trades(db_session, user):
+    closed = trades.create_trade(db_session, user, NEW_TRADE)
+    trades.close_trade(db_session, user, closed.id, exit_at("46000"))
+    cancelled = trades.create_trade(db_session, user, NEW_TRADE)
+    trades.cancel_trade(db_session, user, cancelled.id, TradeCancel())
+
+    with pytest.raises(ConflictError, match="Cannot cancel a closed trade"):
+        trades.cancel_trade(db_session, user, closed.id, TradeCancel())
+    with pytest.raises(ConflictError, match="Cannot cancel a cancelled trade"):
+        trades.cancel_trade(db_session, user, cancelled.id, TradeCancel())

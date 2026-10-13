@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.enums import TradeEvent, TradeStatus
 from app.errors import ConflictError, InvalidOperationError, NotFoundError
 from app.models import Trade, TradeAuditLog, User
-from app.schemas.trade import TradeClose, TradeCreate, TradeFilters, TradeUpdate
+from app.schemas.trade import TradeCancel, TradeClose, TradeCreate, TradeFilters, TradeUpdate
 from app.services.pnl import trade_pnl
 
 ENTRY_FIELDS = (
@@ -170,6 +170,28 @@ def close_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeClose) 
         trade.pnl = result.amount
         trade.pnl_pct = result.pct
         _record(db, trade, user, TradeEvent.EXIT, old, _snapshot(trade, EXIT_FIELDS))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return trade
+
+
+def cancel_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCancel) -> Trade:
+    """Mark an open trade as never executed; the optional reason is kept in the audit trail."""
+    trade = _get_for_change(db, user, trade_id)
+    _require_open(trade, "cancel")
+    try:
+        trade.status = TradeStatus.CANCELLED
+        _record(
+            db,
+            trade,
+            user,
+            TradeEvent.CANCEL,
+            {"status": TradeStatus.OPEN.value},
+            {"status": TradeStatus.CANCELLED.value},
+            data.reason,
+        )
         db.commit()
     except Exception:
         db.rollback()
