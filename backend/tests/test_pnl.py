@@ -31,11 +31,14 @@ def test_trade_pnl(kwargs, expected):
     assert trade_pnl(entry_price=D("100"), entry_size=D("2"), **kwargs) == expected
 
 
-def test_breakeven_is_zero_not_missing():
-    result = trade_pnl(LONG, D("100"), D("2"), D("100"))
+@pytest.mark.parametrize("direction", [LONG, SHORT])
+def test_breakeven_is_a_plain_zero(direction):
+    result = trade_pnl(direction, D("100"), D("2"), D("100"))
 
     assert result.amount == D("0")
     assert result.pct == D("0")
+    assert not result.amount.is_signed()
+    assert not result.pct.is_signed()
 
 
 def test_decimal_arithmetic_is_exact():

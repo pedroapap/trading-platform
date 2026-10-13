@@ -42,4 +42,5 @@ def trade_pnl(
         amount = (exit_price - entry_price) * size * sign - entry_fee - exit_fee
         margin = entry_price * size / leverage
         pct = amount / margin * 100
-        return PnL(amount.quantize(AMOUNT_STEP), pct.quantize(PERCENT_STEP))
+        # `+ ZERO` turns a negative zero (short at breakeven) into a plain zero.
+        return PnL(amount.quantize(AMOUNT_STEP) + ZERO, pct.quantize(PERCENT_STEP) + ZERO)
