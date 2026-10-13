@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev down test lint fmt db-shell migrate revision user
+.PHONY: help setup dev down test lint fmt db-shell migrate revision user import-csv
 
 BACKEND := backend
 COMPOSE := docker compose
@@ -38,6 +38,10 @@ revision: ## Autogenerate a migration: make revision m="add trades"
 
 user: ## Create the login account: make user email=you@example.com
 	cd $(BACKEND) && uv run python -m app.cli create-user --email "$(email)"
+
+import-csv: ## Import prices: make import-csv file=prices.csv symbol=BTCUSDT [timeframe=1m]
+	cd $(BACKEND) && uv run python -m app.cli import-csv "$(abspath $(file))" --symbol "$(symbol)" \
+		$(if $(timeframe),--timeframe $(timeframe))
 
 db-shell: ## Open psql in the db container
 	$(COMPOSE) exec db sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'

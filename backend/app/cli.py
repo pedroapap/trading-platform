@@ -10,8 +10,13 @@ from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.db import get_sessionmaker
+from app.errors import DomainError
+from app.market_data import formats
+from app.market_data.timeframes import Timeframe
 from app.schemas.auth import RegisterRequest
-from app.services import users
+from app.services import market_data, users
+
+SHOWN_REJECTIONS = 20
 
 
 @contextmanager
@@ -46,6 +51,33 @@ def create_user(args: argparse.Namespace) -> int:
     return 0
 
 
+def import_csv(args: argparse.Namespace) -> int:
+    try:
+        with (
+            open(args.path, encoding="utf-8-sig", newline="") as stream,
+            session_scope() as db,
+        ):
+            summary = market_data.import_bars(db, stream, args.symbol, args.timeframe, args.format)
+    except OSError as exc:
+        print(f"Cannot read {args.path}: {exc.strerror}", file=sys.stderr)
+        return 1
+    except DomainError as exc:
+        print(f"Import failed: {exc}", file=sys.stderr)
+        return 1
+    print(
+        f"Imported {summary.inserted} {summary.timeframe} bars for {summary.symbol}"
+        f" ({summary.format}): {summary.duplicates} already stored,"
+        f" {summary.rejected} rows rejected"
+    )
+    if summary.first_ts is not None:
+        print(f"Bars in file: {summary.first_ts.isoformat()} to {summary.last_ts.isoformat()}")
+    for rejection in summary.rejections[:SHOWN_REJECTIONS]:
+        print(f"  line {rejection.line}: {rejection.reason}")
+    if summary.rejected > SHOWN_REJECTIONS:
+        print(f"  ... and {summary.rejected - SHOWN_REJECTIONS} more")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -58,6 +90,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="read the password from stdin instead of prompting",
     )
     create.set_defaults(handler=create_user)
+
+    importer = commands.add_parser("import-csv", help="import a price file into market data")
+    importer.add_argument("path")
+    importer.add_argument("--symbol", required=True)
+    importer.add_argument(
+        "--timeframe",
+        type=Timeframe,
+        choices=list(Timeframe),
+        help="bar size (inferred from the data if omitted)",
+    )
+    importer.add_argument(
+        "--format", choices=formats.available(), help="file format (detected if omitted)"
+    )
+    importer.set_defaults(handler=import_csv)
 
     args = parser.parse_args(argv)
     return args.handler(args)
