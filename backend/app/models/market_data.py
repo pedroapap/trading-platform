@@ -5,9 +5,8 @@ from sqlalchemy import CheckConstraint, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.market_data.timeframes import Timeframe
+from app.models.base import PRICE as Price
 from app.models.base import Base, enum_check, str_enum
-
-Price = Numeric(19, 8)
 
 
 class MarketData(Base):

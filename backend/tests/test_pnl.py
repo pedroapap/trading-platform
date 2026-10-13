@@ -47,10 +47,18 @@ def test_decimal_arithmetic_is_exact():
 
 
 def test_results_are_rounded_to_column_precision():
-    result = trade_pnl(LONG, D("3"), D("1"), D("3.123456789"))
+    result = trade_pnl(LONG, D("3"), D("1"), D("3.1234567890125"))
 
-    assert result.amount == D("0.12345679")
+    assert result.amount == D("0.123456789012")  # 12 decimals, half-even
     assert result.pct == D("4.1152")
+
+
+def test_micro_priced_coins_keep_their_precision():
+    # 1,000,000 SHIB bought at 0.000012345678 and sold at 0.000013
+    result = trade_pnl(LONG, D("0.000012345678"), D("1000000"), D("0.000013"))
+
+    assert result.amount == D("0.654322")
+    assert result.pct == D("5.3000")
 
 
 @pytest.mark.parametrize(

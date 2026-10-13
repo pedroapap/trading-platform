@@ -2,8 +2,12 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any, ClassVar
 
-from sqlalchemy import CheckConstraint, DateTime, Enum, MetaData, func
+from sqlalchemy import CheckConstraint, DateTime, Enum, MetaData, Numeric, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+# Prices, sizes, fees and P&L: 16 integer digits and 12 decimals, enough for
+# micro-priced coins such as SHIB (0.000012345678).
+PRICE = Numeric(28, 12)
 
 # Deterministic constraint names so migrations can reference and drop them.
 NAMING_CONVENTION = {

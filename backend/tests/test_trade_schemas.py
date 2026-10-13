@@ -34,7 +34,7 @@ def test_create_normalizes_and_fills_defaults():
         {"entry_price": "0"},
         {"entry_size": "-1"},
         {"entry_fee": "-0.5"},
-        {"entry_price": "1.123456789"},  # more decimals than the column stores
+        {"entry_price": "1.1234567890123"},  # more decimals than the column stores
         {"leverage": "0.5"},
         {"direction": "sideways"},
         {"symbol": "BTC USD"},

@@ -33,12 +33,13 @@ def test_valid_bars_become_exact_decimals():
     ]
 
 
-def test_values_are_rounded_to_eight_decimals():
-    row = ["2026-01-05T00:00Z", "1.123456785", "2", "1", "1.5", "3"]
+def test_prices_keep_twelve_decimals_and_volume_eight():
+    row = ["2026-01-05T00:00Z", "0.0000123456785", "2", "0.000001", "1.5", "3.123456785"]
 
-    ((_, open_, *_),) = BarValidator(Timeframe.M1).validate(chunk(row)).bars
+    ((_, open_, *_, volume),) = BarValidator(Timeframe.M1).validate(chunk(row)).bars
 
-    assert open_ == Decimal("1.12345679")
+    assert open_ == Decimal("0.000012345679")
+    assert volume == Decimal("3.12345679")
 
 
 @pytest.mark.parametrize(
@@ -47,7 +48,7 @@ def test_values_are_rounded_to_eight_decimals():
         (["nonsense", "100", "105", "99", "104", "1"], "timestamp is missing or unreadable"),
         (["2026-01-05T00:00Z", "abc", "105", "99", "104", "1"], "open is not a number ('abc')"),
         (["2026-01-05T00:00Z", "100", "", "99", "104", "1"], "high is missing"),
-        (["2026-01-05T00:00Z", "1e12", "1e12", "99", "104", "1"], "open is out of range"),
+        (["2026-01-05T00:00Z", "1e16", "1e16", "99", "104", "1"], "open is out of range"),
         (["2026-01-05T00:00Z", "0", "105", "0", "104", "1"], "open must be positive"),
         (["2026-01-05T00:00Z", "100", "105", "99", "104", "-1"], "volume cannot be negative"),
         (["2026-01-05T00:00Z", "100", "103", "99", "104", "1"], "low/high do not bracket"),

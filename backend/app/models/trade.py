@@ -6,9 +6,8 @@ from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.enums import Direction, TradeStatus
+from app.models.base import PRICE as Price
 from app.models.base import Base, TimestampMixin, enum_check, str_enum
-
-Price = Numeric(19, 8)
 
 
 class Trade(TimestampMixin, Base):

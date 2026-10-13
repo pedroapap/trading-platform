@@ -5,7 +5,7 @@ from decimal import Decimal, localcontext
 
 from app.enums import Direction
 
-AMOUNT_STEP = Decimal("0.00000001")  # NUMERIC(19, 8)
+AMOUNT_STEP = Decimal("0.000000000001")  # NUMERIC(28, 12)
 PERCENT_STEP = Decimal("0.0001")  # NUMERIC(12, 4)
 ZERO = Decimal(0)
 

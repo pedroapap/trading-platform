@@ -9,9 +9,9 @@ import pandas as pd
 from app.errors import InvalidOperationError
 from app.market_data.timeframes import Timeframe
 
-STEP = Decimal("0.00000001")  # the columns keep 8 decimals; Postgres rounds half away from 0
-PRICE_LIMIT = Decimal("1e11")  # NUMERIC(19, 8)
-VOLUME_LIMIT = Decimal("1e20")  # NUMERIC(28, 8)
+# Column scales and magnitude limits; values are rounded like Postgres (half away from 0).
+PRICE_STEP, PRICE_LIMIT = Decimal("1e-12"), Decimal("1e16")  # NUMERIC(28, 12)
+VOLUME_STEP, VOLUME_LIMIT = Decimal("1e-8"), Decimal("1e20")  # NUMERIC(28, 8)
 PRICES = ("open", "high", "low", "close")
 
 Bar = tuple[datetime, Decimal, Decimal, Decimal, Decimal, Decimal]
@@ -29,8 +29,8 @@ class ValidatedChunk:
     rejections: list[Rejection] = field(default_factory=list)
 
 
-def _decimal(text: object, limit: Decimal) -> Decimal | str:
-    """The value rounded to 8 decimals, or a short description of what is wrong."""
+def _decimal(text: object, step: Decimal, limit: Decimal) -> Decimal | str:
+    """The value rounded to the column's scale, or a short description of what is wrong."""
     if not isinstance(text, str) or not text.strip():
         return "is missing"
     try:
@@ -39,7 +39,7 @@ def _decimal(text: object, limit: Decimal) -> Decimal | str:
         return f"is not a number ({text!r})"
     if not value.is_finite() or abs(value) >= limit:
         return "is out of range"
-    return value.quantize(STEP, rounding=ROUND_HALF_UP)
+    return value.quantize(step, rounding=ROUND_HALF_UP)
 
 
 class BarValidator:
@@ -56,7 +56,10 @@ class BarValidator:
             reasons = []
             values = {}
             for column, text in zip((*PRICES, "volume"), raw, strict=True):
-                parsed = _decimal(text, VOLUME_LIMIT if column == "volume" else PRICE_LIMIT)
+                if column == "volume":
+                    parsed = _decimal(text, VOLUME_STEP, VOLUME_LIMIT)
+                else:
+                    parsed = _decimal(text, PRICE_STEP, PRICE_LIMIT)
                 if isinstance(parsed, str):
                     reasons.append(f"{column} {parsed}")
                 else:

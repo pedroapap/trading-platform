@@ -13,9 +13,9 @@ def _plain_decimal(value: Decimal) -> str:
 
 DecimalOut = Annotated[Decimal, PlainSerializer(_plain_decimal, return_type=str, when_used="json")]
 
-# Inputs match the NUMERIC(19, 8) columns, so values are never silently rounded.
-Price = Annotated[Decimal, Field(gt=0, max_digits=19, decimal_places=8)]
-Fee = Annotated[Decimal, Field(ge=0, max_digits=19, decimal_places=8)]
+# Inputs match the NUMERIC(28, 12) columns, so values are never silently rounded.
+Price = Annotated[Decimal, Field(gt=0, max_digits=28, decimal_places=12)]
+Fee = Annotated[Decimal, Field(ge=0, max_digits=28, decimal_places=12)]
 Leverage = Annotated[Decimal, Field(ge=1, max_digits=10, decimal_places=2)]
 
 
