@@ -297,12 +297,16 @@ def test_no_new_position_once_equity_is_gone():
     assert result.equity.tolist() == [10_000, 5_000, 0, -5_000, -5_000, -5_000]
 
 
-def run_with_stop(rows, *, capital=10_100, direction=Direction.LONG, exits=None):
-    """An entry signal on bar 0 with 1% slippage and a 10% stop-loss."""
+def run_from_bar_0(rows, *, capital=10_100, direction=Direction.LONG, exits=None, **levels):
+    """An entry signal on bar 0, with 1% slippage."""
     bars = bars_from(rows)
     config = BacktestConfig(initial_capital=capital, slippage_pct=1)
-    entries = at(len(bars), 0)
-    return bars, simulate(bars, entries, exits, config, direction, stop_loss_pct=10)
+    return bars, simulate(bars, at(len(bars), 0), exits, config, direction, **levels)
+
+
+def run_with_stop(rows, **kwargs):
+    """An entry signal on bar 0, with 1% slippage and a 10% stop-loss."""
+    return run_from_bar_0(rows, stop_loss_pct=10, **kwargs)
 
 
 # In the long stop-loss tests, bar 0's signal buys on bar 1 at its open of 100 plus 1%
@@ -439,3 +443,131 @@ def test_a_stop_loss_is_found_however_far_from_the_entry(hit):
     [trade] = result.trades
     assert (trade.exit_time, trade.exit_reason) == (bars.index[hit], ExitReason.STOP_LOSS)
     assert trade.exit_price == approx(90)
+
+
+# In the long take-profit tests, bar 0's signal buys on bar 1 at its open of 100 plus 1%
+# slippage, 101, with all of 10,100, so 100 units. A 10% target is at 111.1 (and a 10% stop
+# at 90.9).
+
+
+def test_a_take_profit_fills_at_the_target_without_slippage():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 105,  99, 104),  # the high of 105 stays below the target
+        (105, 112, 104, 110),  # the high of 112 reaches it: sell at exactly 111.1
+        (110, 111, 109, 110),
+    ], take_profit_pct=10)
+    # fmt: on
+
+    assert result.trades == [
+        SimulatedTrade(
+            direction=Direction.LONG,
+            entry_time=bars.index[1],
+            entry_price=approx(101),
+            exit_time=bars.index[2],
+            exit_price=approx(111.1),
+            size=approx(100),
+            entry_fee=0,
+            exit_fee=0,
+            slippage=approx(100 * (101 - 100)),  # on the entry only
+            pnl=approx(100 * (111.1 - 101)),  # 1,010
+            pnl_pct=approx(1_010 / 10_100 * 100),
+            exit_reason=ExitReason.TAKE_PROFIT,
+        )
+    ]
+    assert result.equity.tolist() == approx([10_100, 10_400, 11_110, 11_110])
+
+
+def test_a_gap_past_the_target_fills_at_the_better_open():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 105,  99, 104),
+        (115, 116, 113, 114),  # opens above the target: sell at the open of 115
+        (114, 115, 113, 114),
+    ], take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.TAKE_PROFIT)
+    assert trade.exit_price == 115
+
+
+def test_when_a_bar_reaches_both_the_stop_loss_counts():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 105,  99, 104),
+        (101, 112,  90, 100),  # the high of 112 reaches the target, the low of 90 the stop
+        (100, 101,  99, 100),
+    ], stop_loss_pct=10, take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(90.9 * 0.99)
+
+
+def test_the_first_level_reached_counts():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 112,  99, 110),  # the high of 112 reaches the target first
+        (110, 111,  80,  85),  # the stop would be reached here
+    ], stop_loss_pct=10, take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[1], ExitReason.TAKE_PROFIT)
+
+
+# In the short take-profit tests, bar 0's signal sells on bar 1 at its open of 100 less 1%
+# slippage, 99, with all of 9,900, so 100 units. A 10% target is at 89.1 (and a 10% stop at
+# 108.9).
+
+
+def test_a_short_take_profit_is_reached_by_the_low():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),  # the low of 95 stays above the target
+        ( 95,  96,  88,  90),  # the low of 88 reaches it: buy back at exactly 89.1
+        ( 90,  91,  89,  90),
+    ], capital=9_900, direction=Direction.SHORT, take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.TAKE_PROFIT)
+    assert trade.exit_price == approx(89.1)
+    assert trade.pnl == approx(100 * (99 - 89.1))  # 990
+
+
+def test_a_short_gap_past_the_target_fills_at_the_better_open():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),
+        ( 85,  86,  84,  85),  # opens below the target: buy back at the open of 85
+        ( 85,  86,  84,  85),
+    ], capital=9_900, direction=Direction.SHORT, take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.TAKE_PROFIT)
+    assert trade.exit_price == 85
+
+
+def test_when_a_bar_reaches_both_a_short_stop_loss_counts():
+    # fmt: off
+    bars, result = run_from_bar_0([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),
+        ( 99, 110,  88, 100),  # the low of 88 reaches the target, the high of 110 the stop
+        (100, 101,  99, 100),
+    ], capital=9_900, direction=Direction.SHORT, stop_loss_pct=10, take_profit_pct=10)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert trade.exit_price == approx(108.9 * 1.01)

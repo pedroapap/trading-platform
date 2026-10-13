@@ -27,4 +27,5 @@ class ExitReason(StrEnum):
 
     SIGNAL = "signal"
     STOP_LOSS = "stop_loss"
+    TAKE_PROFIT = "take_profit"
     END_OF_DATA = "end_of_data"
