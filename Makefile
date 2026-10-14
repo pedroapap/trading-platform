@@ -15,7 +15,7 @@ setup: ## Install dependencies and create .env with a random JWT_SECRET
 		sed "s/^JWT_SECRET=$$/JWT_SECRET=$$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')/" \
 			.env.example > .env && echo "Created .env"; }
 
-dev: ## Run db + api with auto-reload
+dev: ## Run db, api and the UI (on :5173) with auto-reload
 	$(COMPOSE) up --build
 
 web: ## Run the UI dev server on :5173; it forwards /api to the api on :8000
