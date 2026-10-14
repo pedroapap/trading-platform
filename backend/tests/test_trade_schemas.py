@@ -81,6 +81,7 @@ def test_read_serializes_decimals_as_exact_strings():
     trade = TradeRead(
         id=uuid.uuid4(),
         strategy_id=None,
+        strategy_version=None,
         symbol="BTCUSD",
         direction=Direction.LONG,
         status=TradeStatus.CLOSED,

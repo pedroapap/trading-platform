@@ -37,7 +37,8 @@ RSI_SWINGS = {
 
 
 def make_trade(db: Session, user: User, **overrides: object) -> Trade:
-    """Insert an open BTCUSD long (1 @ 100) directly, bypassing services."""
+    """Insert an open BTCUSD long (1 @ 100) directly, bypassing services. A trade given a
+    strategy follows its version 1 unless told otherwise."""
     values: dict[str, object] = {
         "symbol": "BTCUSD",
         "direction": Direction.LONG,
@@ -45,6 +46,8 @@ def make_trade(db: Session, user: User, **overrides: object) -> Trade:
         "entry_time": ENTRY_TIME,
         "entry_size": Decimal("1"),
     }
+    if overrides.get("strategy_id") is not None:
+        values["strategy_version"] = 1
     trade = Trade(user_id=user.id, **(values | overrides))
     db.add(trade)
     db.flush()
@@ -59,6 +62,7 @@ def make_closed_trade(db: Session, user: User, pnl: str, **overrides: object) ->
         "status": TradeStatus.CLOSED,
         "exit_price": Decimal(100) + Decimal(pnl),
         "exit_time": ENTRY_TIME + timedelta(hours=1),
+        "exit_size": Decimal("1"),
         "pnl": Decimal(pnl),
         "pnl_pct": Decimal(pnl),
     }

@@ -33,6 +33,7 @@ ENTRY_FIELDS = (
     "take_profit",
     "leverage",
     "strategy_id",
+    "strategy_version",
 )
 EXIT_FIELDS = ("status", "exit_price", "exit_time", "exit_size", "exit_fee", "pnl", "pnl_pct")
 
@@ -74,18 +75,37 @@ def _record(
     )
 
 
-def _require_own_strategy(db: Session, user: User, strategy_id: uuid.UUID | None) -> None:
-    """The foreign key only proves the strategy exists; it must also be the user's own."""
-    if strategy_id is None:
+def _link_strategy(
+    db: Session, user: User, values: dict[str, Any], trade: Trade | None = None
+) -> None:
+    """Check and complete the strategy link in a new trade's fields or a trade's changes:
+    the strategy must be the user's own (the foreign key only proves it exists), and the
+    version, by default its current one, must exist. Clearing the strategy clears the version."""
+    if "strategy_id" in values:
+        strategy_id = values["strategy_id"]
+    elif "strategy_version" in values:
+        strategy_id = trade.strategy_id if trade is not None else None
+    else:
         return
-    owned = select(Strategy.id).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
-    if db.scalar(owned) is None:
+    if strategy_id is None:
+        if values.get("strategy_version") is not None:
+            raise InvalidOperationError("A strategy version needs a strategy")
+        values["strategy_version"] = None
+        return
+    owned = select(Strategy).where(Strategy.id == strategy_id, Strategy.user_id == user.id)
+    strategy = db.scalar(owned)
+    if strategy is None:
         raise InvalidOperationError("Unknown strategy")
+    version = values.get("strategy_version") or strategy.current_version
+    if version > strategy.current_version:
+        raise InvalidOperationError(f"The strategy has no version {version}")
+    values["strategy_version"] = version
 
 
 def create_trade(db: Session, user: User, data: TradeCreate) -> Trade:
-    _require_own_strategy(db, user, data.strategy_id)
-    trade = Trade(user_id=user.id, **data.model_dump())
+    values = data.model_dump()
+    _link_strategy(db, user, values)
+    trade = Trade(user_id=user.id, **values)
     try:
         db.add(trade)
         db.flush()  # assigns the id the audit row points to
@@ -146,7 +166,8 @@ def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate
     }
     if not changes:
         return trade
-    _require_own_strategy(db, user, changes.get("strategy_id"))
+    _link_strategy(db, user, changes, trade)
+    changes = {field: value for field, value in changes.items() if getattr(trade, field) != value}
     old = {field: _json_value(getattr(trade, field)) for field in changes}
     new = {field: _json_value(value) for field, value in changes.items()}
     try:
@@ -244,7 +265,7 @@ def correct_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCorre
         changes["exit_size"] = changes["entry_size"]
     if not changes:
         return trade
-    _require_own_strategy(db, user, changes.get("strategy_id"))
+    _link_strategy(db, user, changes, trade)
 
     def effective(field: str) -> Any:
         return changes.get(field, getattr(trade, field))

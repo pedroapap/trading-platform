@@ -2,7 +2,16 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, String, func, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Numeric,
+    String,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.enums import Direction, TradeStatus
@@ -37,6 +46,15 @@ class Trade(TimestampMixin, Base):
             " AND pnl IS NOT NULL AND pnl_pct IS NOT NULL)",
             name="closed_trade_has_exit",
         ),
+        CheckConstraint(
+            "(strategy_id IS NULL) = (strategy_version IS NULL)",
+            name="strategy_version_with_strategy",
+        ),
+        ForeignKeyConstraint(
+            ["strategy_id", "strategy_version"],
+            ["strategy_versions.strategy_id", "strategy_versions.version"],
+            ondelete="RESTRICT",
+        ),
         Index("ix_trades_user_id_entry_time", "user_id", "entry_time"),
     )
 
@@ -45,6 +63,8 @@ class Trade(TimestampMixin, Base):
     strategy_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("strategies.id", ondelete="RESTRICT")
     )
+    # The version of the strategy the trade followed.
+    strategy_version: Mapped[int | None]
 
     symbol: Mapped[str] = mapped_column(String(20))
     direction: Mapped[Direction] = mapped_column(str_enum(Direction, "direction"))

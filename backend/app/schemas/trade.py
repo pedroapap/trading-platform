@@ -1,12 +1,15 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Any, Self
+from typing import Annotated, Any, Self
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
 from app.enums import Direction, TradeEvent, TradeStatus
 from app.schemas.common import DecimalOut, Fee, Leverage, Price, Symbol
+
+# Defaults to the strategy's current version when the trade is linked to a strategy.
+StrategyVersionNumber = Annotated[int, Field(ge=1)]
 
 
 class TradeCreate(BaseModel):
@@ -22,6 +25,7 @@ class TradeCreate(BaseModel):
     take_profit: Price | None = None
     leverage: Leverage = Decimal(1)
     strategy_id: uuid.UUID | None = None
+    strategy_version: StrategyVersionNumber | None = None
 
 
 # Only these may be cleared with an explicit null; the rest are required on the trade.
@@ -42,7 +46,9 @@ class TradeUpdate(BaseModel):
     stop_loss: Price | None = None
     take_profit: Price | None = None
     leverage: Leverage | None = None
+    # Clearing the strategy also clears its version.
     strategy_id: uuid.UUID | None = None
+    strategy_version: StrategyVersionNumber | None = None
 
     @model_validator(mode="after")
     def _required_fields_are_not_cleared(self) -> Self:
@@ -88,6 +94,8 @@ class TradeRead(BaseModel):
 
     id: uuid.UUID
     strategy_id: uuid.UUID | None
+    # The version of the strategy the trade followed.
+    strategy_version: int | None
     symbol: str
     direction: Direction
     status: TradeStatus
