@@ -7,6 +7,7 @@ import { useAuditLog, useTrade } from "../api/trades";
 import AuditLog from "../components/AuditLog";
 import Money from "../components/Money";
 import { ErrorMessage, Loading } from "../components/Status";
+import { CancelTrade, CloseTrade } from "../components/TradeActions";
 import { formatDateTime } from "../format";
 
 type Trade = components["schemas"]["TradeRead"];
@@ -66,6 +67,12 @@ export default function TradeDetailPage() {
             trade={trade.data}
             strategyName={strategies.data?.find((s) => s.id === trade.data.strategy_id)?.name}
           />
+          {trade.data.status === "open" && (
+            <>
+              <CloseTrade trade={trade.data} />
+              <CancelTrade trade={trade.data} />
+            </>
+          )}
           <h2>History</h2>
           {events.error && <ErrorMessage error={events.error} />}
           {events.data && <AuditLog events={events.data} />}
