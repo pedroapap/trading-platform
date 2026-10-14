@@ -18,7 +18,7 @@ setup: ## Install dependencies and create .env with a random JWT_SECRET
 dev: ## Run db + api with auto-reload
 	$(COMPOSE) up --build
 
-web: ## Run the UI dev server on :5173
+web: ## Run the UI dev server on :5173; it forwards /api to the api on :8000
 	cd $(FRONTEND) && npm run dev
 
 down: ## Stop containers

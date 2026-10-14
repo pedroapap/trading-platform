@@ -1,0 +1,10 @@
+/* Pico spaces a page's header and main only when they are children of <body>; ours are in
+   #root. */
+#root > header,
+#root > main {
+  padding-block: var(--pico-block-spacing-vertical);
+}
+
+.login {
+  max-width: 28rem;
+}
