@@ -8,3 +8,15 @@
 .login {
   max-width: 28rem;
 }
+
+/* Values such as "0.5 @ 50000" or a date read badly when wrapped; wide tables scroll inside
+   their .overflow-auto wrapper instead. */
+table {
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+th,
+td {
+  padding-inline: 0.5rem;
+}

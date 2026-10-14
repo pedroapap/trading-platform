@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Outlet } from "react-router";
+import { NavLink, Outlet } from "react-router";
 
 import { tokenStore } from "../api/token";
 
@@ -13,7 +13,7 @@ export default function Layout() {
 
   return (
     <>
-      <header className="container">
+      <header className="container-fluid">
         <nav>
           <ul>
             <li>
@@ -22,6 +22,9 @@ export default function Layout() {
           </ul>
           <ul>
             <li>
+              <NavLink to="/trades">Trades</NavLink>
+            </li>
+            <li>
               <button type="button" className="secondary outline" onClick={logOut}>
                 Log out
               </button>
@@ -29,7 +32,7 @@ export default function Layout() {
           </ul>
         </nav>
       </header>
-      <main className="container">
+      <main className="container-fluid">
         <Outlet />
       </main>
     </>

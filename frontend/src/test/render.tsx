@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 
+import { tokenStore } from "../api/token";
 import { routes } from "../routes";
 
 /** Renders the whole app at `path`, with a fresh query cache that never retries. */
@@ -17,4 +18,10 @@ export function renderApp(path = "/") {
     </QueryClientProvider>,
   );
   return { router, user };
+}
+
+/** Renders the app logged in, at `path`. */
+export function renderPage(path: string) {
+  tokenStore.set("token");
+  return renderApp(path);
 }
