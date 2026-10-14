@@ -1,7 +1,8 @@
 """Analytics of the user's own closed trades. Open and cancelled trades have no P&L, so they
-are left out. P&L is summed as recorded, without converting between quote currencies."""
+are left out. Money is never converted between quote currencies."""
 
 import uuid
+from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal
 
@@ -10,10 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.enums import BacktestStatus, TradeStatus
 from app.errors import ConflictError
-from app.models import BacktestTrade, JournalEntry, Strategy, Trade, User
+from app.models import BacktestTrade, Instrument, JournalEntry, Strategy, Trade, User
 from app.schemas.analytics import (
     BacktestComparison,
     ComparisonSide,
+    CurrencyPnl,
     EquityQuery,
     GroupBy,
     PerformanceGroup,
@@ -25,8 +27,9 @@ from app.services import backtests
 
 
 def performance(db: Session, user: User, query: PerformanceQuery) -> list[PerformanceGroup]:
-    """P&L and win rate of closed trades per strategy, symbol, emotion or tag, best total P&L
-    first. A trade counts once in each emotion or tag that its journal entries record."""
+    """P&L and win rate of closed trades per strategy, symbol, emotion or tag, best average
+    return first, with money totalled per quote currency. A trade counts once in each emotion
+    or tag that its journal entries record."""
     match query.by:
         case GroupBy.SYMBOL:
             key = label = Trade.symbol
@@ -39,22 +42,53 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
             key = label = notes.c.key
             source = Trade.__table__.outerjoin(notes, notes.c.trade_id == Trade.id)
 
-    total = func.sum(Trade.pnl)
-    statement = (
+    trades = (
         select(
             key.label("key"),
             label.label("label"),
-            func.count().label("num_trades"),
-            func.count().filter(Trade.pnl > 0).label("wins"),
-            func.count().filter(Trade.pnl < 0).label("losses"),
-            total.label("total_pnl"),
-            func.round(func.avg(Trade.pnl), 12).label("average_pnl"),
+            Instrument.quote_currency.label("currency"),
+            Trade.pnl,
+            (Trade.pnl_pct / Trade.leverage).label("return_pct"),
         )
-        .select_from(source)
+        .select_from(source.join(Instrument, Instrument.symbol == Trade.symbol))
         .where(*_closed_trades(user, query.closed_from, query.closed_to))
-        .group_by(key, label)
-        .order_by(total.desc(), key.asc().nulls_last())
+        .subquery()
     )
+    average_return = func.round(func.avg(trades.c.return_pct), 4)
+    groups = db.execute(
+        select(
+            trades.c.key,
+            trades.c.label,
+            func.count().label("num_trades"),
+            func.count().filter(trades.c.pnl > 0).label("wins"),
+            func.count().filter(trades.c.pnl < 0).label("losses"),
+            average_return.label("average_return_pct"),
+        )
+        .group_by(trades.c.key, trades.c.label)
+        .order_by(average_return.desc(), trades.c.key.asc().nulls_last())
+    )
+    totals = db.execute(
+        select(
+            trades.c.key,
+            trades.c.label,
+            trades.c.currency,
+            func.count().label("num_trades"),
+            func.sum(trades.c.pnl).label("total_pnl"),
+            func.round(func.avg(trades.c.pnl), 12).label("average_pnl"),
+        )
+        .group_by(trades.c.key, trades.c.label, trades.c.currency)
+        .order_by(trades.c.currency.asc().nulls_last())
+    )
+    by_currency: defaultdict[tuple, list[CurrencyPnl]] = defaultdict(list)
+    for row in totals:
+        by_currency[row.key, row.label].append(
+            CurrencyPnl(
+                currency=row.currency,
+                num_trades=row.num_trades,
+                total_pnl=row.total_pnl,
+                average_pnl=row.average_pnl,
+            )
+        )
     return [
         PerformanceGroup(
             key=row.key,
@@ -63,10 +97,10 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
             wins=row.wins,
             losses=row.losses,
             win_rate_pct=row.wins / row.num_trades * 100,
-            total_pnl=row.total_pnl,
-            average_pnl=row.average_pnl,
+            average_return_pct=row.average_return_pct,
+            by_currency=by_currency[row.key, row.label],
         )
-        for row in db.execute(statement)
+        for row in groups
     ]
 
 

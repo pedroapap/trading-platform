@@ -36,6 +36,16 @@ class PerformanceQuery(BaseModel):
         return self
 
 
+class CurrencyPnl(BaseModel):
+    """The P&L of a group's trades quoted in one currency."""
+
+    # None for symbols whose quote currency isn't set; their P&L may mix currencies.
+    currency: str | None
+    num_trades: int
+    total_pnl: DecimalOut
+    average_pnl: DecimalOut
+
+
 class PerformanceGroup(BaseModel):
     # The strategy id, symbol, emotion or tag; None for trades without one.
     key: str | None
@@ -46,13 +56,16 @@ class PerformanceGroup(BaseModel):
     wins: int
     losses: int
     win_rate_pct: float
-    total_pnl: DecimalOut
-    average_pnl: DecimalOut
+    # Mean return per trade on its notional, in percent: a trade's return on margin divided
+    # by its leverage, as in the backtest comparison.
+    average_return_pct: DecimalOut
+    # Money per quote currency, never converted: by currency code, an unset currency last.
+    by_currency: list[CurrencyPnl]
 
 
 class PerformanceReport(BaseModel):
     by: GroupBy
-    # Best total P&L first.
+    # Best average return first, since totals in different currencies can't be ranked.
     groups: list[PerformanceGroup]
 
 

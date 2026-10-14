@@ -1,4 +1,5 @@
 from datetime import timedelta
+from decimal import Decimal
 
 import pytest
 
@@ -50,26 +51,32 @@ def report(client, auth_headers, **params) -> list[dict]:
     return response.json()["groups"]
 
 
-FIELDS = (
-    "key",
-    "label",
-    "num_trades",
-    "wins",
-    "losses",
-    "win_rate_pct",
-    "total_pnl",
-    "average_pnl",
-)
-
-
-def group(*values: object) -> dict:
-    return dict(zip(FIELDS, values, strict=True))
+def group(key, label, num_trades, wins, losses, win_rate_pct, total_pnl, average_pnl) -> dict:
+    """A group of trades in USD, like make_closed_trade's, whose return on notional in percent
+    equals their P&L (1 bought at 100)."""
+    return {
+        "key": key,
+        "label": label,
+        "num_trades": num_trades,
+        "wins": wins,
+        "losses": losses,
+        "win_rate_pct": win_rate_pct,
+        "average_return_pct": average_pnl,
+        "by_currency": [
+            {
+                "currency": "USD",
+                "num_trades": num_trades,
+                "total_pnl": total_pnl,
+                "average_pnl": average_pnl,
+            }
+        ],
+    }
 
 
 def test_performance_by_symbol(client, auth_headers, trades):
     assert report(client, auth_headers, by="symbol") == [
-        group("BTCUSD", "BTCUSD", 4, 2, 1, 50, "70", "17.5"),
         group("ETHUSD", "ETHUSD", 2, 1, 1, 50, "40", "20"),
+        group("BTCUSD", "BTCUSD", 4, 2, 1, 50, "70", "17.5"),
     ]
 
 
@@ -88,9 +95,70 @@ def test_performance_over_a_closing_time_range(client, auth_headers, trades):
 
     groups = report(client, auth_headers, by="symbol", closed_from=closed_from, closed_to=closed_to)
 
-    assert [(g["key"], g["num_trades"], g["total_pnl"]) for g in groups] == [
-        ("ETHUSD", 2, "40"),
+    assert [(g["key"], g["num_trades"], g["average_return_pct"]) for g in groups] == [
+        ("ETHUSD", 2, "20"),
         ("BTCUSD", 1, "-40"),
+    ]
+
+
+@pytest.fixture
+def currencies(db_session, user):
+    """One strategy's closed trades in USDT, BTC and AAPL, whose currency isn't set."""
+    strategy = make_strategy(db_session, user, "Breakout")
+    for symbol, pnl, return_on_margin, leverage in [
+        ("BTCUSDT", "120", "2", "1"),
+        ("BTCUSDT", "-30", "-1", "2"),  # -0.5% on notional
+        ("ETHBTC", "0.01", "1.5", "1"),
+        ("AAPL", "-5", "-1", "1"),
+    ]:
+        make_closed_trade(
+            db_session,
+            user,
+            pnl,
+            symbol=symbol,
+            pnl_pct=Decimal(return_on_margin),
+            leverage=Decimal(leverage),
+            strategy_id=strategy.id,
+        )
+    return str(strategy.id)
+
+
+def test_money_is_totalled_per_quote_currency(client, auth_headers, currencies):
+    assert report(client, auth_headers, by="strategy") == [
+        {
+            "key": currencies,
+            "label": "Breakout",
+            # Counts, win rate and returns span every currency.
+            "num_trades": 4,
+            "wins": 2,
+            "losses": 2,
+            "win_rate_pct": 50,
+            "average_return_pct": "0.5",  # (2 - 0.5 + 1.5 - 1) / 4
+            "by_currency": [
+                {"currency": "BTC", "num_trades": 1, "total_pnl": "0.01", "average_pnl": "0.01"},
+                {"currency": "USDT", "num_trades": 2, "total_pnl": "90", "average_pnl": "45"},
+                {"currency": None, "num_trades": 1, "total_pnl": "-5", "average_pnl": "-5"},
+            ],
+        }
+    ]
+
+
+def test_setting_a_currency_moves_its_trades_into_that_total(client, auth_headers, currencies):
+    response = client.put(
+        "/api/instruments/AAPL", headers=auth_headers, json={"quote_currency": "USDT"}
+    )
+    assert response.status_code == 200, response.json()
+
+    [breakout] = report(client, auth_headers, by="strategy")
+
+    assert breakout["by_currency"] == [
+        {"currency": "BTC", "num_trades": 1, "total_pnl": "0.01", "average_pnl": "0.01"},
+        {
+            "currency": "USDT",
+            "num_trades": 3,
+            "total_pnl": "85",
+            "average_pnl": "28.333333333333",
+        },
     ]
 
 
@@ -145,17 +213,17 @@ def test_performance_by_emotion(client, auth_headers, journaled_trades):
 def test_performance_by_emotion_before_the_trade(client, auth_headers, journaled_trades):
     groups = report(client, auth_headers, by="emotion", entry_type="pre_trade")
 
-    assert [(g["key"], g["num_trades"], g["total_pnl"]) for g in groups] == [
+    assert [(g["key"], g["num_trades"], g["average_return_pct"]) for g in groups] == [
         ("calm", 1, "100"),
-        ("fomo", 2, "20"),
-        (None, 2, "-10"),
+        ("fomo", 2, "10"),
+        (None, 2, "-5"),
     ]
 
 
 def test_performance_by_tag(client, auth_headers, journaled_trades):
     assert report(client, auth_headers, by="tag") == [
-        group("breakout", "breakout", 3, 2, 1, pytest.approx(200 / 3), "120", "40"),
         group("plan", "plan", 1, 1, 0, 100, "100", "100"),
+        group("breakout", "breakout", 3, 2, 1, pytest.approx(200 / 3), "120", "40"),
         group(None, None, 2, 1, 1, 50, "-10", "-5"),
         group("late", "late", 1, 0, 1, 0, "-40", "-40"),
     ]
