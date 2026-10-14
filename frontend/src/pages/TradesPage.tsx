@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { api, unwrap } from "../api/client";
 import type { components } from "../api/schema";
@@ -93,7 +93,9 @@ export default function TradesPage() {
                 {trades.data.items.map((trade) => (
                   <tr key={trade.id}>
                     <td>{formatDateTime(trade.entry_time)}</td>
-                    <td>{trade.symbol}</td>
+                    <td>
+                      <Link to={`/trades/${trade.id}`}>{trade.symbol}</Link>
+                    </td>
                     <td>{trade.direction}</td>
                     <td>{trade.status}</td>
                     <td>

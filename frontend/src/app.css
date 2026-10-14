@@ -20,3 +20,13 @@ th,
 td {
   padding-inline: 0.5rem;
 }
+
+/* A table cell holding prose or a list, which may wrap. */
+td.wrap {
+  white-space: normal;
+}
+
+/* A label-and-value table, as wide as its content. */
+table.details {
+  width: auto;
+}

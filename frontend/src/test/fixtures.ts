@@ -78,3 +78,19 @@ export function openTrade(overrides: Partial<Schemas["TradeRead"]> = {}): Schema
     ...overrides,
   });
 }
+
+/** An audit event of `trade_id`, recorded by USER. */
+export function auditEvent(
+  overrides: Partial<Schemas["AuditEventRead"]> & Pick<Schemas["AuditEventRead"], "event_type">,
+): Schemas["AuditEventRead"] {
+  ids += 1;
+  return {
+    id: ids,
+    old_values: null,
+    new_values: null,
+    changed_by: USER.id,
+    change_reason: null,
+    created_at: "2026-01-05T14:30:00Z",
+    ...overrides,
+  };
+}
