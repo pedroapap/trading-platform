@@ -1,14 +1,14 @@
 """Constants and helpers shared by tests (import from here, not from conftest)."""
 
 import io
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import numpy as np
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.enums import Direction
+from app.enums import Direction, TradeStatus
 from app.models import Backtest, JournalEntry, Strategy, StrategyVersion, Trade, User
 from app.services.market_data import import_bars
 
@@ -50,6 +50,19 @@ def make_trade(db: Session, user: User, **overrides: object) -> Trade:
     db.flush()
     db.refresh(trade)
     return trade
+
+
+def make_closed_trade(db: Session, user: User, pnl: str, **overrides: object) -> Trade:
+    """Insert a closed BTCUSD long with the given P&L: 1 bought at 100, sold at 100 + pnl an
+    hour after ENTRY_TIME."""
+    values: dict[str, object] = {
+        "status": TradeStatus.CLOSED,
+        "exit_price": Decimal(100) + Decimal(pnl),
+        "exit_time": ENTRY_TIME + timedelta(hours=1),
+        "pnl": Decimal(pnl),
+        "pnl_pct": Decimal(pnl),
+    }
+    return make_trade(db, user, **(values | overrides))
 
 
 def make_strategy(

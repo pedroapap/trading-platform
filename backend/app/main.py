@@ -6,7 +6,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.api.errors import register_error_handlers
-from app.api.routes import auth, backtests, health, journal, market_data, strategies, trades
+from app.api.routes import (
+    analytics,
+    auth,
+    backtests,
+    health,
+    journal,
+    market_data,
+    strategies,
+    trades,
+)
 from app.config import get_settings
 from app.db import get_session_factory
 from app.services import backtests as backtest_service
@@ -37,5 +46,6 @@ app.include_router(market_data.router, prefix="/api")
 app.include_router(strategies.router, prefix="/api")
 app.include_router(backtests.router, prefix="/api")
 app.include_router(journal.router, prefix="/api")
+app.include_router(analytics.router, prefix="/api")
 
 register_error_handlers(app)
