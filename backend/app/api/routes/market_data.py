@@ -41,7 +41,8 @@ def import_file(
     return ImportResult.model_validate(summary)
 
 
-@router.get("/{symbol}/bars")
+# `path` lets the symbol contain a slash, as in BTC/USDT.
+@router.get("/{symbol:path}/bars")
 def get_bars(
     symbol: str, query: Annotated[BarQuery, Query()], db: DbSession, _: CurrentUser
 ) -> BarsResponse:

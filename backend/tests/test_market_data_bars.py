@@ -51,6 +51,18 @@ def test_unknown_symbols_are_empty(api):
     assert bars(api, symbol="ETHUSDT") == []
 
 
+def test_a_symbol_may_contain_a_slash(api, db_session):
+    with (FIXTURES / "binance_1m.csv").open() as stream:
+        import_bars(db_session, stream, "BTC/USDT")
+
+    # Starlette decodes %2F before routing, so both spellings reach the same route.
+    for symbol in ("btc/usdt", "BTC%2FUSDT"):
+        response = api.get(f"/api/market-data/{symbol}/bars", params={"timeframe": "1m"})
+        assert response.status_code == 200, response.text
+        assert response.json()["symbol"] == "BTC/USDT"
+        assert len(response.json()["bars"]) == 3
+
+
 def test_query_is_validated(api):
     assert api.get("/api/market-data/BTCUSDT/bars").status_code == 422
     assert api.get("/api/market-data/BTCUSDT/bars?timeframe=2m").status_code == 422
