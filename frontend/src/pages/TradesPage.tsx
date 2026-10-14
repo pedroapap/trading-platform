@@ -55,6 +55,11 @@ export default function TradesPage() {
   return (
     <>
       <h1>Trades</h1>
+      <p>
+        <Link to="/trades/new" role="button">
+          New trade
+        </Link>
+      </p>
       <form onSubmit={filter} role="search">
         <fieldset role="group">
           <input name="symbol" placeholder="Symbol" aria-label="Symbol" defaultValue={symbol} />

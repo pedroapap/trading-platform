@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
+import NewTradePage from "./pages/NewTradePage";
 import TradeDetailPage from "./pages/TradeDetailPage";
 import TradesPage from "./pages/TradesPage";
 
@@ -17,6 +18,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <HomePage /> },
           { path: "trades", element: <TradesPage /> },
+          { path: "trades/new", element: <NewTradePage /> },
           { path: "trades/:tradeId", element: <TradeDetailPage /> },
           { path: "*", element: <p>Page not found.</p> },
         ],
