@@ -1,14 +1,16 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev down test lint fmt db-shell migrate revision user import-csv
+.PHONY: help setup dev web down test lint fmt db-shell migrate revision user import-csv
 
 BACKEND := backend
+FRONTEND := frontend
 COMPOSE := docker compose
 
 help: ## List targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
 
-setup: ## Install backend dependencies and create .env with a random JWT_SECRET
+setup: ## Install dependencies and create .env with a random JWT_SECRET
 	cd $(BACKEND) && uv sync
+	cd $(FRONTEND) && npm ci
 	@test -f .env || { \
 		sed "s/^JWT_SECRET=$$/JWT_SECRET=$$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')/" \
 			.env.example > .env && echo "Created .env"; }
@@ -16,18 +18,24 @@ setup: ## Install backend dependencies and create .env with a random JWT_SECRET
 dev: ## Run db + api with auto-reload
 	$(COMPOSE) up --build
 
+web: ## Run the UI dev server on :5173
+	cd $(FRONTEND) && npm run dev
+
 down: ## Stop containers
 	$(COMPOSE) down
 
-test: ## Run backend tests (starts the db if needed)
+test: ## Run backend and frontend tests (starts the db if needed)
 	$(COMPOSE) up -d --wait db
 	cd $(BACKEND) && uv run pytest
+	cd $(FRONTEND) && npm test
 
-lint: ## Lint and check formatting
+lint: ## Lint, check formatting and typecheck
 	cd $(BACKEND) && uv run ruff check . && uv run ruff format --check .
+	cd $(FRONTEND) && npm run lint && npm run format:check && npm run typecheck
 
 fmt: ## Fix lint issues and format
 	cd $(BACKEND) && uv run ruff check --fix . && uv run ruff format .
+	cd $(FRONTEND) && npm run lint -- --fix && npm run format
 
 migrate: ## Apply database migrations
 	$(COMPOSE) up -d --wait db
