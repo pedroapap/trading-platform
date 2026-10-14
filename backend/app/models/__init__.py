@@ -2,6 +2,7 @@
 
 from app.models.backtest import Backtest, BacktestTrade
 from app.models.base import Base
+from app.models.instrument import Instrument
 from app.models.journal import JournalEntry, JournalEntryVersion
 from app.models.market_data import MarketData
 from app.models.strategy import Strategy, StrategyVersion
@@ -13,6 +14,7 @@ __all__ = [
     "Backtest",
     "BacktestTrade",
     "Base",
+    "Instrument",
     "JournalEntry",
     "JournalEntryVersion",
     "MarketData",

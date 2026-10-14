@@ -1,7 +1,13 @@
 """Instruments: the currency each symbol is quoted in, which is the currency of its prices,
-fees and P&L."""
+fees and P&L. A symbol is registered the first time it is used, with the currency its name
+implies; a currency it doesn't imply, or a wrong guess, is set by hand."""
 
 import re
+
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.orm import Session
+
+from app.models import Instrument
 
 STABLECOINS = frozenset({"USDT", "USDC", "FDUSD", "BUSD", "TUSD"})
 FIAT = frozenset({"USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "TRY", "BRL"})
@@ -33,3 +39,13 @@ def guess_quote_currency(symbol: str) -> str | None:
         if base.endswith(quote) and len(base) - len(quote) >= shortest_base:
             return quote
     return None
+
+
+def register(db: Session, symbol: str) -> None:
+    """Add a normalized symbol to the registry with its guessed quote currency, in the
+    caller's transaction; a registered symbol is left as it is."""
+    db.execute(
+        insert(Instrument)
+        .values(symbol=symbol, quote_currency=guess_quote_currency(symbol))
+        .on_conflict_do_nothing(index_elements=[Instrument.symbol])
+    )
