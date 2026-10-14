@@ -12,11 +12,12 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import Direction, TradeStatus
 from app.models.base import PRICE as Price
 from app.models.base import Base, TimestampMixin, enum_check, str_enum
+from app.models.instrument import Instrument
 
 
 class Trade(TimestampMixin, Base):
@@ -91,3 +92,11 @@ class Trade(TimestampMixin, Base):
     pnl: Mapped[Decimal | None] = mapped_column(Price)
     # Return on the margin committed (notional / leverage), in percent.
     pnl_pct: Mapped[Decimal | None] = mapped_column(Numeric(12, 4))
+
+    # Loaded with a separate query, so that locking a trade doesn't lock its instrument.
+    instrument: Mapped[Instrument] = relationship(lazy="selectin")
+
+    @property
+    def quote_currency(self) -> str | None:
+        """The currency of the trade's prices, fees and P&L."""
+        return self.instrument.quote_currency

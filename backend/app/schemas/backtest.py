@@ -47,6 +47,8 @@ class BacktestRead(BaseModel):
     strategy_id: uuid.UUID
     strategy_version: int
     symbol: str
+    # The currency of the capital, P&L and equity; None until set (see /api/instruments).
+    quote_currency: str | None
     timeframe: Timeframe
     start: datetime | None = Field(validation_alias="start_ts")
     end: datetime | None = Field(validation_alias="end_ts")

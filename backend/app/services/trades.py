@@ -175,6 +175,7 @@ def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate
     try:
         if "symbol" in changes:
             instruments.register(db, changes["symbol"])
+            db.expire(trade, ["instrument"])  # reloaded for the new symbol
         for field, value in changes.items():
             setattr(trade, field, value)
         _record(db, trade, user, TradeEvent.UPDATE, old, new)
@@ -296,6 +297,7 @@ def correct_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCorre
     try:
         if "symbol" in changes:
             instruments.register(db, changes["symbol"])
+            db.expire(trade, ["instrument"])  # reloaded for the new symbol
         for field, new_value in changes.items():
             setattr(trade, field, new_value)
         _record(db, trade, user, TradeEvent.CORRECTION, old, new, data.reason)

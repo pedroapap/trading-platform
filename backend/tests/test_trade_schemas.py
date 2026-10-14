@@ -83,6 +83,7 @@ def test_read_serializes_decimals_as_exact_strings():
         strategy_id=None,
         strategy_version=None,
         symbol="BTCUSD",
+        quote_currency="USD",
         direction=Direction.LONG,
         status=TradeStatus.CLOSED,
         entry_price=Decimal("45000.00000000"),

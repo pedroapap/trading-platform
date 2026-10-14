@@ -97,6 +97,8 @@ class TradeRead(BaseModel):
     # The version of the strategy the trade followed.
     strategy_version: int | None
     symbol: str
+    # The currency of the prices, fees and P&L; None until set (see /api/instruments).
+    quote_currency: str | None
     direction: Direction
     status: TradeStatus
     entry_price: DecimalOut

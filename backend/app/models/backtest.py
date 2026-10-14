@@ -14,12 +14,13 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.enums import BacktestStatus, Direction, ExitReason
 from app.market_data.timeframes import Timeframe
 from app.models.base import PRICE as Price
 from app.models.base import Base, enum_check, str_enum
+from app.models.instrument import Instrument
 
 PERCENT = Numeric(7, 4)
 
@@ -95,6 +96,13 @@ class Backtest(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.clock_timestamp())
     started_at: Mapped[datetime | None]
     completed_at: Mapped[datetime | None]
+
+    instrument: Mapped[Instrument] = relationship(lazy="selectin")
+
+    @property
+    def quote_currency(self) -> str | None:
+        """The currency of the capital, prices, fees, P&L and equity."""
+        return self.instrument.quote_currency
 
 
 class BacktestTrade(Base):

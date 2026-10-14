@@ -95,6 +95,7 @@ def compare_with_backtest(db: Session, user: User, backtest_id: uuid.UUID) -> Ba
         strategy_id=backtest.strategy_id,
         strategy_version=backtest.strategy_version,
         symbol=backtest.symbol,
+        quote_currency=backtest.quote_currency,
         period_start=backtest.first_bar_ts,
         period_end=period_end,
         live=_comparison_side(db, live),

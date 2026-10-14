@@ -102,6 +102,8 @@ class BacktestComparison(BaseModel):
     strategy_id: uuid.UUID
     strategy_version: int
     symbol: str
+    # The currency of both sides' P&L; None until set (see /api/instruments).
+    quote_currency: str | None
     period_start: datetime
     period_end: datetime
     live: ComparisonSide
