@@ -1,10 +1,12 @@
+import uuid
+from datetime import datetime
 from enum import StrEnum
 from typing import Self
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
 
 from app.enums import EntryType
-from app.schemas.common import DecimalOut
+from app.schemas.common import DecimalOut, Symbol
 
 
 class GroupBy(StrEnum):
@@ -52,3 +54,32 @@ class PerformanceReport(BaseModel):
     by: GroupBy
     # Best total P&L first.
     groups: list[PerformanceGroup]
+
+
+class EquityQuery(BaseModel):
+    """Which closed trades make up the realized equity curve; closing times are filtered as
+    [closed_from, closed_to)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    symbol: Symbol | None = None
+    strategy_id: uuid.UUID | None = None
+    closed_from: AwareDatetime | None = None
+    closed_to: AwareDatetime | None = None
+
+
+class RealizedPoint(BaseModel):
+    # When the trade closed.
+    ts: datetime
+    trade_id: uuid.UUID
+    pnl: DecimalOut
+    cumulative_pnl: DecimalOut
+
+
+class RealizedEquity(BaseModel):
+    """Realized P&L over time: one point per closed trade, in closing order."""
+
+    points: list[RealizedPoint]
+    total_pnl: DecimalOut
+    # The largest fall of the cumulative P&L from an earlier high; the first high is 0.
+    max_drawdown: DecimalOut

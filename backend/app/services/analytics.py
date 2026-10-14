@@ -1,12 +1,22 @@
 """Analytics of the user's own closed trades. Open and cancelled trades have no P&L, so they
 are left out. P&L is summed as recorded, without converting between quote currencies."""
 
+from datetime import datetime
+from decimal import Decimal
+
 from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.enums import TradeStatus
 from app.models import JournalEntry, Strategy, Trade, User
-from app.schemas.analytics import GroupBy, PerformanceGroup, PerformanceQuery
+from app.schemas.analytics import (
+    EquityQuery,
+    GroupBy,
+    PerformanceGroup,
+    PerformanceQuery,
+    RealizedEquity,
+    RealizedPoint,
+)
 
 
 def performance(db: Session, user: User, query: PerformanceQuery) -> list[PerformanceGroup]:
@@ -36,7 +46,7 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
             func.round(func.avg(Trade.pnl), 12).label("average_pnl"),
         )
         .select_from(source)
-        .where(*_closed_trades(user, query))
+        .where(*_closed_trades(user, query.closed_from, query.closed_to))
         .group_by(key, label)
         .order_by(total.desc(), key.asc().nulls_last())
     )
@@ -68,10 +78,35 @@ def _journal_keys(user: User, query: PerformanceQuery):
     return keys.distinct()
 
 
-def _closed_trades(user: User, query: PerformanceQuery) -> list:
+def realized_equity(db: Session, user: User, query: EquityQuery) -> RealizedEquity:
+    """Closed trades' P&L accumulated in closing order, with the deepest drawdown."""
+    conditions = _closed_trades(user, query.closed_from, query.closed_to)
+    if query.symbol is not None:
+        conditions.append(Trade.symbol == query.symbol)
+    if query.strategy_id is not None:
+        conditions.append(Trade.strategy_id == query.strategy_id)
+    rows = db.execute(
+        select(Trade.id, Trade.exit_time, Trade.pnl)
+        .where(*conditions)
+        .order_by(Trade.exit_time, Trade.entry_time, Trade.id)
+    )
+
+    points: list[RealizedPoint] = []
+    cumulative = high = max_drawdown = Decimal(0)
+    for trade_id, exit_time, pnl in rows:
+        cumulative += pnl
+        high = max(high, cumulative)
+        max_drawdown = max(max_drawdown, high - cumulative)
+        points.append(
+            RealizedPoint(ts=exit_time, trade_id=trade_id, pnl=pnl, cumulative_pnl=cumulative)
+        )
+    return RealizedEquity(points=points, total_pnl=cumulative, max_drawdown=max_drawdown)
+
+
+def _closed_trades(user: User, closed_from: datetime | None, closed_to: datetime | None) -> list:
     conditions = [Trade.user_id == user.id, Trade.status == TradeStatus.CLOSED]
-    if query.closed_from is not None:
-        conditions.append(Trade.exit_time >= query.closed_from)
-    if query.closed_to is not None:
-        conditions.append(Trade.exit_time < query.closed_to)
+    if closed_from is not None:
+        conditions.append(Trade.exit_time >= closed_from)
+    if closed_to is not None:
+        conditions.append(Trade.exit_time < closed_to)
     return conditions
