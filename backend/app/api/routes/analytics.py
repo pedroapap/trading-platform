@@ -13,5 +13,6 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 def performance(
     query: Annotated[PerformanceQuery, Query()], db: DbSession, user: CurrentUser
 ) -> PerformanceReport:
-    """P&L and win rate of closed trades, grouped by strategy or symbol."""
+    """P&L and win rate of closed trades, grouped by strategy, symbol, or the emotions and tags
+    recorded in the journal entries about them."""
     return PerformanceReport(by=query.by, groups=analytics.performance(db, user, query))

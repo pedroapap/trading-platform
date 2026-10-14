@@ -5,12 +5,13 @@ from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
 from app.enums import TradeStatus
-from app.models import Strategy, Trade, User
+from app.models import JournalEntry, Strategy, Trade, User
 from app.schemas.analytics import GroupBy, PerformanceGroup, PerformanceQuery
 
 
 def performance(db: Session, user: User, query: PerformanceQuery) -> list[PerformanceGroup]:
-    """P&L and win rate of closed trades per strategy or symbol, best total P&L first."""
+    """P&L and win rate of closed trades per strategy, symbol, emotion or tag, best total P&L
+    first. A trade counts once in each emotion or tag that its journal entries record."""
     match query.by:
         case GroupBy.SYMBOL:
             key = label = Trade.symbol
@@ -18,6 +19,10 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
         case GroupBy.STRATEGY:
             key, label = cast(Trade.strategy_id, String), Strategy.name
             source = Trade.__table__.outerjoin(Strategy, Strategy.id == Trade.strategy_id)
+        case GroupBy.EMOTION | GroupBy.TAG:
+            notes = _journal_keys(user, query).subquery()
+            key = label = notes.c.key
+            source = Trade.__table__.outerjoin(notes, notes.c.trade_id == Trade.id)
 
     total = func.sum(Trade.pnl)
     statement = (
@@ -48,6 +53,19 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
         )
         for row in db.execute(statement)
     ]
+
+
+def _journal_keys(user: User, query: PerformanceQuery):
+    """Each trade's distinct emotions or tags, from the user's journal entries about it."""
+    if query.by == GroupBy.EMOTION:
+        keys = select(JournalEntry.trade_id, JournalEntry.emotion.label("key"))
+        keys = keys.where(JournalEntry.emotion.is_not(None))
+    else:
+        keys = select(JournalEntry.trade_id, func.unnest(JournalEntry.tags).label("key"))
+    keys = keys.where(JournalEntry.user_id == user.id, JournalEntry.trade_id.is_not(None))
+    if query.entry_type is not None:
+        keys = keys.where(JournalEntry.entry_type == query.entry_type)
+    return keys.distinct()
 
 
 def _closed_trades(user: User, query: PerformanceQuery) -> list:
