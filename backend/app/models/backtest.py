@@ -61,7 +61,9 @@ class Backtest(Base):
     strategy_id: Mapped[uuid.UUID]
     strategy_version: Mapped[int]
 
-    symbol: Mapped[str] = mapped_column(String(20))
+    symbol: Mapped[str] = mapped_column(
+        String(20), ForeignKey("instruments.symbol", ondelete="RESTRICT")
+    )
     timeframe: Mapped[Timeframe] = mapped_column(str_enum(Timeframe, "timeframe"))
     # Requested bar start times, [start_ts, end_ts); None leaves that side open.
     start_ts: Mapped[datetime | None]

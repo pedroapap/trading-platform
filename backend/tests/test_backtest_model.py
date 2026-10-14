@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 
 from app.enums import BacktestStatus, Direction, ExitReason
@@ -22,6 +22,16 @@ def test_a_backtest_needs_an_existing_strategy_version(db_session, user):
 
     with pytest.raises(IntegrityError, match="fk_backtests_strategy_id_strategy_versions"):
         make_backtest(db_session, user, strategy, strategy_version=2)
+
+
+def test_a_backtest_needs_a_registered_symbol(db_session, user):
+    backtest = make_backtest(db_session, user, make_strategy(db_session, user))
+
+    with pytest.raises(IntegrityError, match="fk_backtests_symbol_instruments"):
+        db_session.execute(
+            text("UPDATE backtests SET symbol = 'UNREGISTERED' WHERE id = :id"),
+            {"id": backtest.id},
+        )
 
 
 @pytest.mark.parametrize(

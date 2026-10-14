@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.enums import Direction, TradeStatus
 from app.models import Backtest, JournalEntry, Strategy, StrategyVersion, Trade, User
+from app.services import instruments
 from app.services.market_data import import_bars
 
 USER_EMAIL = "trader@example.com"
@@ -37,8 +38,8 @@ RSI_SWINGS = {
 
 
 def make_trade(db: Session, user: User, **overrides: object) -> Trade:
-    """Insert an open BTCUSD long (1 @ 100) directly, bypassing services. A trade given a
-    strategy follows its version 1 unless told otherwise."""
+    """Insert an open BTCUSD long (1 @ 100) directly, bypassing services, after registering
+    its symbol. A trade given a strategy follows its version 1 unless told otherwise."""
     values: dict[str, object] = {
         "symbol": "BTCUSD",
         "direction": Direction.LONG,
@@ -48,7 +49,9 @@ def make_trade(db: Session, user: User, **overrides: object) -> Trade:
     }
     if overrides.get("strategy_id") is not None:
         values["strategy_version"] = 1
-    trade = Trade(user_id=user.id, **(values | overrides))
+    values |= overrides
+    instruments.register(db, values["symbol"])
+    trade = Trade(user_id=user.id, **values)
     db.add(trade)
     db.flush()
     db.refresh(trade)
@@ -86,7 +89,8 @@ def make_strategy(
 
 
 def make_backtest(db: Session, user: User, strategy: Strategy, **overrides: object) -> Backtest:
-    """Insert a pending daily BTCUSD backtest of the strategy's version 1, bypassing services."""
+    """Insert a pending daily BTCUSD backtest of the strategy's version 1 directly, bypassing
+    services, after registering its symbol."""
     values: dict[str, object] = {
         "strategy_version": 1,
         "symbol": "BTCUSD",
@@ -97,7 +101,9 @@ def make_backtest(db: Session, user: User, strategy: Strategy, **overrides: obje
         "slippage_pct": Decimal("0"),
         "periods_per_year": 365,
     }
-    backtest = Backtest(user_id=user.id, strategy_id=strategy.id, **(values | overrides))
+    values |= overrides
+    instruments.register(db, values["symbol"])
+    backtest = Backtest(user_id=user.id, strategy_id=strategy.id, **values)
     db.add(backtest)
     db.flush()
     db.refresh(backtest)

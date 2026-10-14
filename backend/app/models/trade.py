@@ -66,7 +66,9 @@ class Trade(TimestampMixin, Base):
     # The version of the strategy the trade followed.
     strategy_version: Mapped[int | None]
 
-    symbol: Mapped[str] = mapped_column(String(20))
+    symbol: Mapped[str] = mapped_column(
+        String(20), ForeignKey("instruments.symbol", ondelete="RESTRICT")
+    )
     direction: Mapped[Direction] = mapped_column(str_enum(Direction, "direction"))
     status: Mapped[TradeStatus] = mapped_column(
         str_enum(TradeStatus, "status"), server_default=TradeStatus.OPEN.value

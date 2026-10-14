@@ -21,6 +21,7 @@ def test_new_trade_gets_defaults(db_session, user):
 @pytest.mark.parametrize(
     ("assignments", "constraint"),
     [
+        ("symbol = 'UNREGISTERED'", "fk_trades_symbol_instruments"),
         ("direction = 'flat'", "ck_trades_direction"),
         ("status = 'pending'", "ck_trades_status"),
         ("entry_price = 0", "ck_trades_entry_price_positive"),

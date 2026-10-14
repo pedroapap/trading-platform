@@ -53,7 +53,7 @@ def test_a_trade_corrected_to_another_symbol_registers_it(db_session, user):
         db_session, user, trade.id, TradeCorrection(symbol="ethbtc", reason="Wrong pair")
     )
 
-    assert registered(db_session) == {"ETHBTC": "BTC"}
+    assert registered(db_session) == {"BTCUSD": "USD", "ETHBTC": "BTC"}
 
 
 def test_imported_bars_register_their_symbol(db_session):
