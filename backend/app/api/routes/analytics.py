@@ -30,8 +30,8 @@ def performance(
 def realized_equity(
     query: Annotated[EquityQuery, Query()], db: DbSession, user: CurrentUser
 ) -> RealizedEquity:
-    """Realized P&L over time from closed trades, optionally for one symbol or strategy, with
-    its deepest drawdown in money."""
+    """Realized P&L over time from closed trades, optionally for one symbol or strategy: one
+    curve per quote currency, each with its deepest drawdown in money."""
     return analytics.realized_equity(db, user, query)
 
 

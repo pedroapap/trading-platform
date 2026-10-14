@@ -89,13 +89,22 @@ class RealizedPoint(BaseModel):
     cumulative_pnl: DecimalOut
 
 
-class RealizedEquity(BaseModel):
-    """Realized P&L over time: one point per closed trade, in closing order."""
+class RealizedCurve(BaseModel):
+    """Realized P&L in one quote currency over time: one point per closed trade, in closing
+    order."""
 
+    # None for symbols whose quote currency isn't set; their P&L may mix currencies.
+    currency: str | None
     points: list[RealizedPoint]
     total_pnl: DecimalOut
     # The largest fall of the cumulative P&L from an earlier high; the first high is 0.
     max_drawdown: DecimalOut
+
+
+class RealizedEquity(BaseModel):
+    # One curve per quote currency, by code, an unset currency last: P&L in different
+    # currencies is never added up.
+    curves: list[RealizedCurve]
 
 
 class ComparisonSide(BaseModel):

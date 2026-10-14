@@ -20,6 +20,7 @@ from app.schemas.analytics import (
     GroupBy,
     PerformanceGroup,
     PerformanceQuery,
+    RealizedCurve,
     RealizedEquity,
     RealizedPoint,
 )
@@ -170,28 +171,44 @@ def _journal_keys(user: User, query: PerformanceQuery):
 
 
 def realized_equity(db: Session, user: User, query: EquityQuery) -> RealizedEquity:
-    """Closed trades' P&L accumulated in closing order, with the deepest drawdown."""
+    """Closed trades' P&L accumulated in closing order, one curve per quote currency, each
+    with its deepest drawdown."""
     conditions = _closed_trades(user, query.closed_from, query.closed_to)
     if query.symbol is not None:
         conditions.append(Trade.symbol == query.symbol)
     if query.strategy_id is not None:
         conditions.append(Trade.strategy_id == query.strategy_id)
+    currency = Instrument.quote_currency
     rows = db.execute(
-        select(Trade.id, Trade.exit_time, Trade.pnl)
+        select(currency, Trade.id, Trade.exit_time, Trade.pnl)
+        .join(Instrument, Instrument.symbol == Trade.symbol)
         .where(*conditions)
-        .order_by(Trade.exit_time, Trade.entry_time, Trade.id)
+        .order_by(currency.asc().nulls_last(), Trade.exit_time, Trade.entry_time, Trade.id)
+    )
+    by_currency: defaultdict[str | None, list] = defaultdict(list)
+    for row in rows:
+        by_currency[row.quote_currency].append(row)
+    return RealizedEquity(
+        curves=[_realized_curve(code, trades) for code, trades in by_currency.items()]
     )
 
+
+def _realized_curve(currency: str | None, trades: list) -> RealizedCurve:
+    """Accumulate trades in one currency, given in closing order."""
     points: list[RealizedPoint] = []
     cumulative = high = max_drawdown = Decimal(0)
-    for trade_id, exit_time, pnl in rows:
-        cumulative += pnl
+    for trade in trades:
+        cumulative += trade.pnl
         high = max(high, cumulative)
         max_drawdown = max(max_drawdown, high - cumulative)
         points.append(
-            RealizedPoint(ts=exit_time, trade_id=trade_id, pnl=pnl, cumulative_pnl=cumulative)
+            RealizedPoint(
+                ts=trade.exit_time, trade_id=trade.id, pnl=trade.pnl, cumulative_pnl=cumulative
+            )
         )
-    return RealizedEquity(points=points, total_pnl=cumulative, max_drawdown=max_drawdown)
+    return RealizedCurve(
+        currency=currency, points=points, total_pnl=cumulative, max_drawdown=max_drawdown
+    )
 
 
 def _closed_trades(user: User, closed_from: datetime | None, closed_to: datetime | None) -> list:
