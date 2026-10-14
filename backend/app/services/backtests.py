@@ -20,7 +20,7 @@ from app.enums import BacktestStatus
 from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
 from app.models import Backtest, BacktestTrade, Strategy, StrategyVersion, User
 from app.schemas.backtest import BacktestCreate, BacktestFilters
-from app.services import market_data
+from app.services import instruments, market_data
 from app.strategies.definition import StrategyDefinition
 
 logger = logging.getLogger(__name__)
@@ -51,6 +51,7 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
         slippage_pct=data.slippage_pct,
         periods_per_year=data.periods_per_year,
     )
+    instruments.register(db, backtest.symbol)
     db.add(backtest)
     db.commit()
     db.refresh(backtest)

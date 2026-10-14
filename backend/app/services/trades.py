@@ -20,6 +20,7 @@ from app.schemas.trade import (
     TradeFilters,
     TradeUpdate,
 )
+from app.services import instruments
 from app.services.pnl import trade_pnl
 
 ENTRY_FIELDS = (
@@ -107,6 +108,7 @@ def create_trade(db: Session, user: User, data: TradeCreate) -> Trade:
     _link_strategy(db, user, values)
     trade = Trade(user_id=user.id, **values)
     try:
+        instruments.register(db, trade.symbol)
         db.add(trade)
         db.flush()  # assigns the id the audit row points to
         _record(db, trade, user, TradeEvent.ENTRY, None, _snapshot(trade, ENTRY_FIELDS))
@@ -171,6 +173,8 @@ def update_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeUpdate
     old = {field: _json_value(getattr(trade, field)) for field in changes}
     new = {field: _json_value(value) for field, value in changes.items()}
     try:
+        if "symbol" in changes:
+            instruments.register(db, changes["symbol"])
         for field, value in changes.items():
             setattr(trade, field, value)
         _record(db, trade, user, TradeEvent.UPDATE, old, new)
@@ -290,6 +294,8 @@ def correct_trade(db: Session, user: User, trade_id: uuid.UUID, data: TradeCorre
     old = {field: _json_value(getattr(trade, field)) for field in changes}
     new = {field: _json_value(new_value) for field, new_value in changes.items()}
     try:
+        if "symbol" in changes:
+            instruments.register(db, changes["symbol"])
         for field, new_value in changes.items():
             setattr(trade, field, new_value)
         _record(db, trade, user, TradeEvent.CORRECTION, old, new, data.reason)

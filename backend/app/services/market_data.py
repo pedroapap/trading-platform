@@ -18,6 +18,7 @@ from app.market_data.validation import BarValidator, Rejection, infer_timeframe
 from app.models import MarketData
 from app.schemas.common import Symbol
 from app.schemas.market_data import BarQuery
+from app.services import instruments
 
 CHUNK_ROWS = 50_000
 MAX_REPORTED_REJECTIONS = 100
@@ -128,6 +129,7 @@ def _import(
             {"symbol": symbol, "timeframe": summary.timeframe.value, "source": fmt.name},
         ).rowcount
         summary.duplicates = staged - summary.inserted
+        instruments.register(db, symbol)
         db.commit()
     except Exception:
         db.rollback()
