@@ -83,3 +83,26 @@ class RealizedEquity(BaseModel):
     total_pnl: DecimalOut
     # The largest fall of the cumulative P&L from an earlier high; the first high is 0.
     max_drawdown: DecimalOut
+
+
+class ComparisonSide(BaseModel):
+    num_trades: int
+    win_rate_pct: float | None
+    # Mean return per trade on its notional, in percent: a live trade's return on margin is
+    # divided by its leverage, so leverage does not skew the comparison.
+    average_return_pct: DecimalOut | None
+    total_pnl: DecimalOut
+
+
+class BacktestComparison(BaseModel):
+    """A backtest next to the live trades of the same strategy version and symbol entered
+    during the bars it covered, [period_start, period_end)."""
+
+    backtest_id: uuid.UUID
+    strategy_id: uuid.UUID
+    strategy_version: int
+    symbol: str
+    period_start: datetime
+    period_end: datetime
+    live: ComparisonSide
+    backtest: ComparisonSide

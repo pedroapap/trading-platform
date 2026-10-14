@@ -1,15 +1,19 @@
 """Analytics of the user's own closed trades. Open and cancelled trades have no P&L, so they
 are left out. P&L is summed as recorded, without converting between quote currencies."""
 
+import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import String, cast, func, select
+from sqlalchemy import Select, String, cast, func, select
 from sqlalchemy.orm import Session
 
-from app.enums import TradeStatus
-from app.models import JournalEntry, Strategy, Trade, User
+from app.enums import BacktestStatus, TradeStatus
+from app.errors import ConflictError
+from app.models import BacktestTrade, JournalEntry, Strategy, Trade, User
 from app.schemas.analytics import (
+    BacktestComparison,
+    ComparisonSide,
     EquityQuery,
     GroupBy,
     PerformanceGroup,
@@ -17,6 +21,7 @@ from app.schemas.analytics import (
     RealizedEquity,
     RealizedPoint,
 )
+from app.services import backtests
 
 
 def performance(db: Session, user: User, query: PerformanceQuery) -> list[PerformanceGroup]:
@@ -63,6 +68,57 @@ def performance(db: Session, user: User, query: PerformanceQuery) -> list[Perfor
         )
         for row in db.execute(statement)
     ]
+
+
+def compare_with_backtest(db: Session, user: User, backtest_id: uuid.UUID) -> BacktestComparison:
+    """A completed backtest next to the live trades that followed the same strategy version on
+    the same symbol, entered while its bars ran."""
+    backtest = backtests.get_backtest(db, user, backtest_id)
+    if backtest.status != BacktestStatus.COMPLETED:
+        raise ConflictError(
+            f"Only a completed backtest can be compared; this one is {backtest.status}"
+        )
+    period_end = backtest.last_bar_ts + backtest.timeframe.delta
+    live = select(Trade.pnl, (Trade.pnl_pct / Trade.leverage).label("return_pct")).where(
+        *_closed_trades(user, None, None),
+        Trade.strategy_id == backtest.strategy_id,
+        Trade.strategy_version == backtest.strategy_version,
+        Trade.symbol == backtest.symbol,
+        Trade.entry_time >= backtest.first_bar_ts,
+        Trade.entry_time < period_end,
+    )
+    simulated = select(BacktestTrade.pnl, BacktestTrade.pnl_pct.label("return_pct")).where(
+        BacktestTrade.backtest_id == backtest.id
+    )
+    return BacktestComparison(
+        backtest_id=backtest.id,
+        strategy_id=backtest.strategy_id,
+        strategy_version=backtest.strategy_version,
+        symbol=backtest.symbol,
+        period_start=backtest.first_bar_ts,
+        period_end=period_end,
+        live=_comparison_side(db, live),
+        backtest=_comparison_side(db, simulated),
+    )
+
+
+def _comparison_side(db: Session, trades: Select) -> ComparisonSide:
+    """Statistics of a query's rows, each a trade's `pnl` and `return_pct`."""
+    rows = trades.subquery()
+    stats = db.execute(
+        select(
+            func.count().label("num_trades"),
+            func.count().filter(rows.c.pnl > 0).label("wins"),
+            func.round(func.avg(rows.c.return_pct), 4).label("average_return_pct"),
+            func.coalesce(func.sum(rows.c.pnl), 0).label("total_pnl"),
+        )
+    ).one()
+    return ComparisonSide(
+        num_trades=stats.num_trades,
+        win_rate_pct=stats.wins / stats.num_trades * 100 if stats.num_trades else None,
+        average_return_pct=stats.average_return_pct,
+        total_pnl=stats.total_pnl,
+    )
 
 
 def _journal_keys(user: User, query: PerformanceQuery):
