@@ -4,6 +4,7 @@ implies; a currency it doesn't imply, or a wrong guess, is set by hand."""
 
 import re
 
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -49,3 +50,26 @@ def register(db: Session, symbol: str) -> None:
         .values(symbol=symbol, quote_currency=guess_quote_currency(symbol))
         .on_conflict_do_nothing(index_elements=[Instrument.symbol])
     )
+
+
+def list_instruments(db: Session) -> list[Instrument]:
+    """Every registered symbol, alphabetically."""
+    return list(db.scalars(select(Instrument).order_by(Instrument.symbol)))
+
+
+def set_quote_currency(db: Session, symbol: str, currency: str) -> Instrument:
+    """Set a normalized symbol's quote currency, registering the symbol if it is new."""
+    upsert = insert(Instrument).values(symbol=symbol, quote_currency=currency)
+    upsert = upsert.on_conflict_do_update(
+        index_elements=[Instrument.symbol],
+        set_={"quote_currency": currency, "updated_at": func.now()},
+    )
+    try:
+        instrument = db.scalars(
+            upsert.returning(Instrument), execution_options={"populate_existing": True}
+        ).one()
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    return instrument

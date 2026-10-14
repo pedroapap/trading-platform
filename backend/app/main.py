@@ -11,6 +11,7 @@ from app.api.routes import (
     auth,
     backtests,
     health,
+    instruments,
     journal,
     market_data,
     strategies,
@@ -43,6 +44,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(trades.router, prefix="/api")
 app.include_router(market_data.router, prefix="/api")
+app.include_router(instruments.router, prefix="/api")
 app.include_router(strategies.router, prefix="/api")
 app.include_router(backtests.router, prefix="/api")
 app.include_router(journal.router, prefix="/api")

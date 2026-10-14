@@ -19,13 +19,18 @@ Fee = Annotated[Decimal, Field(ge=0, max_digits=28, decimal_places=12)]
 Leverage = Annotated[Decimal, Field(ge=1, max_digits=10, decimal_places=2)]
 
 
-def _normalize_symbol(value: object) -> object:
+def _strip_upper(value: object) -> object:
     return value.strip().upper() if isinstance(value, str) else value
 
 
 # Normalized before validating, since StringConstraints checks the pattern first.
 Symbol = Annotated[
     str,
-    BeforeValidator(_normalize_symbol),
+    BeforeValidator(_strip_upper),
     StringConstraints(min_length=1, max_length=20, pattern=r"^[A-Z0-9][A-Z0-9._:/-]*$"),
+]
+
+# A currency code such as USD, USDT or BTC.
+Currency = Annotated[
+    str, BeforeValidator(_strip_upper), StringConstraints(pattern=r"^[A-Z0-9]{2,10}$")
 ]
