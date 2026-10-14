@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev web down test lint fmt db-shell migrate revision user import-csv
+.PHONY: help setup dev web down test lint fmt openapi db-shell migrate revision user import-csv
 
 BACKEND := backend
 FRONTEND := frontend
@@ -36,6 +36,10 @@ lint: ## Lint, check formatting and typecheck
 fmt: ## Fix lint issues and format
 	cd $(BACKEND) && uv run ruff check --fix . && uv run ruff format .
 	cd $(FRONTEND) && npm run lint -- --fix && npm run format
+
+openapi: ## Snapshot the API schema and regenerate the frontend's types from it
+	cd $(BACKEND) && uv run python -m app.cli openapi > ../$(FRONTEND)/src/api/openapi.json
+	cd $(FRONTEND) && npm run api:types
 
 migrate: ## Apply database migrations
 	$(COMPOSE) up -d --wait db

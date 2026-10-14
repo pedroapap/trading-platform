@@ -67,6 +67,8 @@ jobs:
         run: npm run format:check
       - name: Typecheck
         run: npm run typecheck
+      - name: Check API types match the schema snapshot
+        run: npm run api:check
       - name: Test
         run: npm test
       - name: Build

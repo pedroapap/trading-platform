@@ -2,6 +2,7 @@
 
 import argparse
 import getpass
+import json
 import sys
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
@@ -11,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_sessionmaker
 from app.errors import DomainError
+from app.main import app
 from app.market_data import formats
 from app.market_data.timeframes import Timeframe
 from app.schemas.auth import RegisterRequest
@@ -78,6 +80,11 @@ def import_csv(args: argparse.Namespace) -> int:
     return 0
 
 
+def print_openapi(args: argparse.Namespace) -> int:
+    print(json.dumps(app.openapi(), indent=2))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.cli")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -104,6 +111,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--format", choices=formats.available(), help="file format (detected if omitted)"
     )
     importer.set_defaults(handler=import_csv)
+
+    schema = commands.add_parser(
+        "openapi", help="print the API's OpenAPI schema, from which the frontend's types are made"
+    )
+    schema.set_defaults(handler=print_openapi)
 
     args = parser.parse_args(argv)
     return args.handler(args)
