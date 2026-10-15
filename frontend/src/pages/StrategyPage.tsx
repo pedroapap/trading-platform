@@ -94,6 +94,11 @@ export default function StrategyPage() {
           </p>
           {strategy.data.description && <p className="prose">{strategy.data.description}</p>}
           <Json value={strategy.data.definition} />
+          <p>
+            <Link to={`/backtests/new?strategy=${strategy.data.id}`} role="button">
+              Backtest it
+            </Link>
+          </p>
           <EditStrategy key={strategy.data.updated_at} strategy={strategy.data} />
           <h2>History</h2>
           <VersionHistory strategyId={strategy.data.id} />

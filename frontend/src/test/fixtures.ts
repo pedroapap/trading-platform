@@ -118,3 +118,65 @@ export function journalEntry(
     ...overrides,
   };
 }
+
+/** A completed year-long BTCUSDT 1h backtest of STRATEGY v2. */
+export function backtest(
+  overrides: Partial<Schemas["BacktestRead"]> = {},
+): Schemas["BacktestRead"] {
+  return {
+    id: nextId(),
+    strategy_id: STRATEGY.id,
+    strategy_version: 2,
+    symbol: "BTCUSDT",
+    quote_currency: "USDT",
+    timeframe: "1h",
+    start: null,
+    end: null,
+    initial_capital: "10000",
+    position_size_pct: "100",
+    fee_pct: "0.1",
+    slippage_pct: "0.05",
+    periods_per_year: 365,
+    status: "completed",
+    error_message: null,
+    bars_count: 8760,
+    first_bar_ts: "2025-01-01T00:00:00Z",
+    last_bar_ts: "2025-12-31T23:00:00Z",
+    data_hash: "9f2c4e0a7b1d3c5e8f6a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e",
+    metrics: {
+      total_return_pct: 12.3456,
+      cagr_pct: 12.3456,
+      max_drawdown_pct: 8.5,
+      sharpe_ratio: 1.234,
+      sortino_ratio: 1.876,
+      num_trades: 42,
+      win_rate_pct: 57.142857,
+      profit_factor: 1.6,
+      expectancy: 29.39,
+      average_win: 120.5,
+      average_loss: -80.25,
+      exposure_pct: 35.5,
+    },
+    created_at: "2026-01-10T09:00:00Z",
+    started_at: "2026-01-10T09:00:01Z",
+    completed_at: "2026-01-10T09:00:03Z",
+    ...overrides,
+  };
+}
+
+/** A backtest still waiting to run: no data or results yet. */
+export function pendingBacktest(
+  overrides: Partial<Schemas["BacktestRead"]> = {},
+): Schemas["BacktestRead"] {
+  return backtest({
+    status: "pending",
+    bars_count: null,
+    first_bar_ts: null,
+    last_bar_ts: null,
+    data_hash: null,
+    metrics: null,
+    started_at: null,
+    completed_at: null,
+    ...overrides,
+  });
+}
