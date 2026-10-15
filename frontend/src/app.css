@@ -119,3 +119,9 @@ dl.metrics dd {
   font-size: 1.25rem;
   font-weight: 600;
 }
+
+/* On narrow screens the navigation wraps instead of widening the page. */
+#root > header nav,
+#root > header nav ul {
+  flex-wrap: wrap;
+}
