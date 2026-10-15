@@ -11,3 +11,12 @@ export function useJournalEntry(id: string) {
       unwrap(api.GET("/api/journal/{entry_id}", { params: { path: { entry_id: id } } })),
   });
 }
+
+/** The published versions of an entry, oldest first; none for a draft. */
+export function useJournalVersions(id: string) {
+  return useQuery({
+    queryKey: ["journal", id, "versions"],
+    queryFn: () =>
+      unwrap(api.GET("/api/journal/{entry_id}/versions", { params: { path: { entry_id: id } } })),
+  });
+}

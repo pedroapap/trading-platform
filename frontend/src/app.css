@@ -35,3 +35,9 @@ table.details {
 .prose {
   white-space: pre-wrap;
 }
+
+/* An opened version in a history, set apart from the versions after it. */
+details.version[open] {
+  border-inline-start: 0.25rem solid var(--pico-muted-border-color);
+  padding-inline-start: 1rem;
+}
