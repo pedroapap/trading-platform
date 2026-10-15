@@ -1,6 +1,6 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 
 import { api, unwrap } from "../api/client";
 import type { components } from "../api/schema";
@@ -9,25 +9,26 @@ import Money from "../components/Money";
 import Pagination from "../components/Pagination";
 import { ErrorMessage, Loading } from "../components/Status";
 import { formatDateTime } from "../format";
+import { useListParams } from "../useListParams";
 
 type TradeStatus = components["schemas"]["TradeStatus"];
 
-const PAGE_SIZE = 50;
 const STATUSES: TradeStatus[] = ["open", "closed", "cancelled"];
 
 export default function TradesPage() {
-  // Filters and page live in the URL, so they survive a reload and the back button.
-  const [params, setParams] = useSearchParams();
-  const symbol = params.get("symbol") ?? "";
-  const status = STATUSES.find((value) => value === params.get("status"));
-  const offset = (Math.max(1, Number(params.get("page")) || 1) - 1) * PAGE_SIZE;
+  const { filters, offset, limit, applyFilters, showPage } = useListParams([
+    "symbol",
+    "status",
+  ] as const);
+  const symbol = filters.symbol;
+  const status = STATUSES.find((value) => value === filters.status);
 
   const trades = useQuery({
     queryKey: ["trades", { symbol, status, offset }],
     queryFn: () =>
       unwrap(
         api.GET("/api/trades", {
-          params: { query: { symbol: symbol || undefined, status, limit: PAGE_SIZE, offset } },
+          params: { query: { symbol: symbol || undefined, status, limit, offset } },
         }),
       ),
     placeholderData: keepPreviousData,
@@ -37,19 +38,7 @@ export default function TradesPage() {
 
   function filter(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const fields = new FormData(event.currentTarget);
-    const next = new URLSearchParams();
-    for (const name of ["symbol", "status"]) {
-      const value = String(fields.get(name) ?? "").trim();
-      if (value) next.set(name, value);
-    }
-    setParams(next);
-  }
-
-  function showPage(newOffset: number) {
-    const next = new URLSearchParams(params);
-    next.set("page", String(newOffset / PAGE_SIZE + 1));
-    setParams(next);
+    applyFilters(event.currentTarget);
   }
 
   return (
@@ -125,12 +114,7 @@ export default function TradesPage() {
               </tbody>
             </table>
           </div>
-          <Pagination
-            offset={offset}
-            limit={PAGE_SIZE}
-            total={trades.data.total}
-            onPage={showPage}
-          />
+          <Pagination offset={offset} limit={limit} total={trades.data.total} onPage={showPage} />
         </>
       )}
     </>
