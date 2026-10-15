@@ -45,6 +45,11 @@ export default function JournalPage() {
   return (
     <>
       <h1>Journal</h1>
+      <p>
+        <Link to="/journal/new" role="button">
+          New entry
+        </Link>
+      </p>
       <form onSubmit={filter} role="search">
         <fieldset role="group">
           <select name="entry_type" aria-label="Type" defaultValue={filters.entry_type}>
@@ -94,7 +99,9 @@ export default function JournalPage() {
                 {entries.data.items.map((entry) => (
                   <tr key={entry.id}>
                     <td>{formatDateTime(entry.created_at)}</td>
-                    <td>{entry.title}</td>
+                    <td>
+                      <Link to={`/journal/${entry.id}`}>{entry.title}</Link>
+                    </td>
                     <td>{ENTRY_TYPES[entry.entry_type]}</td>
                     <td>{entryStatus(entry)}</td>
                     <td>{entry.emotion ?? "—"}</td>

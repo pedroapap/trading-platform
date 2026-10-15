@@ -81,6 +81,9 @@ export default function TradeDetailPage() {
               strategies={strategies.data ?? []}
             />
           )}
+          <p>
+            <Link to={`/journal/new?trade=${trade.data.id}`}>Write a journal entry about it</Link>
+          </p>
           <h2>History</h2>
           {events.error && <ErrorMessage error={events.error} />}
           {events.data && <AuditLog events={events.data} />}

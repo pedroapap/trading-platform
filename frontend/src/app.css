@@ -30,3 +30,8 @@ td.wrap {
 table.details {
   width: auto;
 }
+
+/* Text written in a textarea, keeping its line breaks. */
+.prose {
+  white-space: pre-wrap;
+}
