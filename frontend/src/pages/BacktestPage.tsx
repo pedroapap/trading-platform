@@ -1,7 +1,12 @@
 import type { ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
-import { useBacktest, useBacktestEquity, useBacktestTrades } from "../api/backtests";
+import {
+  useBacktest,
+  useBacktestComparison,
+  useBacktestEquity,
+  useBacktestTrades,
+} from "../api/backtests";
 import type { components } from "../api/schema";
 import { useStrategies } from "../api/strategies";
 import EquityChart from "../components/EquityChart";
@@ -130,6 +135,61 @@ function MetricTiles({ backtest }: { backtest: Backtest }) {
   );
 }
 
+/** The backtest next to the live trades that followed the same strategy version on the same
+ * symbol, entered while its bars ran. */
+function Comparison({ backtest, strategyName }: { backtest: Backtest; strategyName: string }) {
+  const comparison = useBacktestComparison(backtest.id);
+  if (comparison.isPending) return <Loading />;
+  if (comparison.error) return <ErrorMessage error={comparison.error} />;
+  const { live, period_start: start, period_end: end, quote_currency: currency } = comparison.data;
+  const sides = { Backtest: comparison.data.backtest, Live: live };
+  const rows: { label: string; cell: (side: Schemas["ComparisonSide"]) => ReactNode }[] = [
+    { label: "Trades", cell: (side) => formatCount(side.num_trades) },
+    { label: "Win rate", cell: (side) => formatPercent(side.win_rate_pct) },
+    {
+      label: "Average return on notional",
+      cell: (side) => formatPercent(side.average_return_pct),
+    },
+    {
+      label: "Total P&L",
+      cell: (side) => <Amount value={side.total_pnl} currency={currency} />,
+    },
+  ];
+  return (
+    <>
+      <p>
+        {live.num_trades === 0 ? "No live trades" : "Live trades"} of {strategyName} v
+        {comparison.data.strategy_version} on {comparison.data.symbol} were entered between{" "}
+        {formatDateTime(start)} and {formatDateTime(end)}.
+      </p>
+      <table className="details">
+        <thead>
+          <tr>
+            <td />
+            {Object.keys(sides).map((name) => (
+              <th key={name} scope="col" className="number">
+                {name}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ label, cell }) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              {Object.entries(sides).map(([name, side]) => (
+                <td key={name} className="number">
+                  {cell(side)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
+  );
+}
+
 function Equity({ backtest }: { backtest: Backtest }) {
   const equity = useBacktestEquity(backtest.id);
   const currency = backtest.quote_currency;
@@ -245,6 +305,11 @@ export default function BacktestPage() {
             <>
               <h2>Results</h2>
               <MetricTiles backtest={backtest.data} />
+              <h2>Backtest and live</h2>
+              <Comparison
+                backtest={backtest.data}
+                strategyName={strategy?.name ?? "the strategy"}
+              />
               <h2>Equity</h2>
               <Equity backtest={backtest.data} />
               <h2>Trades</h2>

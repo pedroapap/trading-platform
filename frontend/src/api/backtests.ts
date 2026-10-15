@@ -65,3 +65,17 @@ export function useBacktestTrades(id: string, offset: number, limit: number) {
     placeholderData: keepPreviousData,
   });
 }
+
+/** A completed backtest next to the live trades of the same strategy version and symbol
+ * entered while its bars ran. */
+export function useBacktestComparison(id: string) {
+  return useQuery({
+    queryKey: ["backtests", id, "comparison"],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analytics/backtests/{backtest_id}/comparison", {
+          params: { path: { backtest_id: id } },
+        }),
+      ),
+  });
+}

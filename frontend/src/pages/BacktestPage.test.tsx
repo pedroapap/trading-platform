@@ -48,12 +48,34 @@ function trade(number: number): BacktestTrade {
   };
 }
 
-/** A backtest that goes through `states`, then stays in the last; its equity and `total`
- * trades. Returns the trade pages asked for. */
-function backtestApi(states: Backtest[], total = 2) {
+const COMPARISON: Schemas["BacktestComparison"] = {
+  backtest_id: DONE.id,
+  strategy_id: STRATEGY.id,
+  strategy_version: 2,
+  symbol: "BTCUSDT",
+  quote_currency: "USDT",
+  period_start: "2025-01-01T00:00:00Z",
+  period_end: "2026-01-01T00:00:00Z",
+  backtest: {
+    num_trades: 42,
+    win_rate_pct: 57.142857,
+    average_return_pct: "0.8123",
+    total_pnl: "1234.567891",
+  },
+  live: { num_trades: 2, win_rate_pct: 50, average_return_pct: "1.2", total_pnl: "120" },
+};
+
+/** A backtest that goes through `states`, then stays in the last; its equity, `total` trades
+ * and `comparison` with live trades. Returns the trade pages and comparisons asked for. */
+function backtestApi(states: Backtest[], { total = 2, comparison = COMPARISON } = {}) {
   let asked = 0;
   const tradePages: number[] = [];
+  const comparisons: string[] = [];
   server.use(
+    http.get("/api/analytics/backtests/:id/comparison", ({ params }) => {
+      comparisons.push(String(params.id));
+      return HttpResponse.json(comparison);
+    }),
     http.get("/api/strategies", () => HttpResponse.json([STRATEGY])),
     http.get("/api/backtests/:id", () => {
       asked += 1;
@@ -69,7 +91,7 @@ function backtestApi(states: Backtest[], total = 2) {
       return HttpResponse.json({ items, total, limit: 50, offset });
     }),
   );
-  return tradePages;
+  return { tradePages, comparisons };
 }
 
 const setting = (label: string) => screen.getByRole("row", { name: new RegExp(`^${label}`) });
@@ -138,7 +160,7 @@ test("a failed backtest says why, and has no results", async () => {
 });
 
 test("trades come a page at a time", async () => {
-  const tradePages = backtestApi([DONE], 120);
+  const { tradePages } = backtestApi([DONE], { total: 120 });
   const { router, user } = renderPage(`/backtests/${DONE.id}`);
   const pages = await screen.findByRole("navigation", { name: "Pages" });
   expect(within(pages).getByText("1–50 of 120")).toBeInTheDocument();
@@ -148,4 +170,46 @@ test("trades come a page at a time", async () => {
   expect(await within(pages).findByText("51–100 of 120")).toBeInTheDocument();
   expect(router.state.location.search).toBe("?page=2");
   expect(tradePages).toEqual([0, 50]);
+});
+
+test("a completed backtest is set beside the live trades that followed it", async () => {
+  backtestApi([DONE]);
+
+  renderPage(`/backtests/${DONE.id}`);
+
+  expect(await screen.findByText(/^Live trades of/)).toHaveTextContent(
+    "Live trades of RSI dip v2 on BTCUSDT were entered between Jan 1, 2025, 12:00 AM and " +
+      "Jan 1, 2026, 12:00 AM.",
+  );
+  const table = screen.getByText(/^Live trades of/).nextElementSibling as HTMLElement;
+  const rows = within(table).getAllByRole("row");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "BacktestLive",
+    "Trades422",
+    "Win rate57.14%50.00%",
+    "Average return on notional0.81%1.20%",
+    "Total P&L1,234.57 USDT120.00 USDT",
+  ]);
+});
+
+test("without live trades, the comparison says so", async () => {
+  backtestApi([DONE], {
+    comparison: {
+      ...COMPARISON,
+      live: { num_trades: 0, win_rate_pct: null, average_return_pct: null, total_pnl: "0" },
+    },
+  });
+
+  renderPage(`/backtests/${DONE.id}`);
+
+  expect(await screen.findByText(/^No live trades of RSI dip v2 on BTCUSDT/)).toBeInTheDocument();
+});
+
+test("nothing is compared before the backtest completes", async () => {
+  const { comparisons } = backtestApi([pendingBacktest({ id: DONE.id, status: "running" })]);
+
+  renderPage(`/backtests/${DONE.id}`);
+
+  await screen.findByText("Running. This page updates when it is done.");
+  expect(comparisons).toEqual([]);
 });
