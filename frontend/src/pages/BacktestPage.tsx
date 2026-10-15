@@ -96,7 +96,7 @@ function Settings({ backtest, strategyName }: { backtest: Backtest; strategyName
         {rows.map(({ label, value }) => (
           <tr key={label}>
             <th scope="row">{label}</th>
-            <td>{value}</td>
+            <td className="wrap">{value}</td>
           </tr>
         ))}
       </tbody>
@@ -162,30 +162,34 @@ function Comparison({ backtest, strategyName }: { backtest: Backtest; strategyNa
         {comparison.data.strategy_version} on {comparison.data.symbol} were entered between{" "}
         {formatDateTime(start)} and {formatDateTime(end)}.
       </p>
-      <table className="details">
-        <thead>
-          <tr>
-            <td />
-            {Object.keys(sides).map((name) => (
-              <th key={name} scope="col" className="number">
-                {name}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map(({ label, cell }) => (
-            <tr key={label}>
-              <th scope="row">{label}</th>
-              {Object.entries(sides).map(([name, side]) => (
-                <td key={name} className="number">
-                  {cell(side)}
-                </td>
+      <div className="overflow-auto">
+        <table className="details">
+          <thead>
+            <tr>
+              <td />
+              {Object.keys(sides).map((name) => (
+                <th key={name} scope="col" className="number">
+                  {name}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {rows.map(({ label, cell }) => (
+              <tr key={label}>
+                <th scope="row" className="wrap">
+                  {label}
+                </th>
+                {Object.entries(sides).map(([name, side]) => (
+                  <td key={name} className="number">
+                    {cell(side)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

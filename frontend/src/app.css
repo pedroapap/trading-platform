@@ -22,7 +22,8 @@ td {
 }
 
 /* A table cell holding prose or a list, which may wrap. */
-td.wrap {
+td.wrap,
+th.wrap {
   white-space: normal;
 }
 
@@ -118,6 +119,17 @@ dl.metrics dd {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+}
+
+/* Two tiles a row on phones. */
+@media (max-width: 576px) {
+  dl.metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  dl.metrics dd {
+    font-size: 1.05rem;
+  }
 }
 
 /* On narrow screens the navigation wraps instead of widening the page. */
