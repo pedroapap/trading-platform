@@ -27,6 +27,7 @@ Execution model (it follows TradingView's strategy tester where they overlap):
 - The equity curve is marked to market at each bar's close.
 """
 
+from bisect import bisect_left
 from dataclasses import dataclass
 
 import numpy as np
@@ -109,13 +110,14 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     # A signal whose levels aren't known yet (an indicator warming up) places no order.
     entries = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
     # The bars where signals fill: the one after each signal (none after the last bar).
-    entry_fills = np.flatnonzero(entries[:-1]) + 1
+    entry_fills = (np.flatnonzero(entries[:-1]) + 1).tolist()
     exits = orders.exits
-    exit_fills = np.flatnonzero(exits[:-1]) + 1 if exits is not None else np.empty(0, dtype=int)
+    exit_fills = (np.flatnonzero(exits[:-1]) + 1).tolist() if exits is not None else []
 
     cash = config.initial_capital
     equity = np.full(len(bars), np.nan)
-    trades: list[SimulatedTrade] = []
+    # Each trade's fields, with its entry and exit bars where it has times.
+    made: list[tuple] = []
     earliest_entry = 0
     while cash > 0 and (entry := _first_from(entry_fills, earliest_entry)) is not None:
         entry_price = opens[entry] * (1 + sign * slip)
@@ -155,26 +157,68 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         pnl = sign * size * (exit_price - entry_price) - entry_fee - exit_fee
         cash += pnl
         equity[exit_] = cash
-        trades.append(
-            SimulatedTrade(
-                direction=direction,
-                entry_time=bars.index[entry],
-                entry_price=entry_price,
-                exit_time=bars.index[exit_],
-                exit_price=exit_price,
-                size=size,
-                entry_fee=entry_fee,
-                exit_fee=exit_fee,
-                slippage=sign * size * (entry_price - opens[entry] + unslipped_exit - exit_price),
-                pnl=pnl,
-                pnl_pct=pnl / (size * entry_price) * 100,
-                exit_reason=reason,
+        slippage = sign * size * (entry_price - opens[entry] + unslipped_exit - exit_price)
+        pnl_pct = pnl / (size * entry_price) * 100
+        made.append(
+            (
+                entry,
+                entry_price,
+                exit_,
+                exit_price,
+                size,
+                entry_fee,
+                exit_fee,
+                slippage,
+                pnl,
+                pnl_pct,
+                reason,
             )
         )
         earliest_entry = exit_ + 1
 
     curve = pd.Series(equity, index=bars.index).ffill().fillna(config.initial_capital)
-    return BacktestResult(trades, curve)
+    return BacktestResult(_trades(made, bars.index, direction), curve)
+
+
+def _trades(
+    made: list[tuple], times: pd.DatetimeIndex, direction: Direction
+) -> list[SimulatedTrade]:
+    """The trades made, with the times of their entry and exit bars. (Times looked up one at a
+    time cost more than the rest of a trade's simulation.)"""
+    if not made:
+        return []
+    columns = list(zip(*made, strict=True))
+    entry_times = times[np.array(columns[0])]
+    exit_times = times[np.array(columns[2])]
+    return [
+        SimulatedTrade(
+            direction=direction,
+            entry_time=entry_time,
+            entry_price=entry_price,
+            exit_time=exit_time,
+            exit_price=exit_price,
+            size=size,
+            entry_fee=entry_fee,
+            exit_fee=exit_fee,
+            slippage=slippage,
+            pnl=pnl,
+            pnl_pct=pnl_pct,
+            exit_reason=reason,
+        )
+        for (
+            _,
+            entry_price,
+            _,
+            exit_price,
+            size,
+            entry_fee,
+            exit_fee,
+            slippage,
+            pnl,
+            pnl_pct,
+            reason,
+        ), entry_time, exit_time in zip(made, entry_times, exit_times, strict=True)
+    ]
 
 
 def _known(level: Level | None) -> np.ndarray | bool:
@@ -204,10 +248,10 @@ def _take_profit(
     return entry_price * (1 + sign * level.pct / 100)
 
 
-def _first_from(bars: np.ndarray, start: int) -> int | None:
+def _first_from(bars: list[int], start: int) -> int | None:
     """The first of the sorted bar numbers that is at least `start`."""
-    position = np.searchsorted(bars, start)
-    return int(bars[position]) if position < len(bars) else None
+    position = bisect_left(bars, start)
+    return bars[position] if position < len(bars) else None
 
 
 # A level a price can reach: (values per bar, level, side). Side +1 means reaching it from
@@ -226,8 +270,8 @@ def _first_reached(bars: slice, *triggers: Trigger) -> int | None:
         reached = np.zeros(end - start, dtype=bool)
         for values, level, side in triggers:
             reached |= _reaches(values[start:end], level, side)
-        if (hits := np.flatnonzero(reached)).size:
-            return start + int(hits[0])
+        if reached[first := int(reached.argmax())]:
+            return start + first
         start, size = end, size * 2
     return None
 
@@ -240,4 +284,4 @@ def _fill_price(open_: float, level: float, side: int) -> float:
 
 def _reaches(values: np.ndarray | float, level: float, side: int) -> np.ndarray | bool:
     """Whether values are at or past `level` on `side` (+1 above, -1 below)."""
-    return side * (values - level) >= 0
+    return values >= level if side > 0 else values <= level
