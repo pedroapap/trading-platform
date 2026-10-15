@@ -4,6 +4,7 @@ from dataclasses import asdict
 import numpy as np
 import pandas as pd
 import pytest
+from pydantic import TypeAdapter
 
 from app.backtest import metrics
 from app.backtest.engine import BacktestConfig, SimulatedTrade, simulate
@@ -195,3 +196,77 @@ def test_summarize_collects_every_metric():
     )
     assert summary.num_trades > 5
     assert None not in (summary.cagr_pct, summary.sharpe_ratio, summary.sortino_ratio)
+
+
+def daily(rows: list[tuple[float, float]]) -> pd.DataFrame:
+    """Daily bars from (open, close) rows."""
+    opens, closes = zip(*rows, strict=True)
+    bars = pd.DataFrame({"open": opens, "close": closes}, dtype=float)
+    bars.index = pd.date_range("2026-01-01", periods=len(rows), freq="D", tz="UTC")
+    return bars
+
+
+def test_buy_and_hold_by_hand():
+    # 100 units bought at the first open of 100, marked at each close: up to 11,000, then down
+    # to 9,900, 10% below that peak.
+    bars = daily([(100, 105), (105, 110), (110, 99)])
+
+    benchmark = metrics.buy_and_hold(bars, BacktestConfig(10_000))
+
+    assert benchmark.equity.tolist() == [10_500, 11_000, 9_900]
+    assert benchmark.return_pct == pytest.approx(-1)
+    assert benchmark.max_drawdown_pct == pytest.approx(10)
+    assert benchmark.cagr_pct == pytest.approx(((0.99 ** (365.25 / 2)) - 1) * 100)
+
+
+def test_buy_and_hold_pays_the_backtests_costs():
+    bars = daily([(100, 105), (105, 110)])
+    config = BacktestConfig(10_000, fee_pct=0.1, slippage_pct=0.05)
+
+    benchmark = metrics.buy_and_hold(bars, config)
+
+    # The capital pays for the notional and its fee; the sale pays slippage and a fee too.
+    size = 10_000 / 1.001 / (100 * 1.0005)
+    assert benchmark.equity.iloc[0] == pytest.approx(size * 105)
+    assert benchmark.equity.iloc[-1] == pytest.approx(size * 110 * 0.9995 * 0.999)
+
+
+def test_buy_and_hold_counts_from_the_capital():
+    # Down from the start: the drawdown counts from the capital, not from the first close.
+    benchmark = metrics.buy_and_hold(daily([(100, 90), (90, 95)]), BacktestConfig(10_000))
+
+    assert benchmark.max_drawdown_pct == pytest.approx(10)
+    assert benchmark.return_pct == pytest.approx(-5)
+
+
+def test_summarize_includes_buy_and_hold():
+    bars = random_bars(240)
+    bars.index = pd.date_range("2026-01-01", periods=240, freq="h", tz="UTC")
+    result = simulate(bars, np.zeros(240, dtype=bool), None, BacktestConfig(10_000))
+    benchmark = metrics.buy_and_hold(bars, BacktestConfig(10_000))
+
+    summary = metrics.summarize(result, benchmark=benchmark)
+
+    assert (
+        summary.buy_and_hold_return_pct,
+        summary.buy_and_hold_cagr_pct,
+        summary.buy_and_hold_max_drawdown_pct,
+    ) == (benchmark.return_pct, benchmark.cagr_pct, benchmark.max_drawdown_pct)
+    # Without it, as for runs made before it was measured, the fields are empty.
+    assert metrics.summarize(result).buy_and_hold_return_pct is None
+
+
+def test_metrics_stored_before_buy_and_hold_still_read():
+    stored = asdict(
+        metrics.summarize(
+            simulate(random_bars(10), np.zeros(10, bool), None, BacktestConfig(10_000))
+        )
+    )
+    for field in (
+        "buy_and_hold_return_pct",
+        "buy_and_hold_cagr_pct",
+        "buy_and_hold_max_drawdown_pct",
+    ):
+        del stored[field]
+
+    assert TypeAdapter(metrics.Metrics).validate_python(stored).buy_and_hold_return_pct is None

@@ -1176,6 +1176,8 @@ export interface components {
             ts: string;
             /** Equity */
             equity: number;
+            /** Benchmark */
+            benchmark?: number | null;
         };
         /**
          * ExitReason
@@ -1532,6 +1534,12 @@ export interface components {
             average_loss: number | null;
             /** Exposure Pct */
             exposure_pct: number;
+            /** Buy And Hold Return Pct */
+            buy_and_hold_return_pct?: number | null;
+            /** Buy And Hold Cagr Pct */
+            buy_and_hold_cagr_pct?: number | null;
+            /** Buy And Hold Max Drawdown Pct */
+            buy_and_hold_max_drawdown_pct?: number | null;
         };
         /** Multiply */
         "Multiply-Input": {

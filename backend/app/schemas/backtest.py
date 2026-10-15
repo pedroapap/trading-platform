@@ -137,3 +137,5 @@ class BacktestTradePage(BaseModel):
 class EquityPoint(BaseModel):
     ts: datetime
     equity: float
+    # Buy and hold's equity at the same time; None for runs made before it was measured.
+    benchmark: float | None = None

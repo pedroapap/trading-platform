@@ -4302,6 +4302,17 @@
           "equity": {
             "type": "number",
             "title": "Equity"
+          },
+          "benchmark": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Benchmark"
           }
         },
         "type": "object",
@@ -5411,6 +5422,39 @@
           "exposure_pct": {
             "type": "number",
             "title": "Exposure Pct"
+          },
+          "buy_and_hold_return_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy And Hold Return Pct"
+          },
+          "buy_and_hold_cagr_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy And Hold Cagr Pct"
+          },
+          "buy_and_hold_max_drawdown_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buy And Hold Max Drawdown Pct"
           }
         },
         "type": "object",

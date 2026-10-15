@@ -135,8 +135,25 @@ def test_the_equity_curve_starts_at_the_initial_capital(client, auth_headers, st
     curve = client.get(f"/api/backtests/{backtest['id']}/equity", headers=auth_headers).json()
 
     assert len(curve) == backtest["bars_count"]  # 300 points: under the 1,000-point limit
-    assert curve[0] == {"ts": backtest["first_bar_ts"], "equity": 10_000}
+    assert (curve[0]["ts"], curve[0]["equity"]) == (backtest["first_bar_ts"], 10_000)
     assert curve[-1]["ts"] == backtest["last_bar_ts"]
+    # Buy and hold beside it: ending where its return says.
+    final = 10_000 * (1 + backtest["metrics"]["buy_and_hold_return_pct"] / 100)
+    assert curve[-1]["benchmark"] == pytest.approx(final)
+
+
+def test_an_equity_curve_stored_before_buy_and_hold_still_reads(
+    client, auth_headers, db_session, user
+):
+    strategy = make_strategy(db_session, user)
+    point = {"ts": "2026-01-05T14:30:00Z", "equity": 10_000.0}
+    backtest = make_backtest(
+        db_session, user, strategy, status="completed", metrics={}, equity_curve=[point]
+    )
+
+    curve = client.get(f"/api/backtests/{backtest.id}/equity", headers=auth_headers).json()
+
+    assert curve == [point | {"benchmark": None}]
 
 
 def test_a_pending_backtest_has_no_results_yet(client, auth_headers, db_session, user):

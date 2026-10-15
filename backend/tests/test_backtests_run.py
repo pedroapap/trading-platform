@@ -7,7 +7,7 @@ from sqlalchemy import delete, select
 
 from app.backtest import engine
 from app.backtest.engine import BacktestConfig
-from app.backtest.metrics import summarize
+from app.backtest.metrics import buy_and_hold, summarize
 from app.enums import BacktestStatus
 from app.errors import ConflictError, NotFoundError
 from app.market_data.timeframes import Timeframe
@@ -37,6 +37,7 @@ def test_a_run_stores_its_results(db_session, user, strategy):
     bars = load_bars(db_session, "BTCUSD", Timeframe.M1)
     config = BacktestConfig(10_000, fee_pct=0.1, slippage_pct=0.05)
     expected = engine.run(bars, StrategyDefinition.model_validate(RSI_SWINGS), config)
+    benchmark = buy_and_hold(bars, config)
     db_session.refresh(backtest)
     assert backtest.status == BacktestStatus.COMPLETED
     assert backtest.started_at <= backtest.completed_at
@@ -46,7 +47,7 @@ def test_a_run_stores_its_results(db_session, user, strategy):
         bars.index[-1],
     )
     assert len(backtest.data_hash) == 64
-    assert backtest.metrics == asdict(summarize(expected))
+    assert backtest.metrics == asdict(summarize(expected, benchmark=benchmark))
 
     stored = db_session.scalars(
         select(BacktestTrade)
@@ -62,8 +63,13 @@ def test_a_run_stores_its_results(db_session, user, strategy):
             assert float(getattr(trade, field)) == pytest.approx(getattr(simulated, field))
         assert float(trade.pnl_pct) == pytest.approx(simulated.pnl_pct, abs=5e-5)
 
-    assert backtest.equity_curve[0] == {"ts": bars.index[0].isoformat(), "equity": 10_000}
+    assert backtest.equity_curve[0] == {
+        "ts": bars.index[0].isoformat(),
+        "equity": 10_000,
+        "benchmark": benchmark.equity.iloc[0],
+    }
     assert backtest.equity_curve[-1]["equity"] == expected.equity.iloc[-1]
+    assert backtest.equity_curve[-1]["benchmark"] == benchmark.equity.iloc[-1]
 
 
 def test_a_run_settles_inside_bars_with_finer_ones(db_session, user, strategy):
@@ -81,7 +87,7 @@ def test_a_run_settles_inside_bars_with_finer_ones(db_session, user, strategy):
     expected = engine.run(bars, StrategyDefinition.model_validate(RSI_SWINGS), config, detail)
     db_session.refresh(detailed)
     assert detailed.status == BacktestStatus.COMPLETED
-    assert detailed.metrics == asdict(summarize(expected))
+    assert detailed.metrics == asdict(summarize(expected, benchmark=buy_and_hold(bars, config)))
     # The fingerprint covers the finer bars too.
     assert detailed.data_hash == backtests.fingerprint(bars, finer) != plain.data_hash
 

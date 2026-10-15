@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 import numpy as np
 import pandas as pd
 
-from app.backtest.engine import BacktestResult, SimulatedTrade
+from app.backtest.engine import BacktestConfig, BacktestResult, SimulatedTrade
 
 YEAR = pd.Timedelta(days=365.25)
 
@@ -120,6 +120,36 @@ def _mean(values: np.ndarray) -> float | None:
 
 
 @dataclass(frozen=True)
+class Benchmark:
+    """Buying at the first bar's open with all of the initial capital, at the backtest's fee
+    and slippage, and holding to the end: what a strategy has to beat. Its equity is marked to
+    market at each close (the last one after selling); its return, CAGR and drawdown count
+    from the initial capital."""
+
+    equity: pd.Series
+    return_pct: float
+    cagr_pct: float | None
+    max_drawdown_pct: float
+
+
+def buy_and_hold(bars: pd.DataFrame, config: BacktestConfig) -> Benchmark:
+    """Buy and hold over `bars`, at the costs of `config`."""
+    fee, slip = config.fee_pct / 100, config.slippage_pct / 100
+    # As for a trade, the capital pays for the notional and its entry fee, so none is left.
+    notional = config.initial_capital / (1 + fee)
+    size = notional / (bars["open"].iloc[0] * (1 + slip))
+    equity = size * bars["close"].astype(float)
+    equity.iloc[-1] = size * bars["close"].iloc[-1] * (1 - slip) * (1 - fee)
+    from_capital = pd.concat([pd.Series([config.initial_capital], index=bars.index[:1]), equity])
+    return Benchmark(
+        equity=equity,
+        return_pct=total_return_pct(from_capital),
+        cagr_pct=cagr_pct(from_capital),
+        max_drawdown_pct=max_drawdown_pct(from_capital),
+    )
+
+
+@dataclass(frozen=True)
 class Metrics:
     """Every metric of a backtest; see the functions above for definitions."""
 
@@ -135,10 +165,23 @@ class Metrics:
     average_win: float | None
     average_loss: float | None
     exposure_pct: float
+    # Buy and hold over the same bars (see `Benchmark`); None for runs made before it was.
+    buy_and_hold_return_pct: float | None = None
+    buy_and_hold_cagr_pct: float | None = None
+    buy_and_hold_max_drawdown_pct: float | None = None
 
 
-def summarize(result: BacktestResult, periods_per_year: int = 365) -> Metrics:
+def summarize(
+    result: BacktestResult, periods_per_year: int = 365, benchmark: Benchmark | None = None
+) -> Metrics:
     equity = result.equity
+    compared = {}
+    if benchmark is not None:
+        compared = {
+            "buy_and_hold_return_pct": benchmark.return_pct,
+            "buy_and_hold_cagr_pct": benchmark.cagr_pct,
+            "buy_and_hold_max_drawdown_pct": benchmark.max_drawdown_pct,
+        }
     return Metrics(
         total_return_pct=total_return_pct(equity),
         cagr_pct=cagr_pct(equity),
@@ -146,4 +189,5 @@ def summarize(result: BacktestResult, periods_per_year: int = 365) -> Metrics:
         sharpe_ratio=sharpe_ratio(equity, periods_per_year),
         sortino_ratio=sortino_ratio(equity, periods_per_year),
         **asdict(trade_stats(result.trades, equity.index)),
+        **compared,
     )

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, defer
 from app.backtest import engine
 from app.backtest.charts import downsample_equity
 from app.backtest.engine import BacktestConfig, Detail, SimulatedTrade
-from app.backtest.metrics import summarize
+from app.backtest.metrics import buy_and_hold, summarize
 from app.db import SessionFactory
 from app.enums import BacktestStatus
 from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
@@ -193,10 +193,13 @@ def _execute(db: Session, backtest: Backtest) -> None:
     if result.trades:
         rows = [_trade_row(backtest.id, n, trade) for n, trade in enumerate(result.trades, 1)]
         db.execute(insert(BacktestTrade), rows)
-    backtest.metrics = asdict(summarize(result, backtest.periods_per_year))
+    benchmark = buy_and_hold(bars, config)
+    backtest.metrics = asdict(summarize(result, backtest.periods_per_year, benchmark))
+    equity = downsample_equity(result.equity)
+    held = benchmark.equity.reindex(equity.index)
     backtest.equity_curve = [
-        {"ts": ts.isoformat(), "equity": float(equity)}
-        for ts, equity in downsample_equity(result.equity).items()
+        {"ts": ts.isoformat(), "equity": float(value), "benchmark": float(benchmark_value)}
+        for ts, value, benchmark_value in zip(equity.index, equity, held, strict=True)
     ]
     backtest.bars_count = len(bars)
     backtest.first_bar_ts, backtest.last_bar_ts = bars.index[0], bars.index[-1]
