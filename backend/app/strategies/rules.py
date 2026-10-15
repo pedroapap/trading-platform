@@ -1,5 +1,6 @@
 """The strategy rule language: operands (values, prices, indicators and arithmetic on them)
-compared by conditions, combined with all/any.
+compared by conditions, combined with all/any, negated with not, and remembered over time
+with happened.
 
 Every model is frozen, so identical operands are equal and hashable, which lets the
 backtester compute each distinct indicator once.
@@ -248,7 +249,7 @@ def is_constant(operand: Operand) -> bool:
 
 Operator = Literal["<", "<=", ">", ">=", "crosses_above", "crosses_below"]
 
-MAX_DEPTH = 4
+MAX_DEPTH = 6
 MAX_CONDITIONS = 20
 
 
@@ -286,41 +287,80 @@ class AnyOf(_Rule):
     any: Annotated[tuple["Node", ...], AfterValidator(_not_empty)]
 
 
+class Not(_Rule):
+    """True when the rule is false and every value it uses is known, so never while an
+    indicator in it is still warming up."""
+
+    # `not` is a Python keyword: the field is `rule`, written `not`.
+    model_config = ConfigDict(extra="forbid", frozen=True, serialize_by_alias=True)
+
+    rule: "Node" = Field(alias="not")
+
+
+class Happened(_Rule):
+    """True when the rule held on at least `times` separate runs of bars within the last
+    `within` bars, this one included. A run that began before the window counts once if it
+    reaches into it."""
+
+    happened: "Node"
+    within: Annotated[int, Field(ge=1, le=1000)]
+    times: Annotated[int, Field(ge=1, le=10)] = 1
+
+
+_NODE_KEYS = ("all", "any", "op", "not", "happened")
+
+
 def _node_kind(data: object) -> str | None:
     if isinstance(data, dict):
-        return next((key for key in ("all", "any", "op") if key in data), None)
-    return {Condition: "op", AllOf: "all", AnyOf: "any"}.get(type(data))
+        return next((key for key in _NODE_KEYS if key in data), None)
+    kinds = {Condition: "op", AllOf: "all", AnyOf: "any", Not: "not", Happened: "happened"}
+    return kinds.get(type(data))
 
 
 Node = Annotated[
-    Annotated[Condition, Tag("op")] | Annotated[AllOf, Tag("all")] | Annotated[AnyOf, Tag("any")],
+    Annotated[Condition, Tag("op")]
+    | Annotated[AllOf, Tag("all")]
+    | Annotated[AnyOf, Tag("any")]
+    | Annotated[Not, Tag("not")]
+    | Annotated[Happened, Tag("happened")],
     Discriminator(
         _node_kind,
         custom_error_type="invalid_rule",
-        custom_error_message="A rule is a condition (left/op/right) or an 'all'/'any' group",
+        custom_error_message=(
+            "A rule is a condition (left/op/right), an 'all'/'any' group, 'not' or 'happened'"
+        ),
     ),
 ]
 
-AllOf.model_rebuild()
-AnyOf.model_rebuild()
+for _model in (AllOf, AnyOf, Not, Happened):
+    _model.model_rebuild()
 
 
-def conditions(node: Condition | AllOf | AnyOf) -> list[Condition]:
+def children(node: Node) -> tuple[Node, ...]:
+    """The rules directly inside a rule."""
+    match node:
+        case AllOf(all=rules) | AnyOf(any=rules):
+            return rules
+        case Not(rule=rule) | Happened(happened=rule):
+            return (rule,)
+        case _:
+            return ()
+
+
+def conditions(node: Node) -> list[Condition]:
     """Every condition in the tree, depth first."""
     if isinstance(node, Condition):
         return [node]
-    children = node.all if isinstance(node, AllOf) else node.any
-    return [condition for child in children for condition in conditions(child)]
+    return [condition for child in children(node) for condition in conditions(child)]
 
 
-def depth(node: Condition | AllOf | AnyOf) -> int:
+def depth(node: Node) -> int:
     if isinstance(node, Condition):
         return 1
-    children = node.all if isinstance(node, AllOf) else node.any
-    return 1 + max(depth(child) for child in children)
+    return 1 + max(depth(child) for child in children(node))
 
 
-def check_limits(node: Condition | AllOf | AnyOf) -> None:
+def check_limits(node: Node) -> None:
     """Keep rule trees small enough to read and to evaluate quickly."""
     if depth(node) > MAX_DEPTH:
         raise ValueError(f"rules may be nested at most {MAX_DEPTH} levels deep")

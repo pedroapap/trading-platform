@@ -5,7 +5,9 @@ from app.strategies.rules import (
     AllOf,
     AnyOf,
     Condition,
+    Happened,
     Node,
+    Not,
     Price,
     Value,
     check_limits,
@@ -40,6 +42,30 @@ def test_groups_nest_and_can_be_walked():
     assert depth(tree) == 3
 
 
+def test_not_and_happened_wrap_a_rule():
+    tree = node.validate_python(
+        {"not": {"happened": {"all": [RSI_BELOW_30, CLOSE_CROSSES_SMA]}, "within": 48}}
+    )
+
+    assert isinstance(tree, Not)
+    assert isinstance(tree.rule, Happened)
+    assert (tree.rule.within, tree.rule.times) == (48, 1)
+    assert [c.op for c in conditions(tree)] == ["<", "crosses_above"]
+    assert depth(tree) == 4
+
+
+def test_not_is_written_not():
+    tree = node.validate_python({"not": RSI_BELOW_30})
+
+    assert node.dump_python(tree, mode="json") == {
+        "not": {
+            "left": {"indicator": "rsi", "period": 14, "source": "close"},
+            "op": "<",
+            "right": {"value": 30.0},
+        }
+    }
+
+
 def test_trees_round_trip_through_json():
     tree = node.validate_python({"any": [RSI_BELOW_30, CLOSE_CROSSES_SMA]})
 
@@ -59,6 +85,12 @@ def test_trees_round_trip_through_json():
         ({"all": []}, "a group needs at least one rule"),
         ({"none": [RSI_BELOW_30]}, "A rule is a condition"),
         ({"all": [RSI_BELOW_30], "any": [RSI_BELOW_30]}, "Extra inputs are not permitted"),
+        ({"happened": RSI_BELOW_30}, "Field required"),
+        ({"happened": RSI_BELOW_30, "within": 0}, "greater than or equal to 1"),
+        ({"happened": RSI_BELOW_30, "within": 1001}, "less than or equal to 1000"),
+        ({"happened": RSI_BELOW_30, "within": 5, "times": 0}, "greater than or equal to 1"),
+        ({"happened": RSI_BELOW_30, "within": 5, "times": 11}, "less than or equal to 10"),
+        ({"not": RSI_BELOW_30, "within": 5}, "Extra inputs are not permitted"),
     ],
 )
 def test_invalid_trees_are_rejected(data, message):
@@ -73,15 +105,17 @@ def nested(levels: int) -> dict:
     return tree
 
 
-def test_limits_allow_four_levels_and_twenty_conditions():
-    check_limits(node.validate_python(nested(3)))
+def test_limits_allow_six_levels_and_twenty_conditions():
+    check_limits(node.validate_python(nested(5)))
     check_limits(node.validate_python({"any": [RSI_BELOW_30] * 20}))
 
 
 @pytest.mark.parametrize(
     ("data", "message"),
     [
-        (nested(4), "at most 4 levels deep"),
+        (nested(6), "at most 6 levels deep"),
+        ({"not": {"happened": nested(4), "within": 5}}, "at most 6 levels deep"),
+        ({"happened": {"any": [RSI_BELOW_30] * 21}, "within": 5}, "at most 20 conditions"),
         ({"any": [RSI_BELOW_30] * 21}, "at most 20 conditions"),
     ],
 )

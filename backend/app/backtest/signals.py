@@ -17,10 +17,13 @@ from app.strategies.rules import (
     Bbands,
     Condition,
     Ema,
+    Happened,
     Highest,
     Indicator,
     Lowest,
     Macd,
+    Node,
+    Not,
     Operand,
     Price,
     Rsi,
@@ -61,14 +64,33 @@ class OperandResolver:
         return computed.to_numpy(dtype=float)
 
 
-def evaluate(node: Condition | AllOf | AnyOf, resolver: OperandResolver) -> np.ndarray:
+def evaluate(node: Node, resolver: OperandResolver) -> np.ndarray:
     """Whether the rule holds on each bar, as a boolean array. A comparison with a missing
-    value (an indicator still warming up) is false."""
-    if isinstance(node, AllOf):
-        return np.logical_and.reduce([evaluate(child, resolver) for child in node.all])
-    if isinstance(node, AnyOf):
-        return np.logical_or.reduce([evaluate(child, resolver) for child in node.any])
-    return _OPERATORS[node.op](resolver.resolve(node.left), resolver.resolve(node.right))
+    value (an indicator still warming up) is false, and so is a `not` around it."""
+    return _evaluate(node, resolver)[0]
+
+
+def _evaluate(node: Node, resolver: OperandResolver) -> tuple[np.ndarray, np.ndarray]:
+    """Whether the rule holds on each bar, and whether every value it uses is known there."""
+    match node:
+        case Condition(left=left, op=op, right=right):
+            left_values, right_values = resolver.resolve(left), resolver.resolve(right)
+            known = ~np.isnan(left_values) & ~np.isnan(right_values)
+            if op in ("crosses_above", "crosses_below"):
+                known &= _previous(known)  # a cross compares with the previous bar too
+            return _OPERATORS[op](left_values, right_values), known
+        case AllOf(all=rules) | AnyOf(any=rules):
+            results = [_evaluate(rule, resolver) for rule in rules]
+            combine = np.logical_and if isinstance(node, AllOf) else np.logical_or
+            holds = combine.reduce([holds for holds, _ in results])
+            return holds, np.logical_and.reduce([known for _, known in results])
+        case Not(rule=rule):
+            holds, known = _evaluate(rule, resolver)
+            return ~holds & known, known
+        case Happened(happened=rule, within=within, times=times):
+            holds, known = _evaluate(rule, resolver)
+            return _runs_within(holds, within) >= times, _known_throughout(known, within)
+    raise TypeError(f"not a rule: {node!r}")
 
 
 def strategy_signals(
@@ -130,6 +152,32 @@ def _shifted(values: np.ndarray, bars: int) -> np.ndarray:
     shifted = np.full(len(values), np.nan)
     shifted[bars:] = values[: max(len(values) - bars, 0)]
     return shifted
+
+
+def _runs_within(holds: np.ndarray, bars: int) -> np.ndarray:
+    """On each bar, how many separate runs of true values the last `bars` bars (this one
+    included) touch. A run that began before them counts once."""
+    runs = _window_sum(holds & ~_previous(holds), bars)
+    if bars < len(holds):
+        # A run already under way on the window's first bar began before the window.
+        runs[bars:] += holds[1 : len(holds) - bars + 1] & holds[: len(holds) - bars]
+    return runs
+
+
+def _known_throughout(known: np.ndarray, bars: int) -> np.ndarray:
+    """Whether values are known on every one of the last `bars` bars (this one included);
+    false while there are fewer bars than that."""
+    throughout = _window_sum(~known, bars) == 0
+    throughout[: bars - 1] = False
+    return throughout
+
+
+def _window_sum(flags: np.ndarray, bars: int) -> np.ndarray:
+    """How many of the last `bars` flags (this one included) are set, on each bar."""
+    total = np.cumsum(flags, dtype=int)
+    earlier = np.zeros_like(total)
+    earlier[bars:] = total[: max(len(total) - bars, 0)]
+    return total - earlier
 
 
 def _crosses_above(left: np.ndarray, right: np.ndarray) -> np.ndarray:

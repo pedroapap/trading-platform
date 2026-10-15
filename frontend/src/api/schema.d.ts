@@ -610,7 +610,7 @@ export interface components {
          */
         "AllOf-Input": {
             /** All */
-            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
+            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"])[];
         };
         /**
          * AllOf
@@ -618,7 +618,7 @@ export interface components {
          */
         "AllOf-Output": {
             /** All */
-            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
+            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"])[];
         };
         /**
          * AnyOf
@@ -626,7 +626,7 @@ export interface components {
          */
         "AnyOf-Input": {
             /** Any */
-            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
+            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"])[];
         };
         /**
          * AnyOf
@@ -634,7 +634,7 @@ export interface components {
          */
         "AnyOf-Output": {
             /** Any */
-            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
+            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"])[];
         };
         /**
          * Atr
@@ -1134,6 +1134,40 @@ export interface components {
             detail?: components["schemas"]["ValidationError"][];
         };
         /**
+         * Happened
+         * @description True when the rule held on at least `times` separate runs of bars within the last
+         *     `within` bars, this one included. A run that began before the window counts once if it
+         *     reaches into it.
+         */
+        "Happened-Input": {
+            /** Happened */
+            happened: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
+            /** Within */
+            within: number;
+            /**
+             * Times
+             * @default 1
+             */
+            times?: number;
+        };
+        /**
+         * Happened
+         * @description True when the rule held on at least `times` separate runs of bars within the last
+         *     `within` bars, this one included. A run that began before the window counts once if it
+         *     reaches into it.
+         */
+        "Happened-Output": {
+            /** Happened */
+            happened: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
+            /** Within */
+            within: number;
+            /**
+             * Times
+             * @default 1
+             */
+            times?: number;
+        };
+        /**
          * Highest
          * @description The highest `source` of the last `period` bars, this one included (`ta.highest`).
          */
@@ -1438,6 +1472,24 @@ export interface components {
             /** Multiply */
             multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
+        /**
+         * Not
+         * @description True when the rule is false and every value it uses is known, so never while an
+         *     indicator in it is still warming up.
+         */
+        "Not-Input": {
+            /** Not */
+            not: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
+        };
+        /**
+         * Not
+         * @description True when the rule is false and every value it uses is known, so never while an
+         *     indicator in it is still warming up.
+         */
+        "Not-Output": {
+            /** Not */
+            not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
+        };
         /** PerformanceGroup */
         PerformanceGroup: {
             /** Key */
@@ -1594,9 +1646,9 @@ export interface components {
         "StrategyDefinition-Input": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"];
+            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
             /** Exit */
-            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"]) | null;
+            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"]) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
@@ -1610,9 +1662,9 @@ export interface components {
         "StrategyDefinition-Output": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"];
+            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
             /** Exit */
-            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"]) | null;
+            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"]) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */

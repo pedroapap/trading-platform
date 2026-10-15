@@ -38,6 +38,12 @@ def test_the_documented_example_parses_and_round_trips():
     assert StrategyDefinition.model_validate(parsed.model_dump(mode="json")) == parsed
 
 
+def six_groups_deep(rule: dict) -> dict:
+    for _ in range(6):
+        rule = {"all": [rule]}
+    return rule
+
+
 @pytest.mark.parametrize(
     "overrides",
     [
@@ -63,7 +69,7 @@ def test_valid_variations(overrides):
         ({"direction": "short", "take_profit_pct": 100}, "a short take-profit must be below 100%"),
         ({"direction": "sideways"}, "Input should be 'long' or 'short'"),
         ({"entry": None}, "A rule is a condition"),
-        ({"entry": {"all": [{"all": [{"all": [{"all": [RSI_BELOW_30]}]}]}]}}, "at most 4 levels"),
+        ({"entry": six_groups_deep(RSI_BELOW_30)}, "at most 6 levels"),
         ({"leverage": 3}, "Extra inputs are not permitted"),
     ],
 )

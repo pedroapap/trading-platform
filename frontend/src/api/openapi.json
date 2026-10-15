@@ -2397,6 +2397,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/AnyOf-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Not-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Happened-Input"
                 }
               ]
             },
@@ -2425,6 +2431,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/AnyOf-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Not-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Happened-Output"
                 }
               ]
             },
@@ -2453,6 +2465,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/AnyOf-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Not-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Happened-Input"
                 }
               ]
             },
@@ -2481,6 +2499,12 @@
                 },
                 {
                   "$ref": "#/components/schemas/AnyOf-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Not-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Happened-Output"
                 }
               ]
             },
@@ -4120,6 +4144,96 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "Happened-Input": {
+        "properties": {
+          "happened": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Condition-Input"
+              },
+              {
+                "$ref": "#/components/schemas/AllOf-Input"
+              },
+              {
+                "$ref": "#/components/schemas/AnyOf-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Input"
+              }
+            ],
+            "title": "Happened"
+          },
+          "within": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Within"
+          },
+          "times": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Times",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "happened",
+          "within"
+        ],
+        "title": "Happened",
+        "description": "True when the rule held on at least `times` separate runs of bars within the last\n`within` bars, this one included. A run that began before the window counts once if it\nreaches into it."
+      },
+      "Happened-Output": {
+        "properties": {
+          "happened": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Condition-Output"
+              },
+              {
+                "$ref": "#/components/schemas/AllOf-Output"
+              },
+              {
+                "$ref": "#/components/schemas/AnyOf-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Output"
+              }
+            ],
+            "title": "Happened"
+          },
+          "within": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Within"
+          },
+          "times": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Times",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "happened",
+          "within"
+        ],
+        "title": "Happened",
+        "description": "True when the rule held on at least `times` separate runs of bars within the last\n`within` bars, this one included. A run that began before the window counts once if it\nreaches into it."
+      },
       "Highest": {
         "properties": {
           "indicator": {
@@ -5238,6 +5352,68 @@
         ],
         "title": "Multiply"
       },
+      "Not-Input": {
+        "properties": {
+          "not": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Condition-Input"
+              },
+              {
+                "$ref": "#/components/schemas/AllOf-Input"
+              },
+              {
+                "$ref": "#/components/schemas/AnyOf-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Input"
+              }
+            ],
+            "title": "Not"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "not"
+        ],
+        "title": "Not",
+        "description": "True when the rule is false and every value it uses is known, so never while an\nindicator in it is still warming up."
+      },
+      "Not-Output": {
+        "properties": {
+          "not": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Condition-Output"
+              },
+              {
+                "$ref": "#/components/schemas/AllOf-Output"
+              },
+              {
+                "$ref": "#/components/schemas/AnyOf-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Output"
+              }
+            ],
+            "title": "Not"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "not"
+        ],
+        "title": "Not",
+        "description": "True when the rule is false and every value it uses is known, so never while an\nindicator in it is still warming up."
+      },
       "PerformanceGroup": {
         "properties": {
           "key": {
@@ -5605,6 +5781,12 @@
               },
               {
                 "$ref": "#/components/schemas/AnyOf-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Input"
               }
             ],
             "title": "Entry"
@@ -5621,6 +5803,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/AnyOf-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Not-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Happened-Input"
                   }
                 ]
               },
@@ -5681,6 +5869,12 @@
               },
               {
                 "$ref": "#/components/schemas/AnyOf-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Not-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Happened-Output"
               }
             ],
             "title": "Entry"
@@ -5697,6 +5891,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/AnyOf-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Not-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Happened-Output"
                   }
                 ]
               },

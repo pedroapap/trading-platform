@@ -205,6 +205,53 @@ def test_a_comparison_with_a_division_by_zero_is_false():
     assert holds(rule, open=[1, 0], close=[3, 3]) == [T, F]
 
 
+GT_2 = {"left": CLOSE, "op": ">", "right": {"value": 2}}
+
+
+def test_not_is_false_until_its_values_are_known():
+    # SMA(2) is unknown on the first bar: neither the rule nor its negation holds there.
+    sma_above_2 = {"left": {"indicator": "sma", "period": 2}, "op": ">", "right": {"value": 2}}
+
+    assert holds({"not": sma_above_2}, close=[1, 2, 3, 1]) == [F, T, F, T]
+
+
+def test_not_of_a_cross_waits_for_the_previous_bar():
+    rule = {"not": {"left": CLOSE, "op": "crosses_above", "right": {"value": 2}}}
+
+    assert holds(rule, close=[1, 3, 3]) == [F, F, T]
+
+
+def test_happened_looks_back_over_the_window():
+    rule = {"happened": GT_2, "within": 3}
+
+    assert holds(rule, close=[3, 1, 1, 1, 3, 1]) == [T, T, T, F, T, T]
+
+
+def test_happened_counts_separate_runs():
+    rule = {"happened": GT_2, "within": 4, "times": 2}
+
+    # Runs start on bars 0, 2 and 6; two of them are within 4 bars only on bars 2 and 3.
+    assert holds(rule, close=[3, 1, 3, 1, 1, 1, 3]) == [F, F, T, T, F, F, F]
+
+
+def test_a_run_that_began_before_the_window_counts():
+    rule = {"happened": GT_2, "within": 3, "times": 2}
+
+    assert holds(rule, close=[3, 3, 1, 3]) == [F, F, F, T]
+
+
+def test_a_long_run_counts_once():
+    rule = {"happened": GT_2, "within": 4, "times": 2}
+
+    assert holds(rule, close=[3, 3, 3, 3]) == [F, F, F, F]
+
+
+def test_not_happened_waits_for_a_whole_window():
+    rule = {"not": {"happened": GT_2, "within": 3}}
+
+    assert holds(rule, close=[1, 1, 1, 1, 3]) == [F, F, T, T, F]
+
+
 def test_crosses_above():
     # Touching the level is not above it, so 2 -> 3 is a cross.
     rule = {"left": CLOSE, "op": "crosses_above", "right": {"value": 2}}
@@ -314,9 +361,28 @@ EVERY_RULE = {
             },
             {"left": MACD, "op": "crosses_above", "right": MACD | {"output": "signal"}},
             {
-                "left": CLOSE,
-                "op": "crosses_above",
-                "right": {"indicator": "highest", "period": 8, "source": "close", "bars_ago": 1},
+                "all": [
+                    {
+                        "happened": {
+                            "left": CLOSE,
+                            "op": "crosses_above",
+                            "right": {
+                                "indicator": "highest",
+                                "period": 8,
+                                "source": "close",
+                                "bars_ago": 1,
+                            },
+                        },
+                        "within": 4,
+                    },
+                    {
+                        "not": {
+                            "left": {"indicator": "rsi", "period": 5},
+                            "op": ">",
+                            "right": {"value": 70},
+                        }
+                    },
+                ]
             },
             {
                 "left": {"price": "low"},
@@ -363,9 +429,13 @@ EVERY_RULE = {
                 },
             },
             {
-                "left": {"indicator": "swing_high", "strength": 2, "output": "bars_since"},
-                "op": "<=",
-                "right": {"value": 2},
+                "happened": {
+                    "left": {"indicator": "swing_high", "strength": 2, "output": "bars_since"},
+                    "op": "<=",
+                    "right": {"value": 2},
+                },
+                "within": 6,
+                "times": 2,
             },
         ]
     },
