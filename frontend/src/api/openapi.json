@@ -3044,6 +3044,13 @@
             ],
             "title": "Source",
             "default": "close"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -3405,6 +3412,13 @@
             ],
             "title": "Source",
             "default": "close"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4212,6 +4226,13 @@
             ],
             "title": "Source",
             "default": "close"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4443,6 +4464,13 @@
               "volume"
             ],
             "title": "Price"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4451,7 +4479,7 @@
           "price"
         ],
         "title": "Price",
-        "description": "A field of the current bar."
+        "description": "A field of the current bar, or of an earlier one with `bars_ago`."
       },
       "RealizedCurve": {
         "properties": {
@@ -4602,6 +4630,13 @@
             ],
             "title": "Source",
             "default": "close"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,
@@ -4635,6 +4670,13 @@
             ],
             "title": "Source",
             "default": "close"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
           }
         },
         "additionalProperties": false,

@@ -900,6 +900,11 @@ export interface components {
              * @enum {string}
              */
             source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** Body_import_file_api_market_data_import_post */
         Body_import_file_api_market_data_import_post: {
@@ -1023,6 +1028,11 @@ export interface components {
              * @enum {string}
              */
             source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /**
          * Emotion
@@ -1272,6 +1282,11 @@ export interface components {
              * @enum {string}
              */
             source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /**
          * Metrics
@@ -1330,7 +1345,7 @@ export interface components {
         };
         /**
          * Price
-         * @description A field of the current bar.
+         * @description A field of the current bar, or of an earlier one with `bars_ago`.
          */
         Price: {
             /**
@@ -1338,6 +1353,11 @@ export interface components {
              * @enum {string}
              */
             price: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /**
          * RealizedCurve
@@ -1411,6 +1431,11 @@ export interface components {
              * @enum {string}
              */
             source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** Sma */
         Sma: {
@@ -1427,6 +1452,11 @@ export interface components {
              * @enum {string}
              */
             source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** StrategyCreate */
         StrategyCreate: {

@@ -18,6 +18,9 @@ from pydantic import (
 
 PriceField = Literal["open", "high", "low", "close", "volume"]
 Period = Annotated[int, Field(ge=1, le=1000)]
+# The value this many bars earlier (1 is the previous bar). Left out of a dumped definition
+# when 0, so definitions written before it existed are stored as they were.
+BarsAgo = Annotated[int, Field(ge=0, le=1000, exclude_if=lambda bars: bars == 0)]
 
 
 class _Rule(BaseModel):
@@ -31,27 +34,31 @@ class Value(_Rule):
 
 
 class Price(_Rule):
-    """A field of the current bar."""
+    """A field of the current bar, or of an earlier one with `bars_ago`."""
 
     price: PriceField
+    bars_ago: BarsAgo = 0
 
 
 class Sma(_Rule):
     indicator: Literal["sma"]
     period: Period
     source: PriceField = "close"
+    bars_ago: BarsAgo = 0
 
 
 class Ema(_Rule):
     indicator: Literal["ema"]
     period: Period
     source: PriceField = "close"
+    bars_ago: BarsAgo = 0
 
 
 class Rsi(_Rule):
     indicator: Literal["rsi"]
     period: Annotated[int, Field(ge=2, le=1000)] = 14
     source: PriceField = "close"
+    bars_ago: BarsAgo = 0
 
 
 class Macd(_Rule):
@@ -61,6 +68,7 @@ class Macd(_Rule):
     signal: Period = 9
     output: Literal["line", "signal", "histogram"] = "line"
     source: PriceField = "close"
+    bars_ago: BarsAgo = 0
 
     @model_validator(mode="after")
     def _fast_is_faster(self) -> Self:
@@ -75,6 +83,7 @@ class Bbands(_Rule):
     std: float = Field(default=2.0, gt=0, le=10)
     output: Literal["upper", "middle", "lower"] = "middle"
     source: PriceField = "close"
+    bars_ago: BarsAgo = 0
 
 
 Indicator = Annotated[Sma | Ema | Rsi | Macd | Bbands, Field(discriminator="indicator")]

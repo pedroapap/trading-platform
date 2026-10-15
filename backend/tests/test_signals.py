@@ -63,6 +63,26 @@ def test_an_indicator_is_computed_on_its_source(operand, direct):
     np.testing.assert_array_equal(resolved, direct(bars))
 
 
+def test_bars_ago_takes_the_value_that_many_bars_earlier():
+    bars = random_bars(30)
+    resolver = OperandResolver(bars)
+
+    previous_low = resolver.resolve(parse_operand({"price": "low", "bars_ago": 1}))
+    sma = resolver.resolve(parse_operand({"indicator": "sma", "period": 5}))
+    earlier_sma = resolver.resolve(parse_operand({"indicator": "sma", "period": 5, "bars_ago": 3}))
+
+    np.testing.assert_array_equal(previous_low, [NAN, *bars["low"].iloc[:-1]])
+    np.testing.assert_array_equal(earlier_sma, [NAN] * 3 + sma[:-3].tolist())
+
+
+def test_bars_ago_beyond_the_data_is_unknown():
+    resolved = OperandResolver(random_bars(5)).resolve(
+        parse_operand({"price": "close", "bars_ago": 9})
+    )
+
+    assert np.isnan(resolved).all()
+
+
 @pytest.fixture
 def indicator_calls(monkeypatch) -> list[str]:
     """Calls to `indicators.rsi` and `indicators.macd` during the test, in order. (Not SMA or
@@ -92,6 +112,8 @@ def test_each_indicator_is_computed_once(indicator_calls):
         {"indicator": "rsi", "period": 7},
         {"indicator": "macd", "output": "line"},
         {"indicator": "macd", "output": "signal"},  # same MACD, another of its lines
+        {"indicator": "rsi", "bars_ago": 3},  # the first RSI, shifted
+        {"indicator": "macd", "output": "histogram", "bars_ago": 1},
     ]:
         resolver.resolve(parse_operand(operand))
 
@@ -201,8 +223,8 @@ def test_without_an_exit_rule_there_are_no_exit_signals():
 MACD = {"indicator": "macd", "fast": 3, "slow": 8, "signal": 4}
 BBANDS = {"indicator": "bbands", "period": 10}
 
-# Every indicator, output, price field and operator, with short periods so that all of them
-# matter within a few dozen bars.
+# Every indicator, output, price field and operator, earlier bars too, with short periods so
+# that all of them matter within a few dozen bars.
 EVERY_RULE = {
     "direction": "long",
     "entry": {
@@ -214,6 +236,16 @@ EVERY_RULE = {
                         "left": CLOSE,
                         "op": "crosses_above",
                         "right": {"indicator": "sma", "period": 10},
+                    },
+                ]
+            },
+            {
+                "all": [
+                    {"left": {"price": "low"}, "op": "<", "right": {"price": "low", "bars_ago": 1}},
+                    {
+                        "left": {"indicator": "rsi", "period": 5},
+                        "op": ">",
+                        "right": {"indicator": "rsi", "period": 5, "bars_ago": 2},
                     },
                 ]
             },

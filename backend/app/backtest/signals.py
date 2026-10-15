@@ -15,6 +15,7 @@ from app.strategies.rules import (
     Bbands,
     Condition,
     Ema,
+    Indicator,
     Macd,
     Operand,
     Price,
@@ -34,11 +35,15 @@ class OperandResolver:
     def resolve(self, operand: Operand) -> np.ndarray:
         if isinstance(operand, Value):
             return np.full(len(self._bars), operand.value)
+        return _shifted(self._current(operand), operand.bars_ago)
+
+    def _current(self, operand: Price | Indicator) -> np.ndarray:
+        """The operand's values as of each bar, before any `bars_ago` shift."""
         if isinstance(operand, Price):
             return self._bars[operand.price].to_numpy(dtype=float)
         # MACD and Bollinger Bands compute all of their lines at once, so the key leaves out
-        # which line is wanted.
-        key = tuple(operand.model_dump(exclude={"output"}).items())
+        # which line is wanted; every shift of an indicator shares its computation too.
+        key = tuple(operand.model_dump(exclude={"output", "bars_ago"}).items())
         if key not in self._indicators:
             self._indicators[key] = _compute(operand, self._bars[operand.source])
         computed = self._indicators[key]
@@ -82,6 +87,15 @@ def _compute(operand: Operand, values: pd.Series) -> pd.Series | pd.DataFrame:
             return indicators.bbands(values, period, std)
         case _:
             raise TypeError(f"not an indicator: {operand!r}")
+
+
+def _shifted(values: np.ndarray, bars: int) -> np.ndarray:
+    """Each bar's value from `bars` bars earlier; unknown (NaN) where there is none."""
+    if bars == 0:
+        return values
+    shifted = np.full(len(values), np.nan)
+    shifted[bars:] = values[: max(len(values) - bars, 0)]
+    return shifted
 
 
 def _crosses_above(left: np.ndarray, right: np.ndarray) -> np.ndarray:
