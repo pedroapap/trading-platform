@@ -36,8 +36,8 @@ class Entry:
 @dataclass(frozen=True)
 class Orders:
     """A strategy's orders on a set of bars: entry and exit signals on each bar's close (no
-    exits without an exit rule), how entries are made, and where each trade's stop-loss and
-    take-profit sit."""
+    exits without an exit rule), how entries are made, and where each trade's stop-loss,
+    take-profit and trailing stop sit."""
 
     direction: Direction
     entries: np.ndarray
@@ -45,3 +45,6 @@ class Orders:
     stop_loss: Level | None = None
     take_profit: Level | None = None
     entry: Entry = field(default_factory=Entry)
+    # A stop that follows the trade: `pct` percent behind the best price since the entry, or
+    # at the price `at` each bar's close, used from the next bar. It only ever tightens.
+    trailing_stop: Level | None = None

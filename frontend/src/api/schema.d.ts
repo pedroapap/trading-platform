@@ -1775,6 +1775,10 @@ export interface components {
             take_profit_r?: number | null;
             /** Entry Order */
             entry_order?: (components["schemas"]["MarketEntry"] | components["schemas"]["PriceEntry-Input"]) | null;
+            /** Trailing Stop Pct */
+            trailing_stop_pct?: number | null;
+            /** Trailing Stop At */
+            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
         };
         /**
          * StrategyDefinition
@@ -1802,6 +1806,10 @@ export interface components {
             take_profit_r?: number | null;
             /** Entry Order */
             entry_order?: (components["schemas"]["MarketEntry"] | components["schemas"]["PriceEntry-Output"]) | null;
+            /** Trailing Stop Pct */
+            trailing_stop_pct?: number | null;
+            /** Trailing Stop At */
+            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
         };
         /** StrategyRead */
         StrategyRead: {

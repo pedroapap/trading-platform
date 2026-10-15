@@ -6538,6 +6538,98 @@
               }
             ],
             "title": "Entry Order"
+          },
+          "trailing_stop_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trailing Stop Pct"
+          },
+          "trailing_stop_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Input"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trailing Stop At"
           }
         },
         "additionalProperties": false,
@@ -6857,6 +6949,98 @@
               }
             ],
             "title": "Entry Order"
+          },
+          "trailing_stop_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trailing Stop Pct"
+          },
+          "trailing_stop_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Output"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trailing Stop At"
           }
         },
         "additionalProperties": false,

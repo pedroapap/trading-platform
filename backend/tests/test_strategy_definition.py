@@ -55,6 +55,9 @@ def six_groups_deep(rule: dict) -> dict:
         {"take_profit_pct": None, "take_profit_r": 2},
         {"take_profit_pct": None, "take_profit_at": {"indicator": "highest", "period": 20}},
         {"entry_order": {"type": "market"}},
+        {"exit": None, "stop_loss_pct": None, "take_profit_pct": None, "trailing_stop_pct": 5},
+        {"trailing_stop_at": {"indicator": "lowest", "period": 10}},
+        {"direction": "short", "trailing_stop_pct": 150},
         {
             "entry_order": {
                 "type": "limit",
@@ -83,7 +86,7 @@ def test_valid_variations(overrides):
     [
         (
             {"exit": None, "stop_loss_pct": None, "take_profit_pct": None},
-            "needs an exit rule, a stop-loss or a take-profit",
+            "needs an exit rule, a stop-loss, a take-profit or a trailing stop",
         ),
         ({"stop_loss_pct": 0}, "greater than 0"),
         ({"stop_loss_pct": 100}, "a long stop-loss must be below 100%"),
@@ -108,6 +111,12 @@ def test_valid_variations(overrides):
             "greater than or equal to 1",
         ),
         ({"entry_order": {"type": "trailing"}}, "does not match any of the expected tags"),
+        (
+            {"trailing_stop_pct": 5, "trailing_stop_at": {"price": "low"}},
+            "one trailing stop: trailing_stop_pct or trailing_stop_at",
+        ),
+        ({"trailing_stop_pct": 100}, "a long trailing stop must be below 100%"),
+        ({"trailing_stop_pct": 0}, "greater than 0"),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):

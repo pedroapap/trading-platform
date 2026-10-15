@@ -871,6 +871,121 @@ def test_a_signal_whose_order_price_is_unknown_places_no_order():
     assert (trade.entry_time, trade.entry_price) == (bars.index[2], 97)
 
 
+def run_trailing(rows, trailing_stop, *, stop_loss=None, direction=Direction.LONG):
+    """A signal on bar 0, with all of 10,000 and no costs: 100 units at 100 on bar 1."""
+    bars = bars_from(rows)
+    orders = Orders(direction, at(len(bars), 0), None, stop_loss, None, trailing_stop=trailing_stop)
+    return bars, simulate_orders(bars, orders, BacktestConfig(initial_capital=10_000))
+
+
+def test_a_trailing_stop_follows_the_best_price():
+    # fmt: off
+    bars, result = run_trailing([
+        (100, 101,  99, 100),
+        (100, 105,  99, 104),  # 10% behind the entry of 100: 90
+        (104, 110, 103, 109),  # behind the high of 105 so far: 94.5
+        (109, 111,  98, 100),  # behind the high of 110: 99, reached by the low of 98
+        (100, 101,  97,  98),
+    ], Level(pct=10))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[3], ExitReason.TRAILING_STOP)
+    assert trade.exit_price == approx(99)
+
+
+def test_a_trailing_level_applies_from_the_next_bar():
+    # Levels read on each close: bar 2's 104 would stop the trade on bar 2 itself, whose low is
+    # 101, if it applied there; it applies from bar 3.
+    levels = np.array([90, 92, 104, 91, 91.0])
+    # fmt: off
+    bars, result = run_trailing([
+        (100, 101,  99, 100),
+        (100, 103,  99, 102),  # level 90
+        (102, 106, 101, 105),  # level 92
+        (105, 106, 103, 104),  # level 104, reached by the low of 103
+        (104, 105, 103, 104),
+    ], Level(at=levels))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[3], ExitReason.TRAILING_STOP)
+    assert trade.exit_price == 104
+
+
+def test_a_trailing_level_never_loosens():
+    # Bar 2's close reads 91, below the 92 already reached: the stop stays at 92.
+    levels = np.array([90, 92, 91, 91, 91.0])
+    # fmt: off
+    bars, result = run_trailing([
+        (100, 101, 99,   100),
+        (100, 101, 95,    96),
+        ( 96,  97, 93,    96),
+        ( 96,  97, 91.5,  94),  # reaches 92, not 91
+        ( 94,  95, 93,    94),
+    ], Level(at=levels))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price) == (bars.index[3], 92)
+
+
+# fmt: off
+RISES_THEN_FALLS = [
+    (100, 101, 99, 100),
+    (100, 101, 97, 100),  # the fixed stop at 95 is tighter than the trailing one at 90
+    (100, 110, 99, 109),
+    (109, 110, 96, 98),   # now the trailing stop is at 99, above 95
+    ( 98,  99, 94, 95),
+]
+# fmt: on
+
+
+def test_the_tighter_of_the_fixed_and_trailing_stops_counts():
+    bars, result = run_trailing(RISES_THEN_FALLS, Level(pct=10), stop_loss=Level(pct=5))
+    _, falls_first = run_trailing(
+        [RISES_THEN_FALLS[0], (100, 101, 94, 96)], Level(pct=10), stop_loss=Level(pct=5)
+    )
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason, trade.exit_price) == (
+        bars.index[3],
+        ExitReason.TRAILING_STOP,
+        approx(99),
+    )
+    [early] = falls_first.trades
+    assert (early.exit_reason, early.exit_price) == (ExitReason.STOP_LOSS, 95)
+
+
+def test_a_short_trailing_stop_follows_the_lows():
+    # fmt: off
+    bars, result = run_trailing([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),  # 10% above the entry of 100: 110
+        ( 96,  97,  90,  91),  # above the low of 95 so far: 104.5
+        ( 91, 100,  90,  99),  # above the low of 90: 99, reached by the high of 100
+        ( 99, 100,  98,  99),
+    ], Level(pct=10), direction=Direction.SHORT)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[3], ExitReason.TRAILING_STOP)
+    assert trade.exit_price == approx(99)
+
+
+def test_a_trailing_stop_does_not_count_the_high_before_an_inside_fill():
+    # The limit buys at 98 inside bar 1, whose high of 104 may have come first: the stop
+    # trails the fill price, 88.2, not 104 (93.6), and the low of 90 on bar 2 doesn't reach it.
+    bars = bars_from([(100, 101, 99, 100), (100, 104, 97, 99), (99, 100, 90, 95), (95, 96, 94, 95)])
+    entry = Entry("limit", np.full(4, 98.0))
+    orders = Orders(Direction.LONG, at(4, 0), None, None, None, entry, Level(pct=10))
+
+    result = simulate_orders(bars, orders, BacktestConfig(initial_capital=10_000))
+
+    [trade] = result.trades
+    assert (trade.entry_price, trade.exit_reason) == (98, ExitReason.END_OF_DATA)
+
+
 def rsi_strategy(direction: Direction) -> StrategyDefinition:
     """Trades RSI(5) swings, with a stop-loss and a take-profit, so that every kind of exit
     happens within a few hundred random bars."""
@@ -961,6 +1076,43 @@ def test_run_places_entry_orders(direction):
     orders = Orders(direction, entries, exits, Level(pct=3), Level(pct=4), entry)
     assert result.trades == simulate_orders(bars, orders, COSTS).trades
     assert len(result.trades) > 5
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_run_trails_a_level(direction):
+    bars = random_bars()
+    # A chandelier exit: 3 ATRs behind the 22-bar extreme.
+    extreme = (
+        {"indicator": "highest", "period": 22}
+        if direction == "long"
+        else {"indicator": "lowest", "period": 22}
+    )
+    behind = "subtract" if direction == "long" else "add"
+    definition = StrategyDefinition.model_validate(
+        rsi_strategy(direction).model_dump()
+        | {
+            "exit": None,
+            "stop_loss_pct": None,
+            "take_profit_pct": None,
+            "trailing_stop_at": {
+                behind: [extreme, {"multiply": [{"indicator": "atr", "period": 22}, {"value": 3}]}]
+            },
+        }
+    )
+
+    result = run(bars, definition, COSTS)
+
+    entries, _ = strategy_signals(definition, bars)
+    atr = indicators.atr(bars["high"], bars["low"], bars["close"], 22)
+    if direction == "long":
+        levels = indicators.highest(bars["high"], 22) - 3 * atr
+    else:
+        levels = indicators.lowest(bars["low"], 22) + 3 * atr
+    orders = Orders(direction, entries, None, trailing_stop=Level(at=levels.to_numpy()))
+    assert result.trades == simulate_orders(bars, orders, COSTS).trades
+    reasons = [trade.exit_reason for trade in result.trades]
+    assert set(reasons) <= {ExitReason.TRAILING_STOP, ExitReason.END_OF_DATA}
+    assert reasons.count(ExitReason.TRAILING_STOP) > 5
 
 
 @pytest.mark.parametrize("direction", list(Direction))

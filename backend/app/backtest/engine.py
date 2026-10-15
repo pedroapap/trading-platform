@@ -26,6 +26,10 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   target, or at the better open when the bar gaps past it, without slippage. When a bar
   reaches both the stop-loss and the take-profit, the stop-loss counts: the bar doesn't say
   which came first, so assume the worse.
+- A trailing stop follows the trade: a percentage behind the best price since the entry
+  (the bars before each bar only), or a price level read on each close and used from the
+  next bar. It only ever tightens; with a fixed stop-loss too, the tighter one counts. It
+  is reached and filled like a stop-loss.
 - On the bar where a limit or stop entry fills after the open, a stop-loss reached counts,
   filling at its level (or at the entry price if that is already past it), and a
   take-profit doesn't: the bar doesn't say whether it came after the fill.
@@ -116,6 +120,7 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     adverse, favorable = (lows, highs) if sign == 1 else (highs, lows)
     # A signal whose levels aren't known yet (an indicator warming up) places no order.
     signals = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
+    signals &= _known(orders.trailing_stop)
     entering = _Entering(orders.entry, signals & _known(orders.entry), opens, adverse, favorable)
     exits = orders.exits
     exit_fills = (np.flatnonzero(exits[:-1]) + 1).tolist() if exits is not None else []
@@ -137,20 +142,25 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         signal_exit = _first_from(exit_fills, entry + 1)
         # A signal exit fills at its bar's open, before a stop or target is reached on it.
         last = len(bars) if signal_exit is None else signal_exit
-        stop = _stop_loss(orders.stop_loss, entry_price, signal, sign)
-        target = _take_profit(orders.take_profit, entry_price, stop, signal, sign)
-        triggers: list[Trigger] = []
-        if stop is not None:
-            triggers.append((adverse, stop, -sign))
-        if target is not None:
-            triggers.append((favorable, target, sign))
-        if inside and stop is not None and _reaches(adverse[entry], stop, -sign):
+        fixed = _stop_loss(orders.stop_loss, entry_price, signal, sign)
+        target = _take_profit(orders.take_profit, entry_price, fixed, signal, sign)
+
+        trail = orders.trailing_stop
+        stops = None
+        if fixed is not None or trail is not None:
+            stops = _StopLoss(fixed, trail, entry, signal, unslipped_entry, favorable, sign)
+        if inside and stops is not None and _reaches(adverse[entry], stops.level(entry), -sign):
             # Filled inside its bar, whose low (long) reaches the stop: the worst case is that
             # it came after the fill.
             reached = entry
         else:
-            # A take-profit reached on the bar of an inside fill may have come before it.
-            reached = _first_reached(slice(entry + 1 if inside else entry, last), *triggers)
+            if inside and stops is not None:
+                # A take-profit reached on the bar of an inside fill may have come before it,
+                # and so may its high (long), which a trailing stop doesn't count.
+                stops = _StopLoss(fixed, trail, entry + 1, signal, unslipped_entry, favorable, sign)
+            first = entry + 1 if inside else entry
+            reached = _first_exit(first, last, stops, target, adverse, favorable, sign)
+        stop, trailing = (None, False) if stops is None or reached is None else stops.at(reached)
         if reached is None:
             if signal_exit is not None:
                 exit_, unslipped_exit, reason = signal_exit, opens[signal_exit], ExitReason.SIGNAL
@@ -160,7 +170,8 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         elif stop is not None and _reaches(adverse[reached], stop, -sign):
             # Checked first: when a bar reaches both, the stop-loss counts. After an inside
             # fill, the rest of the bar starts at the fill price.
-            exit_, reason = reached, ExitReason.STOP_LOSS
+            exit_ = reached
+            reason = ExitReason.TRAILING_STOP if trailing else ExitReason.STOP_LOSS
             start = unslipped_entry if inside and reached == entry else opens[reached]
             unslipped_exit = _fill_price(start, stop, -sign)
             exit_price = unslipped_exit * (1 - sign * slip)
@@ -236,6 +247,93 @@ def _trades(
             reason,
         ), entry_time, exit_time in zip(made, entry_times, exit_times, strict=True)
     ]
+
+
+class _StopLoss:
+    """A trade's stop-loss on each bar from `first` on: a fixed level, a trailing one, or the
+    tighter of the two. Bars are read in consecutive chunks from `first`, as `_scan` reads
+    them, and a trailing stop only ever tightens."""
+
+    def __init__(
+        self,
+        fixed: float | None,
+        trail: Level | None,
+        first: int,
+        signal: int,
+        entry_price: float,
+        favorable: np.ndarray,
+        sign: int,
+    ) -> None:
+        self._fixed, self._sign = fixed, sign
+        self._trails = trail is not None
+        if trail is not None and trail.at is not None:
+            # At the tightest level read on the closes since the order was placed.
+            self._values, self._factor = trail.at, 1.0
+            self._best = _tightest(trail.at[signal:first], sign)
+        elif trail is not None:
+            # Behind the best price since the entry.
+            self._values, self._factor = favorable, 1 - sign * trail.pct / 100
+            self._best = entry_price
+        self._chunk: tuple[int, np.ndarray] = (first, np.empty(0))
+
+    def levels(self, start: int, end: int) -> np.ndarray | float:
+        """The stop-loss on bars start..end-1, each call reading on where the last one ended;
+        on each bar a trailing stop counts the bars before it only."""
+        if not self._trails:
+            return self._fixed
+        sign = self._sign
+        before = np.concatenate([[self._best], self._values[start : end - 1]])
+        best = sign * np.fmax.accumulate(sign * before)
+        self._best = sign * np.fmax(sign * best[-1], sign * self._values[end - 1])
+        trailing = best * self._factor
+        self._chunk = (start, trailing)
+        if self._fixed is None:
+            return trailing
+        return sign * np.fmax(sign * trailing, sign * self._fixed)
+
+    def level(self, bar: int) -> float:
+        """The stop-loss on `bar`, the next bar to read."""
+        levels = self.levels(bar, bar + 1)
+        return float(levels if np.isscalar(levels) else levels[0])
+
+    def at(self, bar: int) -> tuple[float | None, bool]:
+        """The stop-loss on `bar`, in the last chunk read, and whether the trailing stop is the
+        one that sets it."""
+        if not self._trails:
+            return self._fixed, False
+        start, trailing = self._chunk
+        level = float(trailing[bar - start])
+        if self._fixed is not None and not self._sign * (level - self._fixed) > 0:
+            return self._fixed, False
+        return level, True
+
+
+def _first_exit(
+    first: int,
+    last: int,
+    stops: _StopLoss | None,
+    target: float | None,
+    adverse: np.ndarray,
+    favorable: np.ndarray,
+    sign: int,
+) -> int | None:
+    """The first bar in [first, last) where the stop-loss or the take-profit is reached."""
+
+    def reached(start: int, end: int) -> np.ndarray:
+        found = np.zeros(end - start, dtype=bool)
+        if stops is not None:
+            found |= _reaches(adverse[start:end], stops.levels(start, end), -sign)
+        if target is not None:
+            found |= _reaches(favorable[start:end], target, sign)
+        return found
+
+    return _scan(first, last, reached)
+
+
+def _tightest(levels: np.ndarray, sign: int) -> float:
+    """The tightest known level for a stop: a long's highest, a short's lowest."""
+    known = levels[~np.isnan(levels)]
+    return float(sign * np.max(sign * known)) if known.size else np.nan
 
 
 class _Entering:
@@ -321,25 +419,6 @@ def _first_from(bars: list[int], start: int) -> int | None:
     """The first of the sorted bar numbers that is at least `start`."""
     position = bisect_left(bars, start)
     return bars[position] if position < len(bars) else None
-
-
-# A level a price can reach: (values per bar, level, side). Side +1 means reaching it from
-# below (at or above the level), -1 from above (at or below it).
-Trigger = tuple[np.ndarray, float, int]
-
-
-def _first_reached(bars: slice, *triggers: Trigger) -> int | None:
-    """The first of `bars` on which any trigger's level is reached."""
-    if not triggers:
-        return None
-
-    def reached(start: int, end: int) -> np.ndarray:
-        found = np.zeros(end - start, dtype=bool)
-        for values, level, side in triggers:
-            found |= _reaches(values[start:end], level, side)
-        return found
-
-    return _scan(bars.start, bars.stop, reached)
 
 
 def _scan(start: int, end: int, reached: Callable[[int, int], np.ndarray]) -> int | None:
