@@ -83,6 +83,27 @@ def test_bars_ago_beyond_the_data_is_unknown():
     assert np.isnan(resolved).all()
 
 
+@pytest.mark.parametrize(
+    ("operation", "expected"),
+    [("add", [5.0, 7.0]), ("subtract", [-3.0, -3.0]), ("multiply", [4.0, 10.0])],
+)
+def test_arithmetic_combines_two_operands(operation, expected):
+    bars = pd.DataFrame({"open": [1.0, 2.0], "close": [4.0, 5.0]})
+    data = {operation: [{"price": "open"}, {"price": "close"}]}
+
+    assert OperandResolver(bars).resolve(parse_operand(data)).tolist() == expected
+
+
+def test_dividing_by_zero_is_unknown():
+    bars = pd.DataFrame({"open": [1.0, 0.0, -2.0], "close": [3.0, 3.0, 0.0]})
+
+    quotient = OperandResolver(bars).resolve(
+        parse_operand({"divide": [{"price": "close"}, {"price": "open"}]})
+    )
+
+    np.testing.assert_array_equal(quotient, [3.0, NAN, -0.0])
+
+
 @pytest.fixture
 def indicator_calls(monkeypatch) -> list[str]:
     """Calls to `indicators.rsi` and `indicators.macd` during the test, in order. (Not SMA or
@@ -145,6 +166,12 @@ def test_a_comparison_with_a_missing_value_is_false(op):
     rule = {"left": OPEN, "op": op, "right": CLOSE}
 
     assert holds(rule, open=[NAN, 2, NAN], close=[2, NAN, NAN]) == [F, F, F]
+
+
+def test_a_comparison_with_a_division_by_zero_is_false():
+    rule = {"left": {"divide": [CLOSE, OPEN]}, "op": ">", "right": {"value": 0}}
+
+    assert holds(rule, open=[1, 0], close=[3, 3]) == [T, F]
 
 
 def test_crosses_above():
@@ -247,6 +274,11 @@ EVERY_RULE = {
                         "op": ">",
                         "right": {"indicator": "rsi", "period": 5, "bars_ago": 2},
                     },
+                    {
+                        "left": {"divide": [CLOSE, {"price": "open", "bars_ago": 1}]},
+                        "op": "<",
+                        "right": {"subtract": [{"value": 1.01}, {"value": 0.005}]},
+                    },
                 ]
             },
             {"left": MACD, "op": "crosses_above", "right": MACD | {"output": "signal"}},
@@ -264,6 +296,16 @@ EVERY_RULE = {
             {"left": {"price": "high"}, "op": ">", "right": BBANDS | {"output": "upper"}},
             {"left": MACD | {"output": "histogram"}, "op": "<", "right": {"value": -0.5}},
             {"left": {"price": "volume"}, "op": ">", "right": {"value": 9.8}},
+            {
+                "left": CLOSE,
+                "op": "<",
+                "right": {
+                    "multiply": [
+                        {"add": [{"indicator": "sma", "period": 10}, {"value": -0.5}]},
+                        {"value": 0.97},
+                    ]
+                },
+            },
         ]
     },
 }

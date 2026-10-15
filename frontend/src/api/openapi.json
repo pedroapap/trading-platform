@@ -2210,13 +2210,147 @@
   },
   "components": {
     "schemas": {
+      "Add-Input": {
+        "properties": {
+          "add": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Input"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Add"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "add"
+        ],
+        "title": "Add"
+      },
+      "Add-Output": {
+        "properties": {
+          "add": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Output"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Add"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "add"
+        ],
+        "title": "Add"
+      },
       "AllOf-Input": {
         "properties": {
           "all": {
             "items": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/Condition"
+                  "$ref": "#/components/schemas/Condition-Input"
                 },
                 {
                   "$ref": "#/components/schemas/AllOf-Input"
@@ -2244,7 +2378,7 @@
             "items": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/Condition"
+                  "$ref": "#/components/schemas/Condition-Output"
                 },
                 {
                   "$ref": "#/components/schemas/AllOf-Output"
@@ -2272,7 +2406,7 @@
             "items": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/Condition"
+                  "$ref": "#/components/schemas/Condition-Input"
                 },
                 {
                   "$ref": "#/components/schemas/AllOf-Input"
@@ -2300,7 +2434,7 @@
             "items": {
               "oneOf": [
                 {
-                  "$ref": "#/components/schemas/Condition"
+                  "$ref": "#/components/schemas/Condition-Output"
                 },
                 {
                   "$ref": "#/components/schemas/AllOf-Output"
@@ -3205,7 +3339,7 @@
         ],
         "title": "ComparisonSide"
       },
-      "Condition": {
+      "Condition-Input": {
         "properties": {
           "left": {
             "oneOf": [
@@ -3243,6 +3377,18 @@
                     "sma": "#/components/schemas/Sma"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Input"
               }
             ],
             "title": "Left"
@@ -3295,6 +3441,147 @@
                     "sma": "#/components/schemas/Sma"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Input"
+              }
+            ],
+            "title": "Right"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "left",
+          "op",
+          "right"
+        ],
+        "title": "Condition",
+        "description": "`left op right` on each bar; a cross means it became true on this bar."
+      },
+      "Condition-Output": {
+        "properties": {
+          "left": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Value"
+              },
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Sma"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Ema"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Rsi"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Macd"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Bbands"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "indicator",
+                  "mapping": {
+                    "bbands": "#/components/schemas/Bbands",
+                    "ema": "#/components/schemas/Ema",
+                    "macd": "#/components/schemas/Macd",
+                    "rsi": "#/components/schemas/Rsi",
+                    "sma": "#/components/schemas/Sma"
+                  }
+                }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Output"
+              }
+            ],
+            "title": "Left"
+          },
+          "op": {
+            "type": "string",
+            "enum": [
+              "<",
+              "<=",
+              ">",
+              ">=",
+              "crosses_above",
+              "crosses_below"
+            ],
+            "title": "Op"
+          },
+          "right": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Value"
+              },
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Sma"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Ema"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Rsi"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Macd"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Bbands"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "indicator",
+                  "mapping": {
+                    "bbands": "#/components/schemas/Bbands",
+                    "ema": "#/components/schemas/Ema",
+                    "macd": "#/components/schemas/Macd",
+                    "rsi": "#/components/schemas/Rsi",
+                    "sma": "#/components/schemas/Sma"
+                  }
+                }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Output"
               }
             ],
             "title": "Right"
@@ -3387,6 +3674,142 @@
           "short"
         ],
         "title": "Direction"
+      },
+      "Divide-Input": {
+        "properties": {
+          "divide": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Input"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Divide"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "divide"
+        ],
+        "title": "Divide",
+        "description": "The first operand divided by the second; unknown where the second is 0."
+      },
+      "Divide-Output": {
+        "properties": {
+          "divide": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Output"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Divide"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "divide"
+        ],
+        "title": "Divide",
+        "description": "The first operand divided by the second; unknown where the second is 0."
       },
       "Ema": {
         "properties": {
@@ -4367,6 +4790,140 @@
         "title": "Metrics",
         "description": "Every metric of a backtest; see the functions above for definitions."
       },
+      "Multiply-Input": {
+        "properties": {
+          "multiply": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Input"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Multiply"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "multiply"
+        ],
+        "title": "Multiply"
+      },
+      "Multiply-Output": {
+        "properties": {
+          "multiply": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Output"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Multiply"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "multiply"
+        ],
+        "title": "Multiply"
+      },
       "PerformanceGroup": {
         "properties": {
           "key": {
@@ -4727,7 +5284,7 @@
           "entry": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/Condition"
+                "$ref": "#/components/schemas/Condition-Input"
               },
               {
                 "$ref": "#/components/schemas/AllOf-Input"
@@ -4743,7 +5300,7 @@
               {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Condition"
+                    "$ref": "#/components/schemas/Condition-Input"
                   },
                   {
                     "$ref": "#/components/schemas/AllOf-Input"
@@ -4803,7 +5360,7 @@
           "entry": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/Condition"
+                "$ref": "#/components/schemas/Condition-Output"
               },
               {
                 "$ref": "#/components/schemas/AllOf-Output"
@@ -4819,7 +5376,7 @@
               {
                 "oneOf": [
                   {
-                    "$ref": "#/components/schemas/Condition"
+                    "$ref": "#/components/schemas/Condition-Output"
                   },
                   {
                     "$ref": "#/components/schemas/AllOf-Output"
@@ -5003,6 +5560,142 @@
           "created_at"
         ],
         "title": "StrategyVersionRead"
+      },
+      "Subtract-Input": {
+        "properties": {
+          "subtract": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Input"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Subtract"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subtract"
+        ],
+        "title": "Subtract",
+        "description": "The first operand minus the second."
+      },
+      "Subtract-Output": {
+        "properties": {
+          "subtract": {
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/Value"
+                },
+                {
+                  "$ref": "#/components/schemas/Price"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/Sma"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Ema"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Rsi"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Macd"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Bbands"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "indicator",
+                    "mapping": {
+                      "bbands": "#/components/schemas/Bbands",
+                      "ema": "#/components/schemas/Ema",
+                      "macd": "#/components/schemas/Macd",
+                      "rsi": "#/components/schemas/Rsi",
+                      "sma": "#/components/schemas/Sma"
+                    }
+                  }
+                },
+                {
+                  "$ref": "#/components/schemas/Add-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Subtract-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Multiply-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/Divide-Output"
+                }
+              ]
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Subtract"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "subtract"
+        ],
+        "title": "Subtract",
+        "description": "The first operand minus the second."
       },
       "Timeframe": {
         "type": "string",

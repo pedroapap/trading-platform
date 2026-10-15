@@ -594,13 +594,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Add */
+        "Add-Input": {
+            /** Add */
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+        };
+        /** Add */
+        "Add-Output": {
+            /** Add */
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+        };
         /**
          * AllOf
          * @description True when every child is true.
          */
         "AllOf-Input": {
             /** All */
-            all: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
+            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
         };
         /**
          * AllOf
@@ -608,7 +618,7 @@ export interface components {
          */
         "AllOf-Output": {
             /** All */
-            all: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
+            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
         };
         /**
          * AnyOf
@@ -616,7 +626,7 @@ export interface components {
          */
         "AnyOf-Input": {
             /** Any */
-            any: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
+            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"])[];
         };
         /**
          * AnyOf
@@ -624,7 +634,7 @@ export interface components {
          */
         "AnyOf-Output": {
             /** Any */
-            any: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
+            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
         };
         /** AuditEventRead */
         AuditEventRead: {
@@ -965,16 +975,31 @@ export interface components {
          * Condition
          * @description `left op right` on each bar; a cross means it became true on this bar.
          */
-        Condition: {
+        "Condition-Input": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]);
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]);
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+        };
+        /**
+         * Condition
+         * @description `left op right` on each bar; a cross means it became true on this bar.
+         */
+        "Condition-Output": {
+            /** Left */
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            /**
+             * Op
+             * @enum {string}
+             */
+            op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
+            /** Right */
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
         };
         /** CoverageRead */
         CoverageRead: {
@@ -1013,6 +1038,22 @@ export interface components {
          * @enum {string}
          */
         Direction: "long" | "short";
+        /**
+         * Divide
+         * @description The first operand divided by the second; unknown where the second is 0.
+         */
+        "Divide-Input": {
+            /** Divide */
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+        };
+        /**
+         * Divide
+         * @description The first operand divided by the second; unknown where the second is 0.
+         */
+        "Divide-Output": {
+            /** Divide */
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+        };
         /** Ema */
         Ema: {
             /**
@@ -1318,6 +1359,16 @@ export interface components {
             /** Exposure Pct */
             exposure_pct: number;
         };
+        /** Multiply */
+        "Multiply-Input": {
+            /** Multiply */
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+        };
+        /** Multiply */
+        "Multiply-Output": {
+            /** Multiply */
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+        };
         /** PerformanceGroup */
         PerformanceGroup: {
             /** Key */
@@ -1474,9 +1525,9 @@ export interface components {
         "StrategyDefinition-Input": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"];
+            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"];
             /** Exit */
-            exit?: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"]) | null;
+            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"]) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
@@ -1490,9 +1541,9 @@ export interface components {
         "StrategyDefinition-Output": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"];
+            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"];
             /** Exit */
-            exit?: (components["schemas"]["Condition"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"]) | null;
+            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"]) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
@@ -1546,6 +1597,22 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * Subtract
+         * @description The first operand minus the second.
+         */
+        "Subtract-Input": {
+            /** Subtract */
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+        };
+        /**
+         * Subtract
+         * @description The first operand minus the second.
+         */
+        "Subtract-Output": {
+            /** Subtract */
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * Timeframe

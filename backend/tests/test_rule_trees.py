@@ -51,6 +51,10 @@ def test_trees_round_trip_through_json():
     ("data", "message"),
     [
         ({"left": {"value": 1}, "op": "<", "right": {"value": 2}}, "must involve a price or"),
+        (
+            {"left": {"add": [{"value": 1}, {"value": 2}]}, "op": "<", "right": {"value": 4}},
+            "must involve a price or",
+        ),
         ({**RSI_BELOW_30, "op": "=="}, "Input should be '<', '<=', '>', '>='"),
         ({"all": []}, "a group needs at least one rule"),
         ({"none": [RSI_BELOW_30]}, "A rule is a condition"),
@@ -92,3 +96,15 @@ def test_constants_may_be_compared_with_prices():
     )
 
     assert condition.right == Value(value=100)
+
+
+def test_arithmetic_on_prices_may_be_compared_with_constants():
+    condition = node.validate_python(
+        {
+            "left": {"multiply": [{"price": "close"}, {"value": 2}]},
+            "op": ">",
+            "right": {"value": 3},
+        }
+    )
+
+    assert condition.right == Value(value=3)

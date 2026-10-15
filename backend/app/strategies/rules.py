@@ -1,10 +1,11 @@
-"""The strategy rule language: operands compared by conditions, combined with all/any.
+"""The strategy rule language: operands (values, prices, indicators and arithmetic on them)
+compared by conditions, combined with all/any.
 
 Every model is frozen, so identical operands are equal and hashable, which lets the
 backtester compute each distinct indicator once.
 """
 
-from typing import Annotated, Literal, Self
+from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import (
     AfterValidator,
@@ -89,26 +90,102 @@ class Bbands(_Rule):
 Indicator = Annotated[Sma | Ema | Rsi | Macd | Bbands, Field(discriminator="indicator")]
 
 
+MAX_ARITHMETIC_DEPTH = 4
+
+
+# Exactly two operands. A tuple of any length with bounds, rather than a pair, so the generated
+# API types are plain arrays (as the API client's response types make them) on both sides.
+Pair = Annotated[tuple["Operand", ...], Field(min_length=2, max_length=2)]
+
+
+class Arithmetic(_Rule):
+    """Two operands combined into one value per bar, e.g. `{"multiply": [a, b]}`."""
+
+    key: ClassVar[str]  # the operation, which is also the JSON key
+
+    @property
+    def operands(self) -> tuple["Operand", "Operand"]:
+        return getattr(self, self.key)
+
+    @model_validator(mode="after")
+    def _not_too_deep(self) -> Self:
+        if _arithmetic_depth(self) > MAX_ARITHMETIC_DEPTH:
+            raise ValueError(f"arithmetic may be nested at most {MAX_ARITHMETIC_DEPTH} levels deep")
+        return self
+
+
+class Add(Arithmetic):
+    key: ClassVar[str] = "add"
+    add: Pair
+
+
+class Subtract(Arithmetic):
+    """The first operand minus the second."""
+
+    key: ClassVar[str] = "subtract"
+    subtract: Pair
+
+
+class Multiply(Arithmetic):
+    key: ClassVar[str] = "multiply"
+    multiply: Pair
+
+
+class Divide(Arithmetic):
+    """The first operand divided by the second; unknown where the second is 0."""
+
+    key: ClassVar[str] = "divide"
+    divide: Pair
+
+
+def _arithmetic_depth(operand: "Operand") -> int:
+    if isinstance(operand, Arithmetic):
+        return 1 + max(_arithmetic_depth(each) for each in operand.operands)
+    return 0
+
+
+_OPERAND_KEYS = ("indicator", "price", "value", "add", "subtract", "multiply", "divide")
+
+
 def _operand_kind(data: object) -> str | None:
     if isinstance(data, dict):
-        return next((key for key in ("indicator", "price", "value") if key in data), None)
+        return next((key for key in _OPERAND_KEYS if key in data), None)
     if isinstance(data, Value):
         return "value"
     if isinstance(data, Price):
         return "price"
+    if isinstance(data, Arithmetic):
+        return data.key
     return "indicator" if isinstance(data, _Rule) else None
 
 
 Operand = Annotated[
     Annotated[Value, Tag("value")]
     | Annotated[Price, Tag("price")]
-    | Annotated[Indicator, Tag("indicator")],
+    | Annotated[Indicator, Tag("indicator")]
+    | Annotated[Add, Tag("add")]
+    | Annotated[Subtract, Tag("subtract")]
+    | Annotated[Multiply, Tag("multiply")]
+    | Annotated[Divide, Tag("divide")],
     Discriminator(
         _operand_kind,
         custom_error_type="invalid_operand",
-        custom_error_message="An operand needs a 'value', 'price' or 'indicator' key",
+        custom_error_message=(
+            "An operand needs a 'value', 'price', 'indicator', 'add', 'subtract', 'multiply'"
+            " or 'divide' key"
+        ),
     ),
 ]
+
+for _model in (Add, Subtract, Multiply, Divide):
+    _model.model_rebuild()
+
+
+def is_constant(operand: Operand) -> bool:
+    """Whether the operand is the same on every bar: a value, or arithmetic on values."""
+    if isinstance(operand, Arithmetic):
+        return all(is_constant(each) for each in operand.operands)
+    return isinstance(operand, Value)
 
 
 Operator = Literal["<", "<=", ">", ">=", "crosses_above", "crosses_below"]
@@ -126,7 +203,7 @@ class Condition(_Rule):
 
     @model_validator(mode="after")
     def _compares_market_data(self) -> Self:
-        if isinstance(self.left, Value) and isinstance(self.right, Value):
+        if is_constant(self.left) and is_constant(self.right):
             raise ValueError("a condition must involve a price or an indicator")
         return self
 

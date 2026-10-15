@@ -12,6 +12,7 @@ from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import (
     AllOf,
     AnyOf,
+    Arithmetic,
     Bbands,
     Condition,
     Ema,
@@ -35,6 +36,9 @@ class OperandResolver:
     def resolve(self, operand: Operand) -> np.ndarray:
         if isinstance(operand, Value):
             return np.full(len(self._bars), operand.value)
+        if isinstance(operand, Arithmetic):
+            left, right = (self.resolve(each) for each in operand.operands)
+            return _ARITHMETIC[operand.key](left, right)
         return _shifted(self._current(operand), operand.bars_ago)
 
     def _current(self, operand: Price | Indicator) -> np.ndarray:
@@ -87,6 +91,21 @@ def _compute(operand: Operand, values: pd.Series) -> pd.Series | pd.DataFrame:
             return indicators.bbands(values, period, std)
         case _:
             raise TypeError(f"not an indicator: {operand!r}")
+
+
+def _divide(left: np.ndarray, right: np.ndarray) -> np.ndarray:
+    """`left / right`, unknown (NaN) where `right` is 0."""
+    with np.errstate(divide="ignore", invalid="ignore"):
+        quotient = left / right
+    return np.where(np.isfinite(quotient), quotient, np.nan)
+
+
+_ARITHMETIC = {
+    "add": np.add,
+    "subtract": np.subtract,
+    "multiply": np.multiply,
+    "divide": _divide,
+}
 
 
 def _shifted(values: np.ndarray, bars: int) -> np.ndarray:
