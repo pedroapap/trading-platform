@@ -14,3 +14,10 @@ export function toLocalInput(date: Date): string {
 export function fromLocalInput(value: string): string {
   return new Date(value).toISOString();
 }
+
+const count = new Intl.NumberFormat();
+
+/** A whole number with the browser's digit grouping, as 525,600. */
+export function formatCount(value: number): string {
+  return count.format(value);
+}

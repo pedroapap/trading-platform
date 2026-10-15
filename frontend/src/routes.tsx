@@ -6,6 +6,7 @@ import HomePage from "./pages/HomePage";
 import JournalEntryPage from "./pages/JournalEntryPage";
 import JournalPage from "./pages/JournalPage";
 import LoginPage from "./pages/LoginPage";
+import MarketDataPage from "./pages/MarketDataPage";
 import NewJournalEntryPage from "./pages/NewJournalEntryPage";
 import NewStrategyPage from "./pages/NewStrategyPage";
 import NewTradePage from "./pages/NewTradePage";
@@ -32,6 +33,7 @@ export const routes: RouteObject[] = [
           { path: "strategies", element: <StrategiesPage /> },
           { path: "strategies/new", element: <NewStrategyPage /> },
           { path: "strategies/:strategyId", element: <StrategyPage /> },
+          { path: "market-data", element: <MarketDataPage /> },
           { path: "*", element: <p>Page not found.</p> },
         ],
       },

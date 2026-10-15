@@ -53,3 +53,10 @@ ul.problems {
   color: var(--pico-del-color);
   font-size: 0.875rem;
 }
+
+/* Numbers line up by their last digit. */
+th.number,
+td.number {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
