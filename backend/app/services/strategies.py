@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.errors import ConflictError, NotFoundError
 from app.models import Strategy, StrategyVersion, User
 from app.schemas.strategy import StrategyCreate, StrategyUpdate
+from app.strategies.definition import StrategyDefinition
 
 
 def _name_taken(name: str) -> ConflictError:
@@ -71,7 +72,10 @@ def update_strategy(
         strategy.description = data.description
     if data.definition is not None:
         new = data.definition.model_dump(mode="json")
-        old = strategy.current.definition
+        # Read back through today's model, so a default the stored version leaves out (a
+        # field the language gained after it was saved) doesn't count as a change.
+        stored = StrategyDefinition.model_validate(strategy.current.definition)
+        old = stored.model_dump(mode="json")
         changed = sorted(key for key in new.keys() | old.keys() if new.get(key) != old.get(key))
         if changed:
             strategy.current_version += 1

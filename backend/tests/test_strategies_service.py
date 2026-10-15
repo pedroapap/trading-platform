@@ -7,7 +7,7 @@ from app.errors import ConflictError, NotFoundError
 from app.models import StrategyVersion
 from app.schemas.strategy import StrategyCreate, StrategyUpdate
 from app.services import strategies, users
-from tests.helpers import MINIMAL_DEFINITION
+from tests.helpers import MINIMAL_DEFINITION, make_strategy
 
 
 def new(name: str = "RSI dip", **fields) -> StrategyCreate:
@@ -101,6 +101,17 @@ def test_a_changed_definition_becomes_the_next_version(db_session, user):
 
 def test_an_identical_definition_is_not_a_new_version(db_session, user):
     strategy = strategies.create_strategy(db_session, user, new())
+
+    update(db_session, user, strategy, definition=dict(MINIMAL_DEFINITION))
+
+    assert strategy.current_version == 1
+    assert len(versions(db_session, strategy)) == 1
+
+
+def test_defaults_missing_from_a_stored_definition_are_not_changes(db_session, user):
+    # Stored as written, without the defaults (RSI's period and source) that the model fills
+    # in: as a version saved before the language gained a field looks.
+    strategy = make_strategy(db_session, user, definition=MINIMAL_DEFINITION)
 
     update(db_session, user, strategy, definition=dict(MINIMAL_DEFINITION))
 
