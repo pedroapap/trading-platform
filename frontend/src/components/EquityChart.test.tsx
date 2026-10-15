@@ -97,6 +97,72 @@ test("the points are also a table", async () => {
   ]);
 });
 
+// Buy and hold at the times of POINTS, but for the first.
+const HELD = [
+  { time: "2025-01-01T01:00:00Z", value: 9_950 },
+  { time: "2025-01-02T00:00:00Z", value: 10_100 },
+];
+
+function renderTwo() {
+  return render(
+    <EquityChart
+      points={POINTS}
+      label="Equity"
+      format={(value) => `${value} USDT`}
+      compared={{ label: "Buy and hold", points: HELD }}
+    />,
+  );
+}
+
+test("a second series is drawn too, each named on the scale at its last value", () => {
+  renderTwo();
+
+  expect(chart.addSeries).toHaveBeenCalledTimes(2);
+  expect(series.setData).toHaveBeenLastCalledWith(
+    HELD.map((point) => ({ time: seconds(point.time), value: point.value, at: point.time })),
+  );
+  expect(series.createPriceLine.mock.calls.map(([options]) => options)).toEqual([
+    expect.objectContaining({ price: 10_500.25, title: "Equity", lineVisible: false }),
+    expect.objectContaining({ price: 10_100, title: "Buy and hold", lineVisible: false }),
+  ]);
+});
+
+test("one series alone is not named on the scale: the readout names it", () => {
+  renderChart();
+
+  expect(chart.addSeries).toHaveBeenCalledTimes(1);
+  // The initial capital's line only.
+  expect(series.createPriceLine).toHaveBeenCalledTimes(1);
+});
+
+test("both values are read out, keyed, at the time under the pointer", () => {
+  renderTwo();
+  const [[follow]] = chart.subscribeCrosshairMove.mock.calls;
+  const caption = () => screen.getByRole("figure").querySelector("figcaption")!;
+
+  expect(caption()).toHaveTextContent(
+    "10500.25 USDT Equity 10100 USDT Buy and hold Jan 2, 2025, 12:00 AM",
+  );
+  expect(caption().querySelectorAll(".key")).toHaveLength(2);
+
+  act(() => follow({ time: seconds(POINTS[0].time) as Time } as MouseEventParams<Time>));
+  expect(caption()).toHaveTextContent("10000 USDT Equity — Buy and hold Jan 1, 2025, 12:00 AM");
+});
+
+test("the table has a column for the second series", async () => {
+  renderTwo();
+
+  await userEvent.click(screen.getByText("Equity as a table"));
+
+  const [header, ...rows] = screen.getAllByRole("row");
+  expect(header).toHaveTextContent("TimeEquityBuy and hold");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "Jan 1, 2025, 12:00 AM10000 USDT—",
+    "Jan 1, 2025, 1:00 AM10000 USDT9950 USDT",
+    "Jan 2, 2025, 12:00 AM10500.25 USDT10100 USDT",
+  ]);
+});
+
 test("the chart goes away with the component", () => {
   const { unmount } = renderChart();
 

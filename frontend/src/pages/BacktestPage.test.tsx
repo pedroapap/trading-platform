@@ -14,20 +14,26 @@ type BacktestTrade = Schemas["BacktestTradeRead"];
 
 // jsdom has no canvas: the chart says what it was given instead.
 vi.mock("../components/EquityChart", () => ({
-  default: ({ points, label, format, reference }: EquityChartProps) => (
-    <figure>
-      {label}: {points.length} points, {format(points[0].value)} to {format(points.at(-1)!.value)}
-      {reference && `; ${reference.title} at ${reference.value}`}
-    </figure>
-  ),
+  default: ({ points, label, format, reference, compared }: EquityChartProps) => {
+    const curve = (name: string, curvePoints: typeof points) =>
+      `${name}: ${curvePoints.length} points, ${format(curvePoints[0].value)} to ` +
+      format(curvePoints.at(-1)!.value);
+    return (
+      <figure>
+        {curve(label, points)}
+        {reference && `; ${reference.title} at ${reference.value}`}
+        {compared && `; ${curve(compared.label, compared.points)}`}
+      </figure>
+    );
+  },
 }));
 
 const DONE = backtest();
 
 const EQUITY = [
-  { ts: "2025-01-01T00:00:00Z", equity: 10_000 },
-  { ts: "2025-06-01T00:00:00Z", equity: 9_150.5 },
-  { ts: "2025-12-31T23:00:00Z", equity: 11_234.5 },
+  { ts: "2025-01-01T00:00:00Z", equity: 10_000, benchmark: 9_985 },
+  { ts: "2025-06-01T00:00:00Z", equity: 9_150.5, benchmark: 8_100 },
+  { ts: "2025-12-31T23:00:00Z", equity: 11_234.5, benchmark: 10_810 },
 ];
 
 function trade(number: number): BacktestTrade {
@@ -65,9 +71,13 @@ const COMPARISON: Schemas["BacktestComparison"] = {
   live: { num_trades: 2, win_rate_pct: 50, average_return_pct: "1.2", total_pnl: "120" },
 };
 
-/** A backtest that goes through `states`, then stays in the last; its equity, `total` trades
- * and `comparison` with live trades. Returns the trade pages and comparisons asked for. */
-function backtestApi(states: Backtest[], { total = 2, comparison = COMPARISON } = {}) {
+/** A backtest that goes through `states`, then stays in the last; its `equity`, `total`
+ * trades and `comparison` with live trades. Returns the trade pages and comparisons asked
+ * for. */
+function backtestApi(
+  states: Backtest[],
+  { total = 2, comparison = COMPARISON, equity = EQUITY as Schemas["EquityPoint"][] } = {},
+) {
   let asked = 0;
   const tradePages: number[] = [];
   const comparisons: string[] = [];
@@ -81,7 +91,7 @@ function backtestApi(states: Backtest[], { total = 2, comparison = COMPARISON } 
       asked += 1;
       return HttpResponse.json(states[Math.min(asked, states.length) - 1]);
     }),
-    http.get("/api/backtests/:id/equity", () => HttpResponse.json(EQUITY)),
+    http.get("/api/backtests/:id/equity", () => HttpResponse.json(equity)),
     http.get("/api/backtests/:id/trades", ({ request }) => {
       const offset = Number(new URL(request.url).searchParams.get("offset"));
       tradePages.push(offset);
@@ -112,19 +122,42 @@ test("a completed backtest shows what ran, its results, equity and trades", asyn
   expect(setting("Initial capital")).toHaveTextContent("10000 USDT");
   expect(setting("Costs")).toHaveTextContent("0.1% fee and 0.05% slippage per fill");
   expect(setting("Data fingerprint")).toHaveTextContent("9f2c4e0a7b1d");
-  expect(tile("Total return")).toHaveTextContent("12.35%");
-  expect(tile("Max drawdown")).toHaveTextContent("8.50%");
-  expect(tile("Sharpe ratio")).toHaveTextContent("1.23");
+  // Return, CAGR and drawdown are compared with buy and hold over the same bars.
+  expect(tile("Total return")).toHaveTextContent(/^Total return12.35%Buy and hold 8.10%$/);
+  expect(tile("CAGR")).toHaveTextContent(/^CAGR12.35%Buy and hold 8.10%$/);
+  expect(tile("Max drawdown")).toHaveTextContent(/^Max drawdown8.50%Buy and hold 22.40%$/);
+  expect(tile("Sharpe ratio")).toHaveTextContent(/^Sharpe ratio1.23$/);
   expect(tile("Win rate")).toHaveTextContent("57.14%");
   expect(tile("Average loss")).toHaveTextContent("-80.25 USDT");
   expect(await screen.findByRole("figure")).toHaveTextContent(
-    "Equity: 3 points, 10,000.00 USDT to 11,234.50 USDT; Initial capital at 10000",
+    "Equity: 3 points, 10,000.00 USDT to 11,234.50 USDT; Initial capital at 10000; " +
+      "Buy and hold: 3 points, 9,985.00 USDT to 10,810.00 USDT",
   );
   const [first] = (await screen.findAllByRole("row", { name: /^1 long/ })).slice(0, 1);
   expect(first).toHaveTextContent(
     "1longJan 11, 2025, 1:00 AM@ 44,047.773Jan 23, 2025, 8:00 AM@ 42,704.977" +
       "0.2267994329.51-324.22 USDT-3.25%stop-loss",
   );
+});
+
+test("a backtest run before buy and hold was measured shows its results without it", async () => {
+  const older = backtest({
+    metrics: {
+      ...DONE.metrics!,
+      buy_and_hold_return_pct: undefined,
+      buy_and_hold_cagr_pct: undefined,
+      buy_and_hold_max_drawdown_pct: undefined,
+    },
+  });
+  backtestApi([older], { equity: EQUITY.map(({ ts, equity }) => ({ ts, equity })) });
+
+  renderPage(`/backtests/${older.id}`);
+
+  expect(await screen.findByRole("figure")).toHaveTextContent(
+    /^Equity: 3 points, 10,000.00 USDT to 11,234.50 USDT; Initial capital at 10000$/,
+  );
+  expect(tile("Total return")).toHaveTextContent(/^Total return12.35%$/);
+  expect(screen.queryByText(/Buy and hold/)).not.toBeInTheDocument();
 });
 
 test("a running backtest is followed until it completes", async () => {

@@ -68,19 +68,23 @@ table.instruments fieldset {
   margin-bottom: 0;
 }
 
-/* The series color of charts: the dataviz reference palette's first slot, stepped for each
- * color scheme and validated against Pico's surfaces (#fff and #13171f). Axis text and
- * gridlines use Pico's muted tokens. Pico's own dark-scheme selectors are mirrored here. */
+/* The series colors of charts: the dataviz reference palette's first two slots (blue, then
+ * orange), stepped for each color scheme and validated together against Pico's surfaces (#fff
+ * and #13171f). Axis text and gridlines use Pico's muted tokens. Pico's own dark-scheme
+ * selectors are mirrored here. */
 :root {
   --chart-series: #2a78d6;
+  --chart-series-2: #eb6834;
 }
 @media only screen and (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     --chart-series: #3987e5;
+    --chart-series-2: #d95926;
   }
 }
 :root[data-theme="dark"] {
   --chart-series: #3987e5;
+  --chart-series-2: #d95926;
 }
 
 .equity-chart .chart {
@@ -94,6 +98,26 @@ table.instruments fieldset {
 /* The value leads the readout; its label follows, muted. */
 .equity-chart figcaption strong {
   color: var(--pico-color);
+}
+
+/* Two series: each value keyed by a short stroke of its line's color, then the time. */
+.equity-chart figcaption.keyed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1.25rem;
+}
+
+.equity-chart .key {
+  display: inline-block;
+  width: 1rem;
+  vertical-align: middle;
+  border-top: 2px solid var(--chart-series);
+  border-radius: 1px;
+}
+
+.equity-chart .key-2 {
+  border-top-color: var(--chart-series-2);
 }
 
 /* Headline numbers as tiles: the label above, the value below. */
@@ -119,6 +143,13 @@ dl.metrics dd {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+}
+
+/* Buy and hold's figure under the strategy's, for comparison. */
+dl.metrics dd.held {
+  font-size: 0.875rem;
+  font-weight: normal;
+  color: var(--pico-muted-color);
 }
 
 /* Two tiles a row on phones. */

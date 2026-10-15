@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, useParams } from "react-router";
 
 import {
@@ -106,15 +106,26 @@ function Settings({ backtest, strategyName }: { backtest: Backtest; strategyName
   );
 }
 
+/** The headline numbers; the return, CAGR and drawdown each with buy and hold's, over the same
+ * bars, under it (runs made before it was measured have none). */
 function MetricTiles({ backtest }: { backtest: Backtest }) {
   const metrics = backtest.metrics!;
   const amount = (value: number | null) => (
     <Amount value={value} currency={backtest.quote_currency} />
   );
-  const tiles: Labelled[] = [
-    { label: "Total return", value: formatPercent(metrics.total_return_pct) },
-    { label: "CAGR", value: formatPercent(metrics.cagr_pct) },
-    { label: "Max drawdown", value: formatPercent(metrics.max_drawdown_pct) },
+  const measured = metrics.buy_and_hold_return_pct != null;
+  const tiles: (Labelled & { held?: number | null })[] = [
+    {
+      label: "Total return",
+      value: formatPercent(metrics.total_return_pct),
+      held: metrics.buy_and_hold_return_pct,
+    },
+    { label: "CAGR", value: formatPercent(metrics.cagr_pct), held: metrics.buy_and_hold_cagr_pct },
+    {
+      label: "Max drawdown",
+      value: formatPercent(metrics.max_drawdown_pct),
+      held: metrics.buy_and_hold_max_drawdown_pct,
+    },
     { label: "Sharpe ratio", value: formatRatio(metrics.sharpe_ratio) },
     { label: "Sortino ratio", value: formatRatio(metrics.sortino_ratio) },
     { label: "Trades", value: formatCount(metrics.num_trades) },
@@ -127,10 +138,13 @@ function MetricTiles({ backtest }: { backtest: Backtest }) {
   ];
   return (
     <dl className="metrics">
-      {tiles.map(({ label, value }) => (
+      {tiles.map(({ label, value, held }) => (
         <div key={label}>
           <dt>{label}</dt>
           <dd>{value}</dd>
+          {measured && held !== undefined && (
+            <dd className="held">Buy and hold {formatPercent(held)}</dd>
+          )}
         </div>
       ))}
     </dl>
@@ -196,14 +210,31 @@ function Comparison({ backtest, strategyName }: { backtest: Backtest; strategyNa
   );
 }
 
+/** The equity curve next to buy and hold's, over the same bars. */
 function Equity({ backtest }: { backtest: Backtest }) {
   const equity = useBacktestEquity(backtest.id);
   const currency = backtest.quote_currency;
+  // Built once per response, so the chart is drawn again only when the data changes.
+  const curves = useMemo(() => {
+    const points = equity.data ?? [];
+    // Runs made before buy and hold was measured have none.
+    const held = points.filter((point) => point.benchmark != null);
+    return {
+      points: points.map((point) => ({ time: point.ts, value: point.equity })),
+      compared: held.length
+        ? {
+            label: "Buy and hold",
+            points: held.map((point) => ({ time: point.ts, value: point.benchmark! })),
+          }
+        : undefined,
+    };
+  }, [equity.data]);
   if (equity.isPending) return <Loading />;
   if (equity.error) return <ErrorMessage error={equity.error} />;
   return (
     <EquityChart
-      points={equity.data.map((point) => ({ time: point.ts, value: point.equity }))}
+      points={curves.points}
+      compared={curves.compared}
       label="Equity"
       format={(value) => `${formatMoney(value)}${currency ? ` ${currency}` : ""}`}
       reference={{ value: Number(backtest.initial_capital), title: "Initial capital" }}
