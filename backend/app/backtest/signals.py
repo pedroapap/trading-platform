@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 
 from app.backtest import indicators, patterns
+from app.backtest.orders import Level, Orders
 from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import (
     AllOf,
@@ -122,6 +123,22 @@ def strategy_signals(
     entries = evaluate(definition.entry, resolver)
     exits = None if definition.exit is None else evaluate(definition.exit, resolver)
     return entries, exits
+
+
+def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Orders:
+    """What the definition asks of the engine on `bars`."""
+    entries, exits = strategy_signals(definition, bars)
+    return Orders(
+        direction=definition.direction,
+        entries=entries,
+        exits=exits,
+        stop_loss=_percentage(definition.stop_loss_pct),
+        take_profit=_percentage(definition.take_profit_pct),
+    )
+
+
+def _percentage(pct: float | None) -> Level | None:
+    return None if pct is None else Level(pct=pct)
 
 
 def _compute(operand: Indicator, bars: pd.DataFrame) -> pd.Series | pd.DataFrame:

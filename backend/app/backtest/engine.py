@@ -29,7 +29,8 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-from app.backtest.signals import strategy_signals
+from app.backtest.orders import Level, Orders
+from app.backtest.signals import strategy_orders
 from app.enums import Direction, ExitReason
 from app.strategies.definition import StrategyDefinition
 
@@ -70,16 +71,7 @@ def run(
     bars: pd.DataFrame, definition: StrategyDefinition, config: BacktestConfig
 ) -> BacktestResult:
     """Backtest a strategy definition on `bars`."""
-    entries, exits = strategy_signals(definition, bars)
-    return simulate(
-        bars,
-        entries,
-        exits,
-        config,
-        definition.direction,
-        definition.stop_loss_pct,
-        definition.take_profit_pct,
-    )
+    return simulate_orders(bars, strategy_orders(definition, bars), config)
 
 
 def simulate(
@@ -91,11 +83,20 @@ def simulate(
     stop_loss_pct: float | None = None,
     take_profit_pct: float | None = None,
 ) -> BacktestResult:
-    """Trades and equity from boolean entry and exit signals aligned with `bars`."""
+    """Trades and equity from boolean entry and exit signals aligned with `bars`, with a
+    stop-loss and a take-profit given as percentages."""
+    stop_loss = None if stop_loss_pct is None else Level(pct=stop_loss_pct)
+    take_profit = None if take_profit_pct is None else Level(pct=take_profit_pct)
+    return simulate_orders(bars, Orders(direction, entries, exits, stop_loss, take_profit), config)
+
+
+def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) -> BacktestResult:
+    """Trades and equity from a strategy's orders on `bars`."""
     opens = bars["open"].to_numpy(dtype=float)
     closes = bars["close"].to_numpy(dtype=float)
     fee = config.fee_pct / 100
     slip = config.slippage_pct / 100
+    direction = orders.direction
     # +1 when the position gains as the price rises (long), -1 when it loses (short).
     sign = 1 if direction == Direction.LONG else -1
     # Each bar's extremes against and for the position: where a stop-loss and a
@@ -103,7 +104,8 @@ def simulate(
     lows, highs = bars["low"].to_numpy(dtype=float), bars["high"].to_numpy(dtype=float)
     adverse, favorable = (lows, highs) if sign == 1 else (highs, lows)
     # The bars where signals fill: the one after each signal (none after the last bar).
-    entry_fills = np.flatnonzero(entries[:-1]) + 1
+    entry_fills = np.flatnonzero(orders.entries[:-1]) + 1
+    exits = orders.exits
     exit_fills = np.flatnonzero(exits[:-1]) + 1 if exits is not None else np.empty(0, dtype=int)
 
     cash = config.initial_capital
@@ -121,11 +123,11 @@ def simulate(
         watched = slice(entry, len(bars) if signal_exit is None else signal_exit)
         triggers: list[Trigger] = []
         stop = target = None
-        if stop_loss_pct is not None:
-            stop = entry_price * (1 - sign * stop_loss_pct / 100)
+        if orders.stop_loss is not None:
+            stop = entry_price * (1 - sign * orders.stop_loss.pct / 100)
             triggers.append((adverse, stop, -sign))
-        if take_profit_pct is not None:
-            target = entry_price * (1 + sign * take_profit_pct / 100)
+        if orders.take_profit is not None:
+            target = entry_price * (1 + sign * orders.take_profit.pct / 100)
             triggers.append((favorable, target, sign))
         reached = _first_reached(watched, *triggers)
         if reached is None:

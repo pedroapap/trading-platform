@@ -6,7 +6,9 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.backtest import indicators
-from app.backtest.signals import OperandResolver, evaluate, strategy_signals
+from app.backtest.orders import Level
+from app.backtest.signals import OperandResolver, evaluate, strategy_orders, strategy_signals
+from app.enums import Direction
 from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import Node, Operand
 from tests.helpers import MINIMAL_DEFINITION, random_bars
@@ -322,6 +324,19 @@ def test_entry_and_exit_rules_share_indicators(indicator_calls):
     strategy_signals(definition, random_bars())
 
     assert indicator_calls == ["rsi"]
+
+
+def test_orders_carry_the_signals_and_the_definitions_levels():
+    definition = StrategyDefinition.model_validate(MINIMAL_DEFINITION | {"take_profit_pct": 6})
+    bars = random_bars(300)
+
+    orders = strategy_orders(definition, bars)
+
+    entries, exits = strategy_signals(definition, bars)
+    np.testing.assert_array_equal(orders.entries, entries)
+    assert orders.exits is exits is None
+    assert orders.direction == Direction.LONG
+    assert (orders.stop_loss, orders.take_profit) == (Level(pct=2), Level(pct=6))
 
 
 def test_without_an_exit_rule_there_are_no_exit_signals():
