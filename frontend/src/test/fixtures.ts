@@ -94,3 +94,27 @@ export function auditEvent(
     ...overrides,
   };
 }
+
+/** A published post-trade review, at version 1. */
+export function journalEntry(
+  overrides: Partial<Schemas["JournalEntryRead"]> = {},
+): Schemas["JournalEntryRead"] {
+  return {
+    id: nextId(),
+    entry_type: "post_trade",
+    trade_id: null,
+    title: "Breakout review",
+    thesis: "Range break with volume",
+    market_context: null,
+    risk_assessment: null,
+    lessons: "Waited for the retest",
+    emotion: "calm",
+    tags: ["breakout"],
+    status: "published",
+    current_version: 1,
+    published_at: "2026-01-05T18:00:00Z",
+    created_at: "2026-01-05T17:00:00Z",
+    updated_at: "2026-01-05T18:00:00Z",
+    ...overrides,
+  };
+}

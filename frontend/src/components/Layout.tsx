@@ -25,6 +25,9 @@ export default function Layout() {
               <NavLink to="/trades">Trades</NavLink>
             </li>
             <li>
+              <NavLink to="/journal">Journal</NavLink>
+            </li>
+            <li>
               <button type="button" className="secondary outline" onClick={logOut}>
                 Log out
               </button>
