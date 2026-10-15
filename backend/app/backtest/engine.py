@@ -33,6 +33,8 @@ Execution model (it follows TradingView's strategy tester where they overlap):
 - On the bar where a limit or stop entry fills after the open, a stop-loss reached counts,
   filling at its level (or at the entry price if that is already past it), and a
   take-profit doesn't: the bar doesn't say whether it came after the fill.
+- A time exit leaves at the open a set number of bars after the entry bar, before a stop or
+  target on that bar, as a signal exit does; if both fall on one bar, the signal counts.
 - A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
@@ -140,8 +142,13 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         entry_fee = notional * fee
         size = notional / entry_price
         signal_exit = _first_from(exit_fills, entry + 1)
-        # A signal exit fills at its bar's open, before a stop or target is reached on it.
-        last = len(bars) if signal_exit is None else signal_exit
+        timed_exit = None
+        if orders.exit_after_bars is not None and entry + orders.exit_after_bars < len(bars):
+            timed_exit = entry + orders.exit_after_bars
+        # A signal or timed exit fills at its bar's open, before a stop or target is reached
+        # on it; if both fall on one bar, the signal counts.
+        open_exit = min((bar for bar in (signal_exit, timed_exit) if bar is not None), default=None)
+        last = len(bars) if open_exit is None else open_exit
         fixed = _stop_loss(orders.stop_loss, entry_price, signal, sign)
         target = _take_profit(orders.take_profit, entry_price, fixed, signal, sign)
 
@@ -162,8 +169,9 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
             reached = _first_exit(first, last, stops, target, adverse, favorable, sign)
         stop, trailing = (None, False) if stops is None or reached is None else stops.at(reached)
         if reached is None:
-            if signal_exit is not None:
-                exit_, unslipped_exit, reason = signal_exit, opens[signal_exit], ExitReason.SIGNAL
+            if open_exit is not None:
+                exit_, unslipped_exit = open_exit, opens[open_exit]
+                reason = ExitReason.SIGNAL if open_exit == signal_exit else ExitReason.TIME_EXIT
             else:
                 exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
             exit_price = unslipped_exit * (1 - sign * slip)

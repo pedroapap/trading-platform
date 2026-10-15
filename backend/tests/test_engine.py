@@ -986,6 +986,65 @@ def test_a_trailing_stop_does_not_count_the_high_before_an_inside_fill():
     assert (trade.entry_price, trade.exit_reason) == (98, ExitReason.END_OF_DATA)
 
 
+def run_timed(rows, exit_after_bars, *, exits=None, stop_loss=None):
+    """A signal on bar 0, with all of 10,000 and no costs: 100 units at 100 on bar 1."""
+    bars = bars_from(rows)
+    orders = Orders(
+        Direction.LONG, at(len(bars), 0), exits, stop_loss, exit_after_bars=exit_after_bars
+    )
+    return bars, simulate_orders(bars, orders, BacktestConfig(initial_capital=10_000))
+
+
+# fmt: off
+FIVE_FLAT_BARS = [
+    (100, 101, 99, 100),
+    (100, 101, 99, 100),  # buy
+    (101, 102, 100, 101),
+    (102, 103, 101, 102),
+    (103, 104, 102, 103),
+]
+# fmt: on
+
+
+def test_a_time_exit_leaves_at_the_open_after_so_many_bars():
+    bars, result = run_timed(FIVE_FLAT_BARS, 2)
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price) == (bars.index[3], 102)
+    assert trade.exit_reason == ExitReason.TIME_EXIT
+
+
+def test_an_earlier_signal_exit_comes_first():
+    bars, result = run_timed(FIVE_FLAT_BARS, 3, exits=at(5, 1))
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.SIGNAL)
+
+
+def test_a_signal_exit_on_the_same_bar_counts_as_the_signal():
+    bars, result = run_timed(FIVE_FLAT_BARS, 2, exits=at(5, 2))
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[3], ExitReason.SIGNAL)
+
+
+def test_a_time_exit_at_the_open_comes_before_a_stop_on_that_bar():
+    rows = [*FIVE_FLAT_BARS[:3], (102, 103, 80, 85), (85, 86, 84, 85)]
+
+    bars, result = run_timed(rows, 2, stop_loss=Level(pct=10))
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price) == (bars.index[3], 102)
+    assert trade.exit_reason == ExitReason.TIME_EXIT
+
+
+def test_a_time_exit_beyond_the_data_closes_at_the_end():
+    bars, result = run_timed(FIVE_FLAT_BARS, 10)
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[4], ExitReason.END_OF_DATA)
+
+
 def rsi_strategy(direction: Direction) -> StrategyDefinition:
     """Trades RSI(5) swings, with a stop-loss and a take-profit, so that every kind of exit
     happens within a few hundred random bars."""
@@ -1113,6 +1172,20 @@ def test_run_trails_a_level(direction):
     reasons = [trade.exit_reason for trade in result.trades]
     assert set(reasons) <= {ExitReason.TRAILING_STOP, ExitReason.END_OF_DATA}
     assert reasons.count(ExitReason.TRAILING_STOP) > 5
+
+
+def test_run_exits_after_so_many_bars():
+    bars = random_bars()
+    definition = StrategyDefinition.model_validate(
+        rsi_strategy(Direction.LONG).model_dump() | {"exit": None, "exit_after_bars": 12}
+    )
+
+    result = run(bars, definition, COSTS)
+
+    entries, _ = strategy_signals(definition, bars)
+    orders = Orders(Direction.LONG, entries, None, Level(pct=3), Level(pct=4), exit_after_bars=12)
+    assert result.trades == simulate_orders(bars, orders, COSTS).trades
+    assert ExitReason.TIME_EXIT in {trade.exit_reason for trade in result.trades}
 
 
 @pytest.mark.parametrize("direction", list(Direction))

@@ -149,6 +149,7 @@ def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Order
         take_profit=take_profit,
         entry=entry,
         trailing_stop=_level(definition.trailing_stop_pct, definition.trailing_stop_at, resolver),
+        exit_after_bars=definition.exit_after_bars,
     )
 
 

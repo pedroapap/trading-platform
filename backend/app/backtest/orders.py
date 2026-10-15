@@ -48,3 +48,5 @@ class Orders:
     # A stop that follows the trade: `pct` percent behind the best price since the entry, or
     # at the price `at` each bar's close, used from the next bar. It only ever tightens.
     trailing_stop: Level | None = None
+    # Exit at the open this many bars after the entry bar, unless something exits first.
+    exit_after_bars: int | None = None

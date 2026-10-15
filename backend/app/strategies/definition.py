@@ -65,6 +65,8 @@ class StrategyDefinition(BaseModel):
     # the entry, or a price level read on each close and used from the next bar.
     trailing_stop_pct: float | None = _added(gt=0, le=1000, allow_inf_nan=False)
     trailing_stop_at: Operand | None = _added()
+    # Leave at the open this many bars after the entry bar, unless something exits first.
+    exit_after_bars: int | None = _added(ge=1, le=100_000)
 
     @model_validator(mode="after")
     def _is_tradable(self) -> Self:
@@ -86,9 +88,10 @@ class StrategyDefinition(BaseModel):
             )
         if self.take_profit_r is not None and not stops:
             raise ValueError("take_profit_r needs a stop-loss to measure the risk from")
-        if self.exit is None and not stops and not targets and not trailing:
+        if self.exit is None and not (stops or targets or trailing or self.exit_after_bars):
             raise ValueError(
-                "a strategy needs an exit rule, a stop-loss, a take-profit or a trailing stop"
+                "a strategy needs a way out: an exit rule, a stop-loss, a take-profit, a trailing"
+                " stop or exit_after_bars"
             )
         # Price cannot fall below zero, so a long's stops or a short's target must be < 100%.
         downside = (

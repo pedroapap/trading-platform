@@ -6630,6 +6630,19 @@
               }
             ],
             "title": "Trailing Stop At"
+          },
+          "exit_after_bars": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit After Bars"
           }
         },
         "additionalProperties": false,
@@ -7041,6 +7054,19 @@
               }
             ],
             "title": "Trailing Stop At"
+          },
+          "exit_after_bars": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit After Bars"
           }
         },
         "additionalProperties": false,

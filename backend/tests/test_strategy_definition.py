@@ -58,6 +58,7 @@ def six_groups_deep(rule: dict) -> dict:
         {"exit": None, "stop_loss_pct": None, "take_profit_pct": None, "trailing_stop_pct": 5},
         {"trailing_stop_at": {"indicator": "lowest", "period": 10}},
         {"direction": "short", "trailing_stop_pct": 150},
+        {"exit": None, "stop_loss_pct": None, "take_profit_pct": None, "exit_after_bars": 24},
         {
             "entry_order": {
                 "type": "limit",
@@ -86,7 +87,7 @@ def test_valid_variations(overrides):
     [
         (
             {"exit": None, "stop_loss_pct": None, "take_profit_pct": None},
-            "needs an exit rule, a stop-loss, a take-profit or a trailing stop",
+            "needs a way out: an exit rule, a stop-loss, a take-profit, a trailing stop or",
         ),
         ({"stop_loss_pct": 0}, "greater than 0"),
         ({"stop_loss_pct": 100}, "a long stop-loss must be below 100%"),
@@ -117,6 +118,7 @@ def test_valid_variations(overrides):
         ),
         ({"trailing_stop_pct": 100}, "a long trailing stop must be below 100%"),
         ({"trailing_stop_pct": 0}, "greater than 0"),
+        ({"exit_after_bars": 0}, "greater than or equal to 1"),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):
