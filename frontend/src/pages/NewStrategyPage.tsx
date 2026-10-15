@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router";
 
 import { api, unwrap } from "../api/client";
 import StrategyForm, { type StrategyFields } from "../components/StrategyForm";
-import { STARTER_DEFINITION } from "../strategies";
+import { EXAMPLES, STARTER_DEFINITION } from "../strategies";
 
 export default function NewStrategyPage() {
   const navigate = useNavigate();
@@ -24,6 +24,7 @@ export default function NewStrategyPage() {
       <h1>New strategy</h1>
       <StrategyForm
         initial={{ name: "", description: null, definition: STARTER_DEFINITION }}
+        examples={EXAMPLES}
         submitLabel="Create strategy"
         pending={create.isPending}
         error={create.error}

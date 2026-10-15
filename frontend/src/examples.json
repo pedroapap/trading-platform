@@ -1,0 +1,98 @@
+[
+  {
+    "name": "Double bottom after a dip",
+    "description": "The 50-bar SMA crossed below 100 within 48 bars, and price made two swing lows within 0.5% of each other within 48 bars: buy 0.3% above the latest low, for 6 bars, with the stop 1% under it and the target at twice the risk.",
+    "definition": {
+      "direction": "long",
+      "entry": {
+        "all": [
+          {
+            "happened": {
+              "left": { "indicator": "sma", "period": 50 },
+              "op": "crosses_below",
+              "right": { "value": 100 }
+            },
+            "within": 48
+          },
+          {
+            "pattern": "equal_lows",
+            "strength": 3,
+            "times": 2,
+            "within": 48,
+            "tolerance_pct": 0.5
+          }
+        ]
+      },
+      "entry_order": {
+        "type": "limit",
+        "price": { "multiply": [{ "indicator": "swing_low", "strength": 3 }, { "value": 1.003 }] },
+        "expires_after": 6
+      },
+      "stop_loss_at": {
+        "multiply": [{ "indicator": "swing_low", "strength": 3 }, { "value": 0.99 }]
+      },
+      "take_profit_r": 2
+    }
+  },
+  {
+    "name": "Breakout with a stop entry",
+    "description": "While the 20-bar EMA is above the 50-bar EMA, buy if price trades through the 20-bar high within 5 bars, with the stop under the 10-bar low and the target at twice the risk.",
+    "definition": {
+      "direction": "long",
+      "entry": {
+        "left": { "indicator": "ema", "period": 20 },
+        "op": ">",
+        "right": { "indicator": "ema", "period": 50 }
+      },
+      "entry_order": {
+        "type": "stop",
+        "price": { "indicator": "highest", "period": 20 },
+        "expires_after": 5
+      },
+      "stop_loss_at": { "indicator": "lowest", "period": 10 },
+      "take_profit_r": 2
+    }
+  },
+  {
+    "name": "Trend with an ATR trailing stop",
+    "description": "Buy when the close crosses above the 50-bar SMA with RSI above 50; trail 3 ATRs under the 22-bar high, and leave after 240 bars at the latest.",
+    "definition": {
+      "direction": "long",
+      "entry": {
+        "all": [
+          {
+            "left": { "price": "close" },
+            "op": "crosses_above",
+            "right": { "indicator": "sma", "period": 50 }
+          },
+          { "left": { "indicator": "rsi" }, "op": ">", "right": { "value": 50 } }
+        ]
+      },
+      "trailing_stop_at": {
+        "subtract": [
+          { "indicator": "highest", "period": 22 },
+          { "multiply": [{ "indicator": "atr", "period": 22 }, { "value": 3 }] }
+        ]
+      },
+      "exit_after_bars": 240
+    }
+  },
+  {
+    "name": "RSI dip",
+    "description": "Buy when RSI(14) dips under 30 and sell when it rises over 70, with a 2% stop.",
+    "definition": {
+      "direction": "long",
+      "entry": {
+        "left": { "indicator": "rsi", "period": 14, "source": "close" },
+        "op": "<",
+        "right": { "value": 30 }
+      },
+      "exit": {
+        "left": { "indicator": "rsi", "period": 14, "source": "close" },
+        "op": ">",
+        "right": { "value": 70 }
+      },
+      "stop_loss_pct": 2
+    }
+  }
+]

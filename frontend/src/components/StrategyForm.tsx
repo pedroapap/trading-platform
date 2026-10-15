@@ -1,15 +1,16 @@
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { fieldErrors } from "../api/errors";
-import { definitionProblems, type Definition } from "../strategies";
+import { definitionProblems, type Definition, type Example } from "../strategies";
 import Field from "./Field";
 
 export type StrategyFields = { name: string; description: string | null; definition: Definition };
 
-/** A strategy's name, description and definition, the definition edited as JSON. `children`
- * go just before the submit button. */
+/** A strategy's name, description and definition, the definition edited as JSON, optionally
+ * started from one of `examples`. `children` go just before the submit button. */
 export default function StrategyForm({
   initial,
+  examples,
   submitLabel,
   pending,
   error,
@@ -17,6 +18,7 @@ export default function StrategyForm({
   children,
 }: {
   initial: StrategyFields;
+  examples?: Example[];
   submitLabel: string;
   pending: boolean;
   error: Error | null;
@@ -27,8 +29,15 @@ export default function StrategyForm({
   // The definition last sent, where the API's problems are located; or why it couldn't be.
   const [sent, setSent] = useState<unknown>(null);
   const [notJson, setNotJson] = useState<string | null>(null);
+  // Whether an example replaced what was sent, so the problems found in it are gone.
+  const [replaced, setReplaced] = useState(false);
+  const definitionBox = useRef<HTMLTextAreaElement>(null);
+  // The definition as the form last set it: any other text was typed.
+  const lastSet = useRef(JSON.stringify(initial.definition, null, 2));
   const errors = fieldErrors(error);
-  const problems = notJson ? [{ path: "", message: notJson }] : definitionProblems(error, sent);
+  const problems = notJson
+    ? [{ path: "", message: notJson }]
+    : definitionProblems(replaced ? null : error, sent);
   const otherError = error && !Object.keys(errors).length;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -43,8 +52,19 @@ export default function StrategyForm({
       return;
     }
     setNotJson(null);
+    setReplaced(false);
     setSent(definition);
     onSubmit({ name: text("name"), description: text("description") || null, definition });
+  }
+
+  function startFrom(example: Example) {
+    const box = definitionBox.current!;
+    const typed = box.value !== lastSet.current;
+    if (typed && !window.confirm("Replace your definition with this example?")) return;
+    lastSet.current = JSON.stringify(example.definition, null, 2);
+    box.value = lastSet.current;
+    setNotJson(null);
+    setReplaced(true);
   }
 
   return (
@@ -66,8 +86,29 @@ export default function StrategyForm({
           defaultValue={initial.description ?? ""}
         />
       </label>
+      {examples && (
+        <details>
+          <summary>Start from an example</summary>
+          <ul>
+            {examples.map((example, i) => (
+              <li key={example.name}>
+                <button
+                  type="button"
+                  className="secondary outline"
+                  aria-describedby={`${id}-example-${i}`}
+                  onClick={() => startFrom(example)}
+                >
+                  {example.name}
+                </button>{" "}
+                <small id={`${id}-example-${i}`}>{example.description}</small>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       <label htmlFor={id}>Definition</label>
       <textarea
+        ref={definitionBox}
         id={id}
         name="definition"
         className="code"
@@ -87,9 +128,14 @@ export default function StrategyForm({
         </ul>
       )}
       <small id={`${id}-help`}>
-        Rules compare prices, values and indicators (sma, ema, rsi, macd, bbands) with &lt;, &lt;=,
-        &gt;, &gt;=, crosses_above or crosses_below, and combine in "all" or "any" groups. Exits
-        come from the exit rule, stop_loss_pct or take_profit_pct.
+        Rules compare prices, values and indicators (sma, ema, rsi, macd, bbands, atr, lowest,
+        highest, swing_low, swing_high) with &lt;, &lt;=, &gt;, &gt;=, crosses_above or
+        crosses_below. A price or indicator can look back with bars_ago, and add, subtract, multiply
+        or divide combine two operands. Rules group in all, any and not; happened counts how often a
+        rule held within some bars; equal_lows and equal_highs find swing lows or highs at the same
+        level. An entry_order enters at a limit or stop price. Exits come from the exit rule,
+        stop_loss_pct or stop_loss_at, take_profit_pct, take_profit_at or take_profit_r,
+        trailing_stop_pct or trailing_stop_at, and exit_after_bars.
       </small>
       {children}
       {otherError && <p role="alert">{error.message}</p>}
