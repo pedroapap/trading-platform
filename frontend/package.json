@@ -13,8 +13,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:watch": "vitest",
-    "api:types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts",
-    "api:check": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --check"
+    "api:types": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --default-non-nullable false",
+    "api:check": "openapi-typescript src/api/openapi.json -o src/api/schema.d.ts --default-non-nullable false --check"
   },
   "dependencies": {
     "@picocss/pico": "^2.1.1",

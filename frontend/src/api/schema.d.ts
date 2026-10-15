@@ -707,27 +707,27 @@ export interface components {
              * Initial Capital
              * @default 10000
              */
-            initial_capital: number | string;
+            initial_capital?: number | string;
             /**
              * Position Size Pct
              * @default 100
              */
-            position_size_pct: number | string;
+            position_size_pct?: number | string;
             /**
              * Fee Pct
              * @default 0
              */
-            fee_pct: number | string;
+            fee_pct?: number | string;
             /**
              * Slippage Pct
              * @default 0
              */
-            slippage_pct: number | string;
+            slippage_pct?: number | string;
             /**
              * Periods Per Year
              * @default 365
              */
-            periods_per_year: number;
+            periods_per_year?: number;
         };
         /** BacktestPage */
         BacktestPage: {
@@ -882,24 +882,24 @@ export interface components {
              * Period
              * @default 20
              */
-            period: number;
+            period?: number;
             /**
              * Std
              * @default 2
              */
-            std: number;
+            std?: number;
             /**
              * Output
              * @default middle
              * @enum {string}
              */
-            output: "upper" | "middle" | "lower";
+            output?: "upper" | "middle" | "lower";
             /**
              * Source
              * @default close
              * @enum {string}
              */
-            source: "open" | "high" | "low" | "close" | "volume";
+            source?: "open" | "high" | "low" | "close" | "volume";
         };
         /** Body_import_file_api_market_data_import_post */
         Body_import_file_api_market_data_import_post: {
@@ -936,7 +936,7 @@ export interface components {
              * Scope
              * @default
              */
-            scope: string;
+            scope?: string;
             /** Client Id */
             client_id?: string | null;
             /**
@@ -1022,7 +1022,7 @@ export interface components {
              * @default close
              * @enum {string}
              */
-            source: "open" | "high" | "low" | "close" | "volume";
+            source?: "open" | "high" | "low" | "close" | "volume";
         };
         /**
          * Emotion
@@ -1116,7 +1116,7 @@ export interface components {
              * Tags
              * @default []
              */
-            tags: string[];
+            tags?: string[];
         };
         /** JournalEntryCreate */
         JournalEntryCreate: {
@@ -1138,7 +1138,7 @@ export interface components {
              * Tags
              * @default []
              */
-            tags: string[];
+            tags?: string[];
         };
         /** JournalEntryRead */
         JournalEntryRead: {
@@ -1160,7 +1160,7 @@ export interface components {
              * Tags
              * @default []
              */
-            tags: string[];
+            tags?: string[];
             /**
              * Id
              * Format: uuid
@@ -1249,29 +1249,29 @@ export interface components {
              * Fast
              * @default 12
              */
-            fast: number;
+            fast?: number;
             /**
              * Slow
              * @default 26
              */
-            slow: number;
+            slow?: number;
             /**
              * Signal
              * @default 9
              */
-            signal: number;
+            signal?: number;
             /**
              * Output
              * @default line
              * @enum {string}
              */
-            output: "line" | "signal" | "histogram";
+            output?: "line" | "signal" | "histogram";
             /**
              * Source
              * @default close
              * @enum {string}
              */
-            source: "open" | "high" | "low" | "close" | "volume";
+            source?: "open" | "high" | "low" | "close" | "volume";
         };
         /**
          * Metrics
@@ -1404,13 +1404,13 @@ export interface components {
              * Period
              * @default 14
              */
-            period: number;
+            period?: number;
             /**
              * Source
              * @default close
              * @enum {string}
              */
-            source: "open" | "high" | "low" | "close" | "volume";
+            source?: "open" | "high" | "low" | "close" | "volume";
         };
         /** Sma */
         Sma: {
@@ -1426,7 +1426,7 @@ export interface components {
              * @default close
              * @enum {string}
              */
-            source: "open" | "high" | "low" | "close" | "volume";
+            source?: "open" | "high" | "low" | "close" | "volume";
         };
         /** StrategyCreate */
         StrategyCreate: {
@@ -1531,7 +1531,7 @@ export interface components {
              * @default bearer
              * @constant
              */
-            token_type: "bearer";
+            token_type?: "bearer";
         };
         /** TradeCancel */
         TradeCancel: {
@@ -1556,7 +1556,7 @@ export interface components {
              * Exit Fee
              * @default 0
              */
-            exit_fee: number | string;
+            exit_fee?: number | string;
         };
         /**
          * TradeCorrection
@@ -1613,7 +1613,7 @@ export interface components {
              * Entry Fee
              * @default 0
              */
-            entry_fee: number | string;
+            entry_fee?: number | string;
             /** Stop Loss */
             stop_loss?: number | string | null;
             /** Take Profit */
@@ -1622,7 +1622,7 @@ export interface components {
              * Leverage
              * @default 1
              */
-            leverage: number | string;
+            leverage?: number | string;
             /** Strategy Id */
             strategy_id?: string | null;
             /** Strategy Version */
