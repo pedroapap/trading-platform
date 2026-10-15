@@ -145,11 +145,19 @@ dl.metrics dd {
   font-weight: 600;
 }
 
-/* Buy and hold's figure under the strategy's, for comparison. */
-dl.metrics dd.held {
+/* A figure to read the tile's value against: buy and hold's, or a range. */
+dl.metrics dd.note {
   font-size: 0.875rem;
   font-weight: normal;
   color: var(--pico-muted-color);
+}
+
+/* A caution beside results, marked by its icon and words, and by the dataviz status
+ * palette's warning color. */
+p.warning {
+  padding: 0.5rem 1rem;
+  border-inline-start: 0.25rem solid #fab219;
+  background: color-mix(in srgb, #fab219 12%, transparent);
 }
 
 /* Two tiles a row on phones. */

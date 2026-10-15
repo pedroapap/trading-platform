@@ -122,6 +122,8 @@ test("a completed backtest shows what ran, its results, equity and trades", asyn
   expect(setting("Initial capital")).toHaveTextContent("10000 USDT");
   expect(setting("Costs")).toHaveTextContent("0.1% fee and 0.05% slippage per fill");
   expect(setting("Data fingerprint")).toHaveTextContent("9f2c4e0a7b1d");
+  expect(setting("Finer bars")).toHaveTextContent("None: inside a bar, the worst case counts");
+  expect(setting("Out-of-sample from")).toHaveTextContent("Not set");
   // Return, CAGR and drawdown are compared with buy and hold over the same bars.
   expect(tile("Total return")).toHaveTextContent(/^Total return12.35%Buy and hold 8.10%$/);
   expect(tile("CAGR")).toHaveTextContent(/^CAGR12.35%Buy and hold 8.10%$/);
@@ -138,6 +140,105 @@ test("a completed backtest shows what ran, its results, equity and trades", asyn
     "1longJan 11, 2025, 1:00 AM@ 44,047.773Jan 23, 2025, 8:00 AM@ 42,704.977" +
       "0.2267994329.51-324.22 USDT-3.25%stop-loss",
   );
+  // 42 trades are enough to judge, and there is no out-of-sample start.
+  expect(screen.queryByText(/Too few trades/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("heading", { name: "In-sample and out-of-sample" })).toBeNull();
+});
+
+test("the average trade comes with its 95% range", async () => {
+  const done = backtest({
+    metrics: { ...DONE.metrics!, average_trade_pct: 0.45, average_trade_margin_pct: 0.24 },
+  });
+  backtestApi([done]);
+
+  renderPage(`/backtests/${done.id}`);
+
+  await screen.findByRole("heading", { name: "Results" });
+  expect(tile("Average trade")).toHaveTextContent(/^Average trade0.45%95% range 0.21% to 0.69%$/);
+});
+
+test.each([
+  { trades: 29, says: "With 29 trades, under 30," },
+  { trades: 1, says: "With 1 trade, under 30," },
+])("$trades trades are too few to judge", async ({ trades, says }) => {
+  const few = backtest({ metrics: { ...DONE.metrics!, num_trades: trades } });
+  backtestApi([few]);
+
+  renderPage(`/backtests/${few.id}`);
+
+  const warning = await screen.findByText("Too few trades to judge.");
+  expect(warning.closest("p")).toHaveTextContent(says);
+});
+
+test("finer bars and an out-of-sample start are shown, with each side's results", async () => {
+  const side = (overrides: Partial<Schemas["Metrics"]>): Schemas["Metrics"] => ({
+    ...DONE.metrics!,
+    average_trade_pct: 0.45,
+    average_trade_margin_pct: 0.24,
+    ...overrides,
+  });
+  const split = backtest({
+    detail_timeframe: "1m",
+    out_of_sample_from: "2025-10-01T00:00:00Z",
+    split_metrics: {
+      in_sample: side({ total_return_pct: 15.5, num_trades: 33 }),
+      out_of_sample: side({
+        total_return_pct: -2.75,
+        buy_and_hold_return_pct: 1.5,
+        num_trades: 9,
+        average_trade_pct: -0.3,
+        average_trade_margin_pct: null,
+      }),
+    },
+  });
+  backtestApi([split]);
+
+  renderPage(`/backtests/${split.id}`);
+
+  await screen.findByRole("heading", { name: "Results" });
+  expect(setting("Finer bars")).toHaveTextContent("1m, to settle what came first inside a bar");
+  expect(setting("Out-of-sample from")).toHaveTextContent("Oct 1, 2025, 12:00 AM");
+  const heading = screen.getByRole("heading", { name: "In-sample and out-of-sample" });
+  const explained = heading.nextElementSibling!;
+  expect(explained).toHaveTextContent(/^Bars before Oct 1, 2025, 12:00 AM are in-sample/);
+  const rows = within(explained.nextElementSibling as HTMLElement).getAllByRole("row");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "In-sampleOut-of-sample",
+    "Total return15.50%-2.75%",
+    "Buy and hold return8.10%1.50%",
+    "CAGR12.35%12.35%",
+    "Max drawdown8.50%8.50%",
+    "Sharpe ratio1.231.23",
+    "Trades33⚠ 9, too few to judge",
+    "Win rate57.14%57.14%",
+    "Profit factor1.601.60",
+    "Expectancy29.39 USDT29.39 USDT",
+    "Average trade0.45%-0.30%",
+    "Its 95% range0.21% to 0.69%—",
+    "Exposure35.50%35.50%",
+  ]);
+});
+
+test("trailing stops and time exits are named", async () => {
+  backtestApi([DONE]);
+  server.use(
+    http.get("/api/backtests/:id/trades", () =>
+      HttpResponse.json({
+        items: [
+          { ...trade(1), exit_reason: "trailing_stop" },
+          { ...trade(2), exit_reason: "time_exit" },
+        ],
+        total: 2,
+        limit: 50,
+        offset: 0,
+      }),
+    ),
+  );
+
+  renderPage(`/backtests/${DONE.id}`);
+
+  expect(await screen.findByRole("row", { name: /^1 long/ })).toHaveTextContent(/trailing stop$/);
+  expect(screen.getByRole("row", { name: /^2 long/ })).toHaveTextContent(/time exit$/);
 });
 
 test("a backtest run before buy and hold was measured shows its results without it", async () => {

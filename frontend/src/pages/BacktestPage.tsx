@@ -25,6 +25,10 @@ import { useListParams } from "../useListParams";
 
 type Schemas = components["schemas"];
 type Backtest = Schemas["BacktestRead"];
+type Metrics = Schemas["Metrics"];
+
+// Fewer trades than this say little about a strategy: the result could be luck.
+const ENOUGH_TRADES = 30;
 
 const EXIT_REASONS: Record<Schemas["ExitReason"], string> = {
   signal: "exit rule",
@@ -85,6 +89,16 @@ function Settings({ backtest, strategyName }: { backtest: Backtest; strategyName
       value: `${backtest.fee_pct}% fee and ${backtest.slippage_pct}% slippage per fill`,
     },
     { label: "Periods per year", value: String(backtest.periods_per_year) },
+    {
+      label: "Finer bars",
+      value: backtest.detail_timeframe
+        ? `${backtest.detail_timeframe}, to settle what came first inside a bar`
+        : "None: inside a bar, the worst case counts",
+    },
+    {
+      label: "Out-of-sample from",
+      value: backtest.out_of_sample_from ? formatDateTime(backtest.out_of_sample_from) : "Not set",
+    },
   ];
   if (backtest.data_hash) {
     rows.push({
@@ -106,25 +120,52 @@ function Settings({ backtest, strategyName }: { backtest: Backtest; strategyName
   );
 }
 
-/** The headline numbers; the return, CAGR and drawdown each with buy and hold's, over the same
- * bars, under it (runs made before it was measured have none). */
+/** The 95% range of the average trade's return, "" when it has none (under 2 trades). */
+function tradeRange(metrics: Metrics): string {
+  const average = metrics.average_trade_pct;
+  const margin = metrics.average_trade_margin_pct;
+  if (average == null || margin == null) return "";
+  return `${formatPercent(average - margin)} to ${formatPercent(average + margin)}`;
+}
+
+/** A caution that so few trades can't tell skill from luck. */
+function FewTrades({ trades }: { trades: number }) {
+  return (
+    <p className="warning">
+      <span aria-hidden="true">⚠</span> <strong>Too few trades to judge.</strong> With{" "}
+      {formatCount(trades)} {trades === 1 ? "trade" : "trades"}, under {ENOUGH_TRADES}, results like
+      these can come from luck alone: test on more bars, or another period, before trusting them.
+    </p>
+  );
+}
+
+/** The headline numbers. The return, CAGR and drawdown each have buy and hold's, over the same
+ * bars, under them (runs made before it was measured have none); the average trade has its
+ * 95% range. */
 function MetricTiles({ backtest }: { backtest: Backtest }) {
   const metrics = backtest.metrics!;
   const amount = (value: number | null) => (
     <Amount value={value} currency={backtest.quote_currency} />
   );
   const measured = metrics.buy_and_hold_return_pct != null;
-  const tiles: (Labelled & { held?: number | null })[] = [
+  const held = (value: number | null | undefined) =>
+    measured ? `Buy and hold ${formatPercent(value)}` : undefined;
+  const range = tradeRange(metrics);
+  const tiles: (Labelled & { note?: string })[] = [
     {
       label: "Total return",
       value: formatPercent(metrics.total_return_pct),
-      held: metrics.buy_and_hold_return_pct,
+      note: held(metrics.buy_and_hold_return_pct),
     },
-    { label: "CAGR", value: formatPercent(metrics.cagr_pct), held: metrics.buy_and_hold_cagr_pct },
+    {
+      label: "CAGR",
+      value: formatPercent(metrics.cagr_pct),
+      note: held(metrics.buy_and_hold_cagr_pct),
+    },
     {
       label: "Max drawdown",
       value: formatPercent(metrics.max_drawdown_pct),
-      held: metrics.buy_and_hold_max_drawdown_pct,
+      note: held(metrics.buy_and_hold_max_drawdown_pct),
     },
     { label: "Sharpe ratio", value: formatRatio(metrics.sharpe_ratio) },
     { label: "Sortino ratio", value: formatRatio(metrics.sortino_ratio) },
@@ -132,22 +173,99 @@ function MetricTiles({ backtest }: { backtest: Backtest }) {
     { label: "Win rate", value: formatPercent(metrics.win_rate_pct) },
     { label: "Profit factor", value: formatRatio(metrics.profit_factor) },
     { label: "Expectancy", value: amount(metrics.expectancy) },
+    {
+      label: "Average trade",
+      value: formatPercent(metrics.average_trade_pct),
+      note: range && `95% range ${range}`,
+    },
     { label: "Average win", value: amount(metrics.average_win) },
     { label: "Average loss", value: amount(metrics.average_loss) },
     { label: "Exposure", value: formatPercent(metrics.exposure_pct) },
   ];
   return (
     <dl className="metrics">
-      {tiles.map(({ label, value, held }) => (
+      {tiles.map(({ label, value, note }) => (
         <div key={label}>
           <dt>{label}</dt>
           <dd>{value}</dd>
-          {measured && held !== undefined && (
-            <dd className="held">Buy and hold {formatPercent(held)}</dd>
-          )}
+          {note && <dd className="note">{note}</dd>}
         </div>
       ))}
     </dl>
+  );
+}
+
+/** The bars before the out-of-sample start next to the bars from it on, each measured on its
+ * own: trades count on the side they were entered, the out-of-sample equity counts from its
+ * value at the start, and each side has its own buy and hold. */
+function SplitResults({ backtest }: { backtest: Backtest }) {
+  const { in_sample: before, out_of_sample: after } = backtest.split_metrics!;
+  const sides = { "In-sample": before, "Out-of-sample": after };
+  const amount = (value: number | null | undefined) => (
+    <Amount value={value ?? null} currency={backtest.quote_currency} />
+  );
+  const rows: { label: string; cell: (metrics: Metrics) => ReactNode }[] = [
+    { label: "Total return", cell: (metrics) => formatPercent(metrics.total_return_pct) },
+    {
+      label: "Buy and hold return",
+      cell: (metrics) => formatPercent(metrics.buy_and_hold_return_pct),
+    },
+    { label: "CAGR", cell: (metrics) => formatPercent(metrics.cagr_pct) },
+    { label: "Max drawdown", cell: (metrics) => formatPercent(metrics.max_drawdown_pct) },
+    { label: "Sharpe ratio", cell: (metrics) => formatRatio(metrics.sharpe_ratio) },
+    {
+      label: "Trades",
+      cell: (metrics) =>
+        metrics.num_trades < ENOUGH_TRADES ? (
+          <>
+            <span aria-hidden="true">⚠</span> {formatCount(metrics.num_trades)}, too few to judge
+          </>
+        ) : (
+          formatCount(metrics.num_trades)
+        ),
+    },
+    { label: "Win rate", cell: (metrics) => formatPercent(metrics.win_rate_pct) },
+    { label: "Profit factor", cell: (metrics) => formatRatio(metrics.profit_factor) },
+    { label: "Expectancy", cell: (metrics) => amount(metrics.expectancy) },
+    { label: "Average trade", cell: (metrics) => formatPercent(metrics.average_trade_pct) },
+    { label: "Its 95% range", cell: (metrics) => tradeRange(metrics) || "—" },
+    { label: "Exposure", cell: (metrics) => formatPercent(metrics.exposure_pct) },
+  ];
+  return (
+    <>
+      <p>
+        Bars before {formatDateTime(backtest.out_of_sample_from!)} are in-sample, those from then on
+        out-of-sample. A strategy shaped on the in-sample bars should hold up on the others.
+      </p>
+      <div className="overflow-auto">
+        <table className="details">
+          <thead>
+            <tr>
+              <td />
+              {Object.keys(sides).map((name) => (
+                <th key={name} scope="col" className="number">
+                  {name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ label, cell }) => (
+              <tr key={label}>
+                <th scope="row" className="wrap">
+                  {label}
+                </th>
+                {Object.entries(sides).map(([name, side]) => (
+                  <td key={name} className="number">
+                    {cell(side)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -341,7 +459,16 @@ export default function BacktestPage() {
           {backtest.data.status === "completed" && backtest.data.metrics && (
             <>
               <h2>Results</h2>
+              {backtest.data.metrics.num_trades < ENOUGH_TRADES && (
+                <FewTrades trades={backtest.data.metrics.num_trades} />
+              )}
               <MetricTiles backtest={backtest.data} />
+              {backtest.data.split_metrics && (
+                <>
+                  <h2>In-sample and out-of-sample</h2>
+                  <SplitResults backtest={backtest.data} />
+                </>
+              )}
               <h2>Backtest and live</h2>
               <Comparison
                 backtest={backtest.data}
