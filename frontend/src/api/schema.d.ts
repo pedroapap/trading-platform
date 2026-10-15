@@ -597,12 +597,12 @@ export interface components {
         /** Add */
         "Add-Input": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Add */
         "Add-Output": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * AllOf
@@ -635,6 +635,27 @@ export interface components {
         "AnyOf-Output": {
             /** Any */
             any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"])[];
+        };
+        /**
+         * Atr
+         * @description Average true range: how far price moves in a bar, on average (TradingView's `ta.atr`).
+         */
+        Atr: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "atr";
+            /**
+             * Period
+             * @default 14
+             */
+            period?: number;
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** AuditEventRead */
         AuditEventRead: {
@@ -977,14 +998,14 @@ export interface components {
          */
         "Condition-Input": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
         };
         /**
          * Condition
@@ -992,14 +1013,14 @@ export interface components {
          */
         "Condition-Output": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
         };
         /** CoverageRead */
         CoverageRead: {
@@ -1044,7 +1065,7 @@ export interface components {
          */
         "Divide-Input": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Divide
@@ -1052,7 +1073,7 @@ export interface components {
          */
         "Divide-Output": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /** Ema */
         Ema: {
@@ -1111,6 +1132,30 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * Highest
+         * @description The highest `source` of the last `period` bars, this one included (`ta.highest`).
+         */
+        Highest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "highest";
+            /** Period */
+            period: number;
+            /**
+             * Source
+             * @default high
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** ImportResult */
         ImportResult: {
@@ -1289,6 +1334,30 @@ export interface components {
              */
             created_at: string;
         };
+        /**
+         * Lowest
+         * @description The lowest `source` of the last `period` bars, this one included (`ta.lowest`).
+         */
+        Lowest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "lowest";
+            /** Period */
+            period: number;
+            /**
+             * Source
+             * @default low
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
+        };
         /** Macd */
         Macd: {
             /**
@@ -1362,12 +1431,12 @@ export interface components {
         /** Multiply */
         "Multiply-Input": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Multiply */
         "Multiply-Output": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /** PerformanceGroup */
         PerformanceGroup: {
@@ -1604,7 +1673,7 @@ export interface components {
          */
         "Subtract-Input": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Subtract
@@ -1612,7 +1681,7 @@ export interface components {
          */
         "Subtract-Output": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * Timeframe

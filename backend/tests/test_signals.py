@@ -52,8 +52,17 @@ def test_a_price_is_its_bar_column():
             {"indicator": "bbands", "std": 2.5, "output": "lower", "source": "low"},
             lambda b: indicators.bbands(b["low"], 20, 2.5)["lower"],
         ),
+        (
+            {"indicator": "atr", "period": 5},
+            lambda b: indicators.atr(b["high"], b["low"], b["close"], 5),
+        ),
+        ({"indicator": "lowest", "period": 7}, lambda b: indicators.lowest(b["low"], 7)),
+        (
+            {"indicator": "highest", "period": 7, "source": "close"},
+            lambda b: indicators.highest(b["close"], 7),
+        ),
     ],
-    ids=["sma", "ema", "rsi", "macd", "bbands"],
+    ids=["sma", "ema", "rsi", "macd", "bbands", "atr", "lowest", "highest"],
 )
 def test_an_indicator_is_computed_on_its_source(operand, direct):
     bars = random_bars()
@@ -282,6 +291,11 @@ EVERY_RULE = {
                 ]
             },
             {"left": MACD, "op": "crosses_above", "right": MACD | {"output": "signal"}},
+            {
+                "left": CLOSE,
+                "op": "crosses_above",
+                "right": {"indicator": "highest", "period": 8, "source": "close", "bars_ago": 1},
+            },
             {"left": {"price": "low"}, "op": "<=", "right": BBANDS | {"output": "lower"}},
         ]
     },
@@ -303,6 +317,16 @@ EVERY_RULE = {
                     "multiply": [
                         {"add": [{"indicator": "sma", "period": 10}, {"value": -0.5}]},
                         {"value": 0.97},
+                    ]
+                },
+            },
+            {
+                "left": {"price": "low"},
+                "op": "<",
+                "right": {
+                    "subtract": [
+                        {"indicator": "lowest", "period": 5, "bars_ago": 1},
+                        {"indicator": "atr", "period": 5},
                     ]
                 },
             },

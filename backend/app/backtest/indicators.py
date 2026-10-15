@@ -53,6 +53,27 @@ def bbands(values: pd.Series, period: int, std: float) -> pd.DataFrame:
     return pd.DataFrame({"upper": middle + width, "middle": middle, "lower": middle - width})
 
 
+def atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int) -> pd.Series:
+    """Average true range with Wilder's smoothing, as TradingView's `ta.atr`. A bar's true range
+    is the largest of high - low, |high - previous close| and |low - previous close| (just
+    high - low on the first bar); it is smoothed like RSI. The first value is at index
+    `period - 1`."""
+    previous = close.shift(1)
+    ranges = pd.concat([high - low, (high - previous).abs(), (low - previous).abs()], axis=1)
+    return _smooth(ranges.max(axis=1), period, alpha=1 / period)
+
+
+def lowest(values: pd.Series, period: int) -> pd.Series:
+    """The lowest value of the last `period` bars, this one included (TradingView's
+    `ta.lowest`); the first value is at index `period - 1`."""
+    return values.rolling(period, min_periods=period).min()
+
+
+def highest(values: pd.Series, period: int) -> pd.Series:
+    """The highest value of the last `period` bars, this one included (`ta.highest`)."""
+    return values.rolling(period, min_periods=period).max()
+
+
 def _smooth(values: pd.Series, period: int, alpha: float) -> pd.Series:
     """`s[t] = alpha * x[t] + (1 - alpha) * s[t-1]`, seeded with the SMA of the first `period`
     valid values (leading NaNs are skipped)."""

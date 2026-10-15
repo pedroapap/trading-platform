@@ -2237,13 +2237,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -2304,13 +2316,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -2455,6 +2479,36 @@
         ],
         "title": "AnyOf",
         "description": "True when at least one child is true."
+      },
+      "Atr": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "atr",
+            "title": "Indicator"
+          },
+          "period": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Period",
+            "default": 14
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator"
+        ],
+        "title": "Atr",
+        "description": "Average true range: how far price moves in a bar, on average (TradingView's `ta.atr`)."
       },
       "AuditEventRead": {
         "properties": {
@@ -3365,13 +3419,25 @@
                   },
                   {
                     "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "indicator",
                   "mapping": {
+                    "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
                     "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
                     "sma": "#/components/schemas/Sma"
@@ -3429,13 +3495,25 @@
                   },
                   {
                     "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "indicator",
                   "mapping": {
+                    "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
                     "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
                     "sma": "#/components/schemas/Sma"
@@ -3494,13 +3572,25 @@
                   },
                   {
                     "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "indicator",
                   "mapping": {
+                    "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
                     "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
                     "sma": "#/components/schemas/Sma"
@@ -3558,13 +3648,25 @@
                   },
                   {
                     "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "indicator",
                   "mapping": {
+                    "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
                     "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
                     "sma": "#/components/schemas/Sma"
@@ -3702,13 +3804,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -3770,13 +3884,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -3929,6 +4055,48 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Highest": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "highest",
+            "title": "Indicator"
+          },
+          "period": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "high"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator",
+          "period"
+        ],
+        "title": "Highest",
+        "description": "The highest `source` of the last `period` bars, this one included (`ta.highest`)."
       },
       "ImportResult": {
         "properties": {
@@ -4600,6 +4768,48 @@
         ],
         "title": "JournalVersionRead"
       },
+      "Lowest": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "lowest",
+            "title": "Indicator"
+          },
+          "period": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Period"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "low"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator",
+          "period"
+        ],
+        "title": "Lowest",
+        "description": "The lowest `source` of the last `period` bars, this one included (`ta.lowest`)."
+      },
       "Macd": {
         "properties": {
           "indicator": {
@@ -4817,13 +5027,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -4884,13 +5106,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -5588,13 +5822,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"
@@ -5656,13 +5902,25 @@
                     },
                     {
                       "$ref": "#/components/schemas/Bbands"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Atr"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Lowest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/Highest"
                     }
                   ],
                   "discriminator": {
                     "propertyName": "indicator",
                     "mapping": {
+                      "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
                       "ema": "#/components/schemas/Ema",
+                      "highest": "#/components/schemas/Highest",
+                      "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
                       "sma": "#/components/schemas/Sma"

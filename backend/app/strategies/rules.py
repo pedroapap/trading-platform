@@ -87,7 +87,35 @@ class Bbands(_Rule):
     bars_ago: BarsAgo = 0
 
 
-Indicator = Annotated[Sma | Ema | Rsi | Macd | Bbands, Field(discriminator="indicator")]
+class Atr(_Rule):
+    """Average true range: how far price moves in a bar, on average (TradingView's `ta.atr`)."""
+
+    indicator: Literal["atr"]
+    period: Period = 14
+    bars_ago: BarsAgo = 0
+
+
+class Lowest(_Rule):
+    """The lowest `source` of the last `period` bars, this one included (`ta.lowest`)."""
+
+    indicator: Literal["lowest"]
+    period: Period
+    source: PriceField = "low"
+    bars_ago: BarsAgo = 0
+
+
+class Highest(_Rule):
+    """The highest `source` of the last `period` bars, this one included (`ta.highest`)."""
+
+    indicator: Literal["highest"]
+    period: Period
+    source: PriceField = "high"
+    bars_ago: BarsAgo = 0
+
+
+Indicator = Annotated[
+    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest, Field(discriminator="indicator")
+]
 
 
 MAX_ARITHMETIC_DEPTH = 4

@@ -2,8 +2,11 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.strategies.rules import (
+    Atr,
     Bbands,
     Divide,
+    Highest,
+    Lowest,
     Macd,
     Multiply,
     Operand,
@@ -31,6 +34,15 @@ operand = TypeAdapter(Operand)
         (
             {"indicator": "bbands", "period": 20, "std": 2.5, "output": "lower"},
             Bbands(indicator="bbands", period=20, std=2.5, output="lower"),
+        ),
+        ({"indicator": "atr"}, Atr(indicator="atr", period=14)),
+        (
+            {"indicator": "lowest", "period": 20},
+            Lowest(indicator="lowest", period=20, source="low"),
+        ),
+        (
+            {"indicator": "highest", "period": 20, "source": "close"},
+            Highest(indicator="highest", period=20, source="close"),
         ),
         ({"price": "low", "bars_ago": 1}, Price(price="low", bars_ago=1)),
         (
@@ -81,6 +93,8 @@ def nested_arithmetic(levels: int) -> dict:
         ({"indicator": "rsi", "period": 1}, "greater than or equal to 2"),
         ({"indicator": "macd", "fast": 26, "slow": 12}, "fast period must be shorter"),
         ({"indicator": "bbands", "std": 0}, "greater than 0"),
+        ({"indicator": "atr", "source": "close"}, "Extra inputs are not permitted"),
+        ({"indicator": "lowest"}, "Field required"),
         ({"indicator": "sma", "period": 5, "lenght": 3}, "Extra inputs are not permitted"),
         ({"price": "vwap"}, "Input should be 'open', 'high', 'low', 'close' or 'volume'"),
         ({"value": float("nan")}, "finite number"),

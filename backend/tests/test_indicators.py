@@ -254,3 +254,78 @@ def test_bbands_of_a_short_series_is_all_missing(length):
 
     assert len(result) == length
     assert result.isna().all().all()
+
+
+def random_bars(length: int = 300, seed: int = 11) -> pd.DataFrame:
+    """Highs and lows around a random walk of closes, with gaps between bars."""
+    rng = np.random.default_rng(seed)
+    close = random_walk(length, seed)
+    high = close + rng.uniform(0, 2, length)
+    low = close - rng.uniform(0, 2, length)
+    return pd.DataFrame({"high": high, "low": low, "close": close})
+
+
+def naive_atr(high: list[float], low: list[float], close: list[float], period: int) -> list[float]:
+    ranges = [high[0] - low[0]] + [
+        max(h - lo, abs(h - c), abs(lo - c))
+        for h, lo, c in zip(high[1:], low[1:], close[:-1], strict=True)
+    ]
+    result = [NAN] * len(ranges)
+    if len(ranges) < period:
+        return result
+    average = sum(ranges[:period]) / period
+    result[period - 1] = average
+    for i in range(period, len(ranges)):
+        average = (average * (period - 1) + ranges[i]) / period
+        result[i] = average
+    return result
+
+
+def test_atr_by_hand():
+    # True ranges 1, 2.5 (from the previous close), 4 (a gap up) and 3, smoothed over 2 bars.
+    high = pd.Series([10.0, 12, 15, 14])
+    low = pd.Series([9.0, 10, 13, 11])
+    close = pd.Series([9.5, 11, 14, 12])
+
+    assert_series(indicators.atr(high, low, close, 2), [NAN, 1.75, 2.875, 2.9375])
+
+
+@pytest.mark.parametrize("period", [1, 14, 50])
+def test_atr_matches_the_naive_formula(period):
+    bars = random_bars()
+
+    assert_series(
+        indicators.atr(bars["high"], bars["low"], bars["close"], period),
+        naive_atr(bars["high"].tolist(), bars["low"].tolist(), bars["close"].tolist(), period),
+    )
+
+
+def test_atr_of_a_short_series_is_all_missing():
+    bars = random_bars(13)
+
+    assert indicators.atr(bars["high"], bars["low"], bars["close"], 14).isna().all()
+
+
+def naive_window(values: list[float], period: int, pick) -> list[float]:
+    return [
+        NAN if i < period - 1 else pick(values[i - period + 1 : i + 1]) for i in range(len(values))
+    ]
+
+
+def test_lowest_and_highest_by_hand():
+    values = pd.Series([5.0, 3, 4, 1, 2])
+
+    assert_series(indicators.lowest(values, 3), [NAN, NAN, 3, 1, 1])
+    assert_series(indicators.highest(values, 3), [NAN, NAN, 5, 4, 4])
+
+
+@pytest.mark.parametrize("period", [1, 20, 200])
+def test_lowest_and_highest_match_the_naive_formula(period):
+    prices = random_walk()
+
+    assert_series(indicators.lowest(prices, period), naive_window(prices.tolist(), period, min))
+    assert_series(indicators.highest(prices, period), naive_window(prices.tolist(), period, max))
+
+
+def test_lowest_of_a_short_series_is_all_missing():
+    assert indicators.lowest(pd.Series([1.0, 2.0]), 3).isna().all()

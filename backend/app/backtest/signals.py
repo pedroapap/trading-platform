@@ -13,10 +13,13 @@ from app.strategies.rules import (
     AllOf,
     AnyOf,
     Arithmetic,
+    Atr,
     Bbands,
     Condition,
     Ema,
+    Highest,
     Indicator,
+    Lowest,
     Macd,
     Operand,
     Price,
@@ -49,7 +52,7 @@ class OperandResolver:
         # which line is wanted; every shift of an indicator shares its computation too.
         key = tuple(operand.model_dump(exclude={"output", "bars_ago"}).items())
         if key not in self._indicators:
-            self._indicators[key] = _compute(operand, self._bars[operand.source])
+            self._indicators[key] = _compute(operand, self._bars)
         computed = self._indicators[key]
         if isinstance(computed, pd.DataFrame):
             computed = computed[operand.output]
@@ -77,18 +80,24 @@ def strategy_signals(
     return entries, exits
 
 
-def _compute(operand: Operand, values: pd.Series) -> pd.Series | pd.DataFrame:
+def _compute(operand: Indicator, bars: pd.DataFrame) -> pd.Series | pd.DataFrame:
     match operand:
-        case Sma(period=period):
-            return indicators.sma(values, period)
-        case Ema(period=period):
-            return indicators.ema(values, period)
-        case Rsi(period=period):
-            return indicators.rsi(values, period)
-        case Macd(fast=fast, slow=slow, signal=signal):
-            return indicators.macd(values, fast, slow, signal)
-        case Bbands(period=period, std=std):
-            return indicators.bbands(values, period, std)
+        case Atr(period=period):
+            return indicators.atr(bars["high"], bars["low"], bars["close"], period)
+        case Sma(period=period, source=source):
+            return indicators.sma(bars[source], period)
+        case Ema(period=period, source=source):
+            return indicators.ema(bars[source], period)
+        case Rsi(period=period, source=source):
+            return indicators.rsi(bars[source], period)
+        case Macd(fast=fast, slow=slow, signal=signal, source=source):
+            return indicators.macd(bars[source], fast, slow, signal)
+        case Bbands(period=period, std=std, source=source):
+            return indicators.bbands(bars[source], period, std)
+        case Lowest(period=period, source=source):
+            return indicators.lowest(bars[source], period)
+        case Highest(period=period, source=source):
+            return indicators.highest(bars[source], period)
         case _:
             raise TypeError(f"not an indicator: {operand!r}")
 
