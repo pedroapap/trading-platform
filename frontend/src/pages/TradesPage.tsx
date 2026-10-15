@@ -104,7 +104,7 @@ export default function TradesPage() {
                       <Money amount={trade.pnl} currency={trade.quote_currency} />
                     </td>
                     <td>{trade.pnl_pct == null ? "—" : `${trade.pnl_pct}%`}</td>
-                    <td>
+                    <td className="wrap">
                       {trade.strategy_id
                         ? `${strategyNames.get(trade.strategy_id) ?? "…"} v${trade.strategy_version}`
                         : "—"}
