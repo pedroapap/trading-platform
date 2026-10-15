@@ -1,7 +1,8 @@
 """What a strategy asks of the backtest engine, bar by bar. `signals.strategy_orders` prepares
 it from a definition, so the engine needs nothing else from the definition."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 
@@ -22,12 +23,25 @@ class Level:
 
 
 @dataclass(frozen=True)
+class Entry:
+    """How an entry signal enters: `market` at the next bar's open, or with a `limit` or
+    `stop` order at the price `at` the signal bar (NaN where it isn't known yet: no order),
+    working for `expires_after` bars from the next one."""
+
+    kind: Literal["market", "limit", "stop"] = "market"
+    at: np.ndarray | None = None
+    expires_after: int = 1
+
+
+@dataclass(frozen=True)
 class Orders:
     """A strategy's orders on a set of bars: entry and exit signals on each bar's close (no
-    exits without an exit rule), and where each trade's stop-loss and take-profit sit."""
+    exits without an exit rule), how entries are made, and where each trade's stop-loss and
+    take-profit sit."""
 
     direction: Direction
     entries: np.ndarray
     exits: np.ndarray | None = None
     stop_loss: Level | None = None
     take_profit: Level | None = None
+    entry: Entry = field(default_factory=Entry)

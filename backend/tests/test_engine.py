@@ -8,7 +8,7 @@ import pytest
 
 from app.backtest import indicators
 from app.backtest.engine import BacktestConfig, SimulatedTrade, run, simulate, simulate_orders
-from app.backtest.orders import Level, Orders
+from app.backtest.orders import Entry, Level, Orders
 from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
 from app.services.pnl import trade_pnl
@@ -683,6 +683,194 @@ def test_a_short_stop_and_target_at_levels():
     assert (trade.exit_price, trade.pnl) == (95, 500)
 
 
+def run_entry(
+    rows,
+    kind,
+    price,
+    *,
+    direction=Direction.LONG,
+    entries=(0,),
+    expires_after=1,
+    stop_loss=None,
+    take_profit=None,
+    slippage_pct=0,
+):
+    """Signals on the given bars (bar 0 by default) placing `kind` orders at `price` (one price,
+    or one per bar), with all of 10,000."""
+    bars = bars_from(rows)
+    length = len(bars)
+    prices = price if isinstance(price, np.ndarray) else np.full(length, float(price))
+    entry = Entry(kind, prices, expires_after)
+    orders = Orders(direction, at(length, *entries), None, stop_loss, take_profit, entry)
+    config = BacktestConfig(initial_capital=10_000, slippage_pct=slippage_pct)
+    return bars, simulate_orders(bars, orders, config)
+
+
+def test_a_limit_order_fills_at_its_price_without_slippage():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101,  99, 100),  # buy at 98 or better
+        (100, 101,  97,  99),  # the low of 97 reaches it
+        ( 99, 100,  98,  99),
+    ], "limit", 98, slippage_pct=1)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[1], 98)
+
+
+def test_a_limit_order_fills_at_a_better_open():
+    bars, result = run_entry([(100, 101, 99, 100), (96, 99, 95, 98), (98, 99, 97, 98)], "limit", 98)
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[1], 96)
+
+
+# fmt: off
+REACHES_95_ON_BAR_3 = [
+    (100, 101, 99, 100),
+    (100, 101, 96,  99),
+    ( 99, 100, 96,  99),
+    ( 99, 100, 94,  95),
+    ( 95,  96, 94,  95),
+]
+# fmt: on
+
+
+def test_a_limit_order_works_until_it_expires():
+    _, expired = run_entry(REACHES_95_ON_BAR_3, "limit", 95, expires_after=2)
+    bars, working = run_entry(REACHES_95_ON_BAR_3, "limit", 95, expires_after=3)
+
+    assert expired.trades == []
+    [trade] = working.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[3], 95)
+
+
+def test_a_newer_signal_replaces_the_order_and_sets_the_levels():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101, 99,   100),  # signal: buy at 95, stop at 90
+        (100, 101, 96,    99),  # signal: buy at 97, stop at 92 (95 isn't reached)
+        ( 99, 100, 96.5,  98),  # 97 is reached
+        ( 98,  99, 91,    92),  # the stop at 92 is reached
+        ( 92,  93, 91,    92),
+    ], "limit", np.array([95, 97, 97, 97, 97.0]), entries=(0, 1),
+       stop_loss=Level(at=np.array([90, 92, 92, 92, 92.0])))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[2], 97)
+    assert (trade.exit_time, trade.exit_price) == (bars.index[3], 92)
+
+
+def test_a_stop_order_fills_once_price_trades_through_it_with_slippage():
+    _, inside = run_entry(
+        [(100, 101, 99, 100), (100, 103, 99, 102.5), (102, 103, 101, 102)],
+        "stop",
+        102,
+        slippage_pct=1,
+    )
+    _, gap = run_entry(
+        [(100, 101, 99, 100), (104, 105, 103, 104.5), (104, 105, 103, 104)],
+        "stop",
+        102,
+        slippage_pct=1,
+    )
+
+    [trade] = inside.trades
+    assert trade.entry_price == approx(102 * 1.01)
+    # Slippage is measured from the order's price, not the bar's open: 1.02 on the way in
+    # and 1.02 on the way out at the last close of 102.
+    assert trade.slippage == approx(trade.size * (1.02 + 1.02))
+    assert gap.trades[0].entry_price == approx(104 * 1.01)  # it opened above 102
+
+
+def test_a_stop_loss_reached_on_the_fill_bar_counts():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101, 99, 100),
+        (100, 101, 95,  97),  # buys at 98, and the low of 95 reaches the stop at 96
+        ( 97,  98, 96,  97),
+    ], "limit", 98, stop_loss=level(96, length=3))
+    # fmt: on
+
+    [trade] = result.trades
+    assert trade.entry_time == trade.exit_time == bars.index[1]
+    assert (trade.exit_price, trade.exit_reason) == (96, ExitReason.STOP_LOSS)
+
+
+def test_a_stop_loss_already_passed_at_an_inside_fill_exits_at_the_fill_price():
+    # The stop at 99 is above the fill at 98: the position is stopped as soon as it opens.
+    bars, result = run_entry(
+        [(100, 101, 99, 100), (100, 101, 97, 99), (99, 100, 98, 99)],
+        "limit",
+        98,
+        stop_loss=level(99, length=3),
+    )
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price, trade.pnl) == (bars.index[1], 98, 0)
+
+
+def test_no_take_profit_on_the_bar_of_an_inside_fill():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101,  99, 100),
+        (100, 110,  97, 104),  # buys at 98; the high of 110 may have come first
+        (104, 106, 103, 105),  # the target at 105 is reached
+    ], "limit", 98, take_profit=level(105, length=3))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price) == (bars.index[2], 105)
+
+
+def test_a_take_profit_counts_on_the_bar_of_a_fill_at_the_open():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101,  99, 100),
+        ( 97, 106,  96, 105),  # opens below 98: buys at 97, then the high reaches 105
+        (105, 106, 104, 105),
+    ], "limit", 98, take_profit=level(105, length=3))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_price, trade.exit_time, trade.exit_price) == (97, bars.index[1], 105)
+
+
+def test_short_limit_and_stop_orders():
+    _, limit = run_entry(
+        [(100, 101, 99, 100), (100, 103, 99, 101), (101, 102, 100, 101)],
+        "limit",
+        102,
+        direction=Direction.SHORT,
+    )
+    _, stop = run_entry(
+        [(100, 101, 99, 100), (100, 101, 97, 98.5), (98, 99, 97, 98)],
+        "stop",
+        98,
+        direction=Direction.SHORT,
+        slippage_pct=1,
+    )
+
+    # A short limit sells at 102 or higher; a short stop sells once price falls through 98.
+    assert limit.trades[0].entry_price == 102
+    assert stop.trades[0].entry_price == approx(98 * 0.99)
+
+
+def test_a_signal_whose_order_price_is_unknown_places_no_order():
+    # fmt: off
+    bars, result = run_entry([
+        (100, 101, 99,   100),  # signal, but no price yet
+        (100, 101, 96,    99),  # signal; nothing is working on this bar
+        ( 99, 100, 96.5,  98),  # 97 is reached
+    ], "limit", np.array([np.nan, 97, 97]), entries=(0, 1))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[2], 97)
+
+
 def rsi_strategy(direction: Direction) -> StrategyDefinition:
     """Trades RSI(5) swings, with a stop-loss and a take-profit, so that every kind of exit
     happens within a few hundred random bars."""
@@ -748,6 +936,31 @@ def test_run_reads_levels_on_the_signal_bar(direction):
         ExitReason.STOP_LOSS,
         ExitReason.TAKE_PROFIT,
     }
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_run_places_entry_orders(direction):
+    bars = random_bars()
+    # A limit 0.5% better than the signal bar's close, working for 3 bars.
+    better = 0.995 if direction == "long" else 1.005
+    definition = StrategyDefinition.model_validate(
+        rsi_strategy(direction).model_dump()
+        | {
+            "entry_order": {
+                "type": "limit",
+                "price": {"multiply": [{"price": "close"}, {"value": better}]},
+                "expires_after": 3,
+            }
+        }
+    )
+
+    result = run(bars, definition, COSTS)
+
+    entries, exits = strategy_signals(definition, bars)
+    entry = Entry("limit", bars["close"].to_numpy() * better, 3)
+    orders = Orders(direction, entries, exits, Level(pct=3), Level(pct=4), entry)
+    assert result.trades == simulate_orders(bars, orders, COSTS).trades
+    assert len(result.trades) > 5
 
 
 @pytest.mark.parametrize("direction", list(Direction))

@@ -1,6 +1,6 @@
 """What a strategy does: when to enter, when to leave, and in which direction."""
 
-from typing import Self
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -16,6 +16,30 @@ def _unset(value: object) -> bool:
 # unset, so definitions written before it are stored as they were.
 def _added(**constraints: object):
     return Field(default=None, exclude_if=_unset, **constraints)
+
+
+class MarketEntry(BaseModel):
+    """Enter at the next bar's open."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal["market"]
+
+
+class PriceEntry(BaseModel):
+    """Enter with an order at `price`, read on the signal bar: a `limit` order fills at that
+    price or better (a long buys at or below it); a `stop` order fills once price trades
+    through it (a long buys at or above it). It works for `expires_after` bars from the next
+    one, unless a newer signal replaces it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal["limit", "stop"]
+    price: Operand
+    expires_after: int = Field(default=1, ge=1, le=1000)
+
+
+EntryOrder = Annotated[MarketEntry | PriceEntry, Field(discriminator="type")]
 
 
 class StrategyDefinition(BaseModel):
@@ -35,6 +59,8 @@ class StrategyDefinition(BaseModel):
     stop_loss_at: Operand | None = _added()
     take_profit_at: Operand | None = _added()
     take_profit_r: float | None = _added(gt=0, le=100, allow_inf_nan=False)
+    # How entry signals enter; at the next open when left out.
+    entry_order: EntryOrder | None = _added()
 
     @model_validator(mode="after")
     def _is_tradable(self) -> Self:

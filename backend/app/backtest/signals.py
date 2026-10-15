@@ -8,8 +8,8 @@ import numpy as np
 import pandas as pd
 
 from app.backtest import indicators, patterns
-from app.backtest.orders import Level, Orders
-from app.strategies.definition import StrategyDefinition
+from app.backtest.orders import Entry, Level, Orders
+from app.strategies.definition import PriceEntry, StrategyDefinition
 from app.strategies.rules import (
     AllOf,
     AnyOf,
@@ -135,12 +135,19 @@ def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Order
         if definition.take_profit_r is not None
         else _level(definition.take_profit_pct, definition.take_profit_at, resolver)
     )
+    order = definition.entry_order
+    entry = (
+        Entry(order.type, resolver.resolve(order.price), order.expires_after)
+        if isinstance(order, PriceEntry)
+        else Entry()
+    )
     return Orders(
         direction=definition.direction,
         entries=entries,
         exits=exits,
         stop_loss=_level(definition.stop_loss_pct, definition.stop_loss_at, resolver),
         take_profit=take_profit,
+        entry=entry,
     )
 
 

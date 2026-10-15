@@ -1491,6 +1491,17 @@ export interface components {
             bars_ago?: number;
         };
         /**
+         * MarketEntry
+         * @description Enter at the next bar's open.
+         */
+        MarketEntry: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "market";
+        };
+        /**
          * Metrics
          * @description Every metric of a backtest; see the functions above for definitions.
          */
@@ -1588,6 +1599,48 @@ export interface components {
              * @default 0
              */
             bars_ago?: number;
+        };
+        /**
+         * PriceEntry
+         * @description Enter with an order at `price`, read on the signal bar: a `limit` order fills at that
+         *     price or better (a long buys at or below it); a `stop` order fills once price trades
+         *     through it (a long buys at or above it). It works for `expires_after` bars from the next
+         *     one, unless a newer signal replaces it.
+         */
+        "PriceEntry-Input": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "limit" | "stop";
+            /** Price */
+            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            /**
+             * Expires After
+             * @default 1
+             */
+            expires_after?: number;
+        };
+        /**
+         * PriceEntry
+         * @description Enter with an order at `price`, read on the signal bar: a `limit` order fills at that
+         *     price or better (a long buys at or below it); a `stop` order fills once price trades
+         *     through it (a long buys at or above it). It works for `expires_after` bars from the next
+         *     one, unless a newer signal replaces it.
+         */
+        "PriceEntry-Output": {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "limit" | "stop";
+            /** Price */
+            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            /**
+             * Expires After
+             * @default 1
+             */
+            expires_after?: number;
         };
         /**
          * RealizedCurve
@@ -1720,6 +1773,8 @@ export interface components {
             take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
             /** Take Profit R */
             take_profit_r?: number | null;
+            /** Entry Order */
+            entry_order?: (components["schemas"]["MarketEntry"] | components["schemas"]["PriceEntry-Input"]) | null;
         };
         /**
          * StrategyDefinition
@@ -1745,6 +1800,8 @@ export interface components {
             take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
             /** Take Profit R */
             take_profit_r?: number | null;
+            /** Entry Order */
+            entry_order?: (components["schemas"]["MarketEntry"] | components["schemas"]["PriceEntry-Output"]) | null;
         };
         /** StrategyRead */
         StrategyRead: {

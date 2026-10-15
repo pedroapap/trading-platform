@@ -1,7 +1,10 @@
 """The backtest simulation: turns per-bar signals into trades and an equity curve.
 
 Execution model (it follows TradingView's strategy tester where they overlap):
-- Signals are evaluated on each bar's close and fill at the next bar's open, so a signal on
+- Signals are evaluated on each bar's close. An entry fills at the next bar's open, or with
+  a limit or stop order at a price read on the signal bar, working from the next bar for a
+  number of bars; a newer signal replaces it. A limit fills at its price or a better open,
+  without slippage; a stop fills at its price or a worse open, with slippage. A signal on
   the last bar never fills.
 - One position at a time: entry signals are ignored while a position is open. After an exit,
   an entry signal from the exit bar's close onward can re-enter.
@@ -23,17 +26,21 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   target, or at the better open when the bar gaps past it, without slippage. When a bar
   reaches both the stop-loss and the take-profit, the stop-loss counts: the bar doesn't say
   which came first, so assume the worse.
+- On the bar where a limit or stop entry fills after the open, a stop-loss reached counts,
+  filling at its level (or at the entry price if that is already past it), and a
+  take-profit doesn't: the bar doesn't say whether it came after the fill.
 - A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
 
 from bisect import bisect_left
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
-from app.backtest.orders import Level, Orders
+from app.backtest.orders import Entry, Level, Orders
 from app.backtest.signals import strategy_orders
 from app.enums import Direction, ExitReason
 from app.strategies.definition import StrategyDefinition
@@ -108,9 +115,8 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     lows, highs = bars["low"].to_numpy(dtype=float), bars["high"].to_numpy(dtype=float)
     adverse, favorable = (lows, highs) if sign == 1 else (highs, lows)
     # A signal whose levels aren't known yet (an indicator warming up) places no order.
-    entries = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
-    # The bars where signals fill: the one after each signal (none after the last bar).
-    entry_fills = (np.flatnonzero(entries[:-1]) + 1).tolist()
+    signals = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
+    entering = _Entering(orders.entry, signals & _known(orders.entry), opens, adverse, favorable)
     exits = orders.exits
     exit_fills = (np.flatnonzero(exits[:-1]) + 1).tolist() if exits is not None else []
 
@@ -118,25 +124,33 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     equity = np.full(len(bars), np.nan)
     # Each trade's fields, with its entry and exit bars where it has times.
     made: list[tuple] = []
-    earliest_entry = 0
-    while cash > 0 and (entry := _first_from(entry_fills, earliest_entry)) is not None:
-        entry_price = opens[entry] * (1 + sign * slip)
+    earliest_signal = 0
+    while cash > 0 and (fill := entering.next(earliest_signal, sign)) is not None:
+        entry, signal, unslipped_entry, inside = fill
+        # A limit order gets its price; market and stop orders fill like market orders.
+        slipped = orders.entry.kind != "limit"
+        entry_price = unslipped_entry * (1 + sign * slip) if slipped else unslipped_entry
         # The committed share of equity pays for the notional and its entry fee.
         notional = cash * config.position_size_pct / 100 / (1 + fee)
         entry_fee = notional * fee
         size = notional / entry_price
         signal_exit = _first_from(exit_fills, entry + 1)
         # A signal exit fills at its bar's open, before a stop or target is reached on it.
-        watched = slice(entry, len(bars) if signal_exit is None else signal_exit)
-        # The order was placed by the signal on the bar before the fill.
-        stop = _stop_loss(orders.stop_loss, entry_price, entry - 1, sign)
-        target = _take_profit(orders.take_profit, entry_price, stop, entry - 1, sign)
+        last = len(bars) if signal_exit is None else signal_exit
+        stop = _stop_loss(orders.stop_loss, entry_price, signal, sign)
+        target = _take_profit(orders.take_profit, entry_price, stop, signal, sign)
         triggers: list[Trigger] = []
         if stop is not None:
             triggers.append((adverse, stop, -sign))
         if target is not None:
             triggers.append((favorable, target, sign))
-        reached = _first_reached(watched, *triggers)
+        if inside and stop is not None and _reaches(adverse[entry], stop, -sign):
+            # Filled inside its bar, whose low (long) reaches the stop: the worst case is that
+            # it came after the fill.
+            reached = entry
+        else:
+            # A take-profit reached on the bar of an inside fill may have come before it.
+            reached = _first_reached(slice(entry + 1 if inside else entry, last), *triggers)
         if reached is None:
             if signal_exit is not None:
                 exit_, unslipped_exit, reason = signal_exit, opens[signal_exit], ExitReason.SIGNAL
@@ -144,9 +158,11 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
                 exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
             exit_price = unslipped_exit * (1 - sign * slip)
         elif stop is not None and _reaches(adverse[reached], stop, -sign):
-            # Checked first: when a bar reaches both, the stop-loss counts.
+            # Checked first: when a bar reaches both, the stop-loss counts. After an inside
+            # fill, the rest of the bar starts at the fill price.
             exit_, reason = reached, ExitReason.STOP_LOSS
-            unslipped_exit = _fill_price(opens[reached], stop, -sign)
+            start = unslipped_entry if inside and reached == entry else opens[reached]
+            unslipped_exit = _fill_price(start, stop, -sign)
             exit_price = unslipped_exit * (1 - sign * slip)
         else:
             exit_, reason = reached, ExitReason.TAKE_PROFIT
@@ -155,9 +171,9 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         equity[held] = cash - entry_fee + sign * size * (closes[held] - entry_price)
         exit_fee = size * exit_price * fee
         pnl = sign * size * (exit_price - entry_price) - entry_fee - exit_fee
+        slippage = sign * size * (entry_price - unslipped_entry + unslipped_exit - exit_price)
         cash += pnl
         equity[exit_] = cash
-        slippage = sign * size * (entry_price - opens[entry] + unslipped_exit - exit_price)
         pnl_pct = pnl / (size * entry_price) * 100
         made.append(
             (
@@ -174,7 +190,8 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
                 reason,
             )
         )
-        earliest_entry = exit_ + 1
+        # Signals from the exit bar's close on can enter again.
+        earliest_signal = exit_
 
     curve = pd.Series(equity, index=bars.index).ffill().fillna(config.initial_capital)
     return BacktestResult(_trades(made, bars.index, direction), curve)
@@ -221,8 +238,60 @@ def _trades(
     ]
 
 
-def _known(level: Level | None) -> np.ndarray | bool:
-    """Where a level is known: everywhere, unless it is a price per bar."""
+class _Entering:
+    """Where entry orders fill."""
+
+    def __init__(
+        self,
+        order: Entry,
+        signals: np.ndarray,
+        opens: np.ndarray,
+        adverse: np.ndarray,
+        favorable: np.ndarray,
+    ) -> None:
+        self._order, self._opens = order, opens
+        bars = np.arange(len(signals))
+        if order.kind == "market":
+            # The bars where market orders fill: the one after each signal.
+            self._fills = (np.flatnonzero(signals[:-1]) + 1).tolist()
+            return
+        # The order working on each bar is the latest signal's, while it hasn't expired: a
+        # newer signal replaces an older order.
+        latest = np.maximum.accumulate(np.where(signals, bars, -1))
+        self._placed = np.concatenate([[-1], latest[:-1]])
+        working = (self._placed >= 0) & (bars - self._placed <= order.expires_after)
+        self._prices = np.where(working, order.at[np.maximum(self._placed, 0)], np.nan)
+        # A limit order is reached as price moves against the position (a long buys lower); a
+        # stop order as it moves with it (a long buys higher).
+        self._limit = order.kind == "limit"
+        self._adverse, self._favorable = adverse, favorable
+
+    def next(self, earliest_signal: int, sign: int) -> tuple[int, int, float, bool] | None:
+        """The next fill of an order placed on `earliest_signal`'s bar or later: its bar, the
+        bar of the signal that placed it, its price before slippage, and whether it filled
+        inside the bar rather than at its open."""
+        if self._order.kind == "market":
+            bar = _first_from(self._fills, earliest_signal + 1)
+            return None if bar is None else (bar, bar - 1, float(self._opens[bar]), False)
+        values, side = (self._adverse, -sign) if self._limit else (self._favorable, sign)
+        placed, prices = self._placed, self._prices
+
+        def reached(start: int, end: int) -> np.ndarray:
+            fresh = placed[start:end] >= earliest_signal
+            return fresh & _reaches(values[start:end], prices[start:end], side)
+
+        bar = _scan(earliest_signal + 1, len(prices), reached)
+        if bar is None:
+            return None
+        price, open_ = float(prices[bar]), float(self._opens[bar])
+        # Opened already past the order's price: it fills at the open (better for a limit,
+        # worse for a stop).
+        at_open = _reaches(open_, price, side)
+        return bar, int(placed[bar]), open_ if at_open else price, not at_open
+
+
+def _known(level: Level | Entry | None) -> np.ndarray | bool:
+    """Where a level or an order's price is known: everywhere, unless it is a price per bar."""
     return True if level is None or level.at is None else ~np.isnan(level.at)
 
 
@@ -260,19 +329,30 @@ Trigger = tuple[np.ndarray, float, int]
 
 
 def _first_reached(bars: slice, *triggers: Trigger) -> int | None:
-    """The first of `bars` on which any trigger's level is reached. Scans chunks that double
-    in size, so a level reached k bars in costs O(k), however long the data is."""
+    """The first of `bars` on which any trigger's level is reached."""
     if not triggers:
         return None
-    start, size = bars.start, 16
-    while start < bars.stop:
-        end = min(start + size, bars.stop)
-        reached = np.zeros(end - start, dtype=bool)
+
+    def reached(start: int, end: int) -> np.ndarray:
+        found = np.zeros(end - start, dtype=bool)
         for values, level, side in triggers:
-            reached |= _reaches(values[start:end], level, side)
-        if reached[first := int(reached.argmax())]:
+            found |= _reaches(values[start:end], level, side)
+        return found
+
+    return _scan(bars.start, bars.stop, reached)
+
+
+def _scan(start: int, end: int, reached: Callable[[int, int], np.ndarray]) -> int | None:
+    """The first bar in [start, end) where `reached(chunk_start, chunk_end)`, a boolean array
+    for a chunk of bars, is true. Scans chunks that double in size, so a bar k bars in costs
+    O(k), however long the data is."""
+    size = 16
+    while start < end:
+        stop = min(start + size, end)
+        found = reached(start, stop)
+        if found[first := int(found.argmax())]:
             return start + first
-        start, size = end, size * 2
+        start, size = stop, size * 2
     return None
 
 

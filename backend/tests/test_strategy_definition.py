@@ -54,6 +54,17 @@ def six_groups_deep(rule: dict) -> dict:
         {"stop_loss_pct": None, "stop_loss_at": {"indicator": "swing_low", "strength": 3}},
         {"take_profit_pct": None, "take_profit_r": 2},
         {"take_profit_pct": None, "take_profit_at": {"indicator": "highest", "period": 20}},
+        {"entry_order": {"type": "market"}},
+        {
+            "entry_order": {
+                "type": "limit",
+                "price": {
+                    "multiply": [{"indicator": "swing_low", "strength": 3}, {"value": 1.003}]
+                },
+                "expires_after": 6,
+            }
+        },
+        {"entry_order": {"type": "stop", "price": {"indicator": "highest", "period": 20}}},
         # A stop at a fixed price is a way out too.
         {
             "exit": None,
@@ -90,6 +101,13 @@ def test_valid_variations(overrides):
         ({"take_profit_pct": None, "take_profit_r": 0}, "greater than 0"),
         ({"take_profit_pct": None, "take_profit_r": 101}, "less than or equal to 100"),
         ({"stop_loss_pct": None, "stop_loss_at": {"indicator": "vwap"}}, "expected tags"),
+        ({"entry_order": {"type": "limit"}}, "Field required"),
+        ({"entry_order": {"type": "market", "price": {"value": 95}}}, "Extra inputs"),
+        (
+            {"entry_order": {"type": "stop", "price": {"value": 95}, "expires_after": 0}},
+            "greater than or equal to 1",
+        ),
+        ({"entry_order": {"type": "trailing"}}, "does not match any of the expected tags"),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):
