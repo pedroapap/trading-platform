@@ -2246,6 +2246,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -2258,7 +2264,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -2325,6 +2333,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -2337,7 +2351,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -3428,6 +3444,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
                   }
                 ],
                 "discriminator": {
@@ -3440,7 +3462,9 @@
                     "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
-                    "sma": "#/components/schemas/Sma"
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow"
                   }
                 }
               },
@@ -3504,6 +3528,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
                   }
                 ],
                 "discriminator": {
@@ -3516,7 +3546,9 @@
                     "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
-                    "sma": "#/components/schemas/Sma"
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow"
                   }
                 }
               },
@@ -3581,6 +3613,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
                   }
                 ],
                 "discriminator": {
@@ -3593,7 +3631,9 @@
                     "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
-                    "sma": "#/components/schemas/Sma"
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow"
                   }
                 }
               },
@@ -3657,6 +3697,12 @@
                   },
                   {
                     "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
                   }
                 ],
                 "discriminator": {
@@ -3669,7 +3715,9 @@
                     "lowest": "#/components/schemas/Lowest",
                     "macd": "#/components/schemas/Macd",
                     "rsi": "#/components/schemas/Rsi",
-                    "sma": "#/components/schemas/Sma"
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow"
                   }
                 }
               },
@@ -3813,6 +3861,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -3825,7 +3879,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -3893,6 +3949,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -3905,7 +3967,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -5036,6 +5100,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -5048,7 +5118,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -5115,6 +5187,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -5127,7 +5205,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -5831,6 +5911,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -5843,7 +5929,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -5911,6 +5999,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/Highest"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingLow"
+                    },
+                    {
+                      "$ref": "#/components/schemas/SwingHigh"
                     }
                   ],
                   "discriminator": {
@@ -5923,7 +6017,9 @@
                       "lowest": "#/components/schemas/Lowest",
                       "macd": "#/components/schemas/Macd",
                       "rsi": "#/components/schemas/Rsi",
-                      "sma": "#/components/schemas/Sma"
+                      "sma": "#/components/schemas/Sma",
+                      "swing_high": "#/components/schemas/SwingHigh",
+                      "swing_low": "#/components/schemas/SwingLow"
                     }
                   }
                 },
@@ -5954,6 +6050,122 @@
         ],
         "title": "Subtract",
         "description": "The first operand minus the second."
+      },
+      "SwingHigh": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "swing_high",
+            "title": "Indicator"
+          },
+          "strength": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Strength"
+          },
+          "occurrence": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Occurrence",
+            "default": 0
+          },
+          "output": {
+            "type": "string",
+            "enum": [
+              "price",
+              "bars_since"
+            ],
+            "title": "Output",
+            "default": "price"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "high"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator",
+          "strength"
+        ],
+        "title": "SwingHigh",
+        "description": "A recent swing high: a bar higher than the `strength` bars on each side of it (see\n`SwingLow`)."
+      },
+      "SwingLow": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "swing_low",
+            "title": "Indicator"
+          },
+          "strength": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Strength"
+          },
+          "occurrence": {
+            "type": "integer",
+            "maximum": 9.0,
+            "minimum": 0.0,
+            "title": "Occurrence",
+            "default": 0
+          },
+          "output": {
+            "type": "string",
+            "enum": [
+              "price",
+              "bars_since"
+            ],
+            "title": "Output",
+            "default": "price"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "low"
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator",
+          "strength"
+        ],
+        "title": "SwingLow",
+        "description": "A recent swing low: a bar lower than the `strength` bars on each side of it, known only\n`strength` bars after it. `occurrence` 0 is the latest; `output` is its `price` or the\nnumber of bars since it."
       },
       "Timeframe": {
         "type": "string",

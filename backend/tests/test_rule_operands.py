@@ -14,6 +14,8 @@ from app.strategies.rules import (
     Rsi,
     Sma,
     Subtract,
+    SwingHigh,
+    SwingLow,
     Value,
 )
 
@@ -43,6 +45,14 @@ operand = TypeAdapter(Operand)
         (
             {"indicator": "highest", "period": 20, "source": "close"},
             Highest(indicator="highest", period=20, source="close"),
+        ),
+        (
+            {"indicator": "swing_low", "strength": 3},
+            SwingLow(indicator="swing_low", strength=3, occurrence=0, output="price", source="low"),
+        ),
+        (
+            {"indicator": "swing_high", "strength": 5, "occurrence": 1, "output": "bars_since"},
+            SwingHigh(indicator="swing_high", strength=5, occurrence=1, output="bars_since"),
         ),
         ({"price": "low", "bars_ago": 1}, Price(price="low", bars_ago=1)),
         (
@@ -95,6 +105,10 @@ def nested_arithmetic(levels: int) -> dict:
         ({"indicator": "bbands", "std": 0}, "greater than 0"),
         ({"indicator": "atr", "source": "close"}, "Extra inputs are not permitted"),
         ({"indicator": "lowest"}, "Field required"),
+        ({"indicator": "swing_low"}, "Field required"),
+        ({"indicator": "swing_low", "strength": 0}, "greater than or equal to 1"),
+        ({"indicator": "swing_high", "strength": 3, "occurrence": 10}, "less than or equal to 9"),
+        ({"indicator": "swing_low", "strength": 3, "output": "time"}, "'price' or 'bars_since'"),
         ({"indicator": "sma", "period": 5, "lenght": 3}, "Extra inputs are not permitted"),
         ({"price": "vwap"}, "Input should be 'open', 'high', 'low', 'close' or 'volume'"),
         ({"value": float("nan")}, "finite number"),

@@ -74,6 +74,42 @@ def highest(values: pd.Series, period: int) -> pd.Series:
     return values.rolling(period, min_periods=period).max()
 
 
+def swing_low(values: pd.Series, strength: int, occurrence: int = 0) -> pd.DataFrame:
+    """The swing lows known on each bar. A swing low is a bar lower than each of the `strength`
+    bars before it and no higher than each of the `strength` bars after it, so the first bar of
+    a flat bottom counts. It is only known once those later bars have closed, `strength` bars
+    after it, as TradingView's `ta.pivotlow(source, strength, strength)`.
+
+    Columns, for the `occurrence`-th most recent known swing low (0 is the latest): its `price`,
+    and `bars_since` it, counted from the swing bar itself. NaN until there is one."""
+    return _swings(-values, strength, occurrence, values)
+
+
+def swing_high(values: pd.Series, strength: int, occurrence: int = 0) -> pd.DataFrame:
+    """The swing highs known on each bar: bars higher than each of the `strength` bars before
+    them and no lower than each of the `strength` bars after them (see `swing_low`)."""
+    return _swings(values, strength, occurrence, values)
+
+
+def _swings(peaks: pd.Series, strength: int, occurrence: int, values: pd.Series) -> pd.DataFrame:
+    """Swing highs of `peaks` (the values, or their negatives for lows), reported with
+    `values`."""
+    before = peaks.shift(1).rolling(strength, min_periods=strength).max()
+    after = peaks.rolling(strength, min_periods=strength).max().shift(-strength)
+    swing_bars = np.flatnonzero((peaks > before) & (peaks >= after))
+    bars = np.arange(len(values))
+    # On each bar, the number of swings known so far, then which of them is wanted.
+    known = np.searchsorted(swing_bars + strength, bars, side="right")
+    which = known - 1 - occurrence
+    found = which >= 0
+    swing_bar = swing_bars[which[found]]
+    price = np.full(len(values), np.nan)
+    since = np.full(len(values), np.nan)
+    price[found] = values.to_numpy(dtype=float)[swing_bar]
+    since[found] = bars[found] - swing_bar
+    return pd.DataFrame({"price": price, "bars_since": since}, index=values.index)
+
+
 def _smooth(values: pd.Series, period: int, alpha: float) -> pd.Series:
     """`s[t] = alpha * x[t] + (1 - alpha) * s[t-1]`, seeded with the SMA of the first `period`
     valid values (leading NaNs are skipped)."""

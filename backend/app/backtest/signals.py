@@ -25,6 +25,8 @@ from app.strategies.rules import (
     Price,
     Rsi,
     Sma,
+    SwingHigh,
+    SwingLow,
     Value,
 )
 
@@ -98,6 +100,10 @@ def _compute(operand: Indicator, bars: pd.DataFrame) -> pd.Series | pd.DataFrame
             return indicators.lowest(bars[source], period)
         case Highest(period=period, source=source):
             return indicators.highest(bars[source], period)
+        case SwingLow(strength=strength, occurrence=occurrence, source=source):
+            return indicators.swing_low(bars[source], strength, occurrence)
+        case SwingHigh(strength=strength, occurrence=occurrence, source=source):
+            return indicators.swing_high(bars[source], strength, occurrence)
         case _:
             raise TypeError(f"not an indicator: {operand!r}")
 

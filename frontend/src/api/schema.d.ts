@@ -597,12 +597,12 @@ export interface components {
         /** Add */
         "Add-Input": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Add */
         "Add-Output": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * AllOf
@@ -998,14 +998,14 @@ export interface components {
          */
         "Condition-Input": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
         };
         /**
          * Condition
@@ -1013,14 +1013,14 @@ export interface components {
          */
         "Condition-Output": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
         };
         /** CoverageRead */
         CoverageRead: {
@@ -1065,7 +1065,7 @@ export interface components {
          */
         "Divide-Input": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Divide
@@ -1073,7 +1073,7 @@ export interface components {
          */
         "Divide-Output": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /** Ema */
         Ema: {
@@ -1431,12 +1431,12 @@ export interface components {
         /** Multiply */
         "Multiply-Input": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Multiply */
         "Multiply-Output": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /** PerformanceGroup */
         PerformanceGroup: {
@@ -1673,7 +1673,7 @@ export interface components {
          */
         "Subtract-Input": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Subtract
@@ -1681,7 +1681,80 @@ export interface components {
          */
         "Subtract-Output": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+        };
+        /**
+         * SwingHigh
+         * @description A recent swing high: a bar higher than the `strength` bars on each side of it (see
+         *     `SwingLow`).
+         */
+        SwingHigh: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "swing_high";
+            /** Strength */
+            strength: number;
+            /**
+             * Occurrence
+             * @default 0
+             */
+            occurrence?: number;
+            /**
+             * Output
+             * @default price
+             * @enum {string}
+             */
+            output?: "price" | "bars_since";
+            /**
+             * Source
+             * @default high
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
+        };
+        /**
+         * SwingLow
+         * @description A recent swing low: a bar lower than the `strength` bars on each side of it, known only
+         *     `strength` bars after it. `occurrence` 0 is the latest; `output` is its `price` or the
+         *     number of bars since it.
+         */
+        SwingLow: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "swing_low";
+            /** Strength */
+            strength: number;
+            /**
+             * Occurrence
+             * @default 0
+             */
+            occurrence?: number;
+            /**
+             * Output
+             * @default price
+             * @enum {string}
+             */
+            output?: "price" | "bars_since";
+            /**
+             * Source
+             * @default low
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /**
          * Timeframe

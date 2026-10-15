@@ -329,3 +329,86 @@ def test_lowest_and_highest_match_the_naive_formula(period):
 
 def test_lowest_of_a_short_series_is_all_missing():
     assert indicators.lowest(pd.Series([1.0, 2.0]), 3).isna().all()
+
+
+def naive_swings(values: list[float], strength: int, lower: bool) -> list[int]:
+    """Bars beyond each of the `strength` bars before them, and at least as far as each of the
+    `strength` bars after them."""
+    beyond = (lambda a, b: a < b) if lower else (lambda a, b: a > b)
+    at_least = (lambda a, b: a <= b) if lower else (lambda a, b: a >= b)
+    return [
+        c
+        for c in range(strength, len(values) - strength)
+        if all(beyond(values[c], values[c - j]) for j in range(1, strength + 1))
+        and all(at_least(values[c], values[c + j]) for j in range(1, strength + 1))
+    ]
+
+
+def naive_swing(values: list[float], strength: int, occurrence: int, lower: bool):
+    swings = naive_swings(values, strength, lower)
+    price, since = [], []
+    for t in range(len(values)):
+        known = [c for c in swings if c + strength <= t]
+        if len(known) > occurrence:
+            c = known[-1 - occurrence]
+            price.append(values[c])
+            since.append(t - c)
+        else:
+            price.append(NAN)
+            since.append(NAN)
+    return {"price": price, "bars_since": since}
+
+
+def test_swing_lows_by_hand():
+    lows = pd.Series([5.0, 4, 3, 4, 5, 4, 3.5, 4, 5])
+
+    latest = indicators.swing_low(lows, 2)
+    previous = indicators.swing_low(lows, 2, occurrence=1)
+
+    # The low of 3 is known on bar 4, two bars after it; the low of 3.5 on bar 8.
+    assert_series(latest["price"], [NAN] * 4 + [3, 3, 3, 3, 3.5])
+    assert_series(latest["bars_since"], [NAN] * 4 + [2, 3, 4, 5, 2])
+    assert_series(previous["price"], [NAN] * 8 + [3])
+    assert_series(previous["bars_since"], [NAN] * 8 + [6])
+
+
+def test_swing_highs_by_hand():
+    highs = pd.Series([1.0, 2, 3, 2, 1, 2, 2.5, 2, 1])
+
+    latest = indicators.swing_high(highs, 2)
+
+    assert_series(latest["price"], [NAN] * 4 + [3, 3, 3, 3, 2.5])
+    assert_series(latest["bars_since"], [NAN] * 4 + [2, 3, 4, 5, 2])
+
+
+def test_the_first_bar_of_a_flat_bottom_is_the_swing():
+    swings = indicators.swing_low(pd.Series([5.0, 3, 3, 5, 6]), 1)
+
+    assert_series(swings["price"], [NAN, NAN, 3, 3, 3])
+    assert_series(swings["bars_since"], [NAN, NAN, 1, 2, 3])
+
+
+@pytest.mark.parametrize(("strength", "occurrence"), [(1, 0), (3, 0), (3, 2), (10, 1)])
+@pytest.mark.parametrize("lower", [True, False], ids=["lows", "highs"])
+def test_swings_match_the_naive_formula(strength, occurrence, lower):
+    # Rounded, so that equal neighbours (flat bottoms and tops) occur too.
+    prices = random_walk().round()
+    swing = indicators.swing_low if lower else indicators.swing_high
+
+    computed = swing(prices, strength, occurrence)
+
+    expected = naive_swing(prices.tolist(), strength, occurrence, lower)
+    assert_series(computed["price"], expected["price"])
+    assert_series(computed["bars_since"], expected["bars_since"])
+
+
+@pytest.mark.parametrize("swing", [indicators.swing_low, indicators.swing_high])
+def test_swings_are_only_known_once_confirmed(swing):
+    # A swing needs later bars to be confirmed, so this is where look-ahead could creep in:
+    # what is known on each bar must not change when later bars arrive.
+    prices = random_walk(120).round()
+    full = swing(prices, 3, 1)
+
+    for t in range(len(prices)):
+        early = swing(prices.iloc[: t + 1], 3, 1)
+        pd.testing.assert_frame_equal(early, full.iloc[: t + 1])

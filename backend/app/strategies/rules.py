@@ -113,8 +113,38 @@ class Highest(_Rule):
     bars_ago: BarsAgo = 0
 
 
+Strength = Annotated[int, Field(ge=1, le=50)]
+Occurrence = Annotated[int, Field(ge=0, le=9)]
+
+
+class SwingLow(_Rule):
+    """A recent swing low: a bar lower than the `strength` bars on each side of it, known only
+    `strength` bars after it. `occurrence` 0 is the latest; `output` is its `price` or the
+    number of bars since it."""
+
+    indicator: Literal["swing_low"]
+    strength: Strength
+    occurrence: Occurrence = 0
+    output: Literal["price", "bars_since"] = "price"
+    source: PriceField = "low"
+    bars_ago: BarsAgo = 0
+
+
+class SwingHigh(_Rule):
+    """A recent swing high: a bar higher than the `strength` bars on each side of it (see
+    `SwingLow`)."""
+
+    indicator: Literal["swing_high"]
+    strength: Strength
+    occurrence: Occurrence = 0
+    output: Literal["price", "bars_since"] = "price"
+    source: PriceField = "high"
+    bars_ago: BarsAgo = 0
+
+
 Indicator = Annotated[
-    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest, Field(discriminator="indicator")
+    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest | SwingLow | SwingHigh,
+    Field(discriminator="indicator"),
 ]
 
 

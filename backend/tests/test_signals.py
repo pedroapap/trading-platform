@@ -61,8 +61,27 @@ def test_a_price_is_its_bar_column():
             {"indicator": "highest", "period": 7, "source": "close"},
             lambda b: indicators.highest(b["close"], 7),
         ),
+        (
+            {"indicator": "swing_low", "strength": 3, "occurrence": 1, "output": "bars_since"},
+            lambda b: indicators.swing_low(b["low"], 3, 1)["bars_since"],
+        ),
+        (
+            {"indicator": "swing_high", "strength": 2, "source": "close"},
+            lambda b: indicators.swing_high(b["close"], 2)["price"],
+        ),
     ],
-    ids=["sma", "ema", "rsi", "macd", "bbands", "atr", "lowest", "highest"],
+    ids=[
+        "sma",
+        "ema",
+        "rsi",
+        "macd",
+        "bbands",
+        "atr",
+        "lowest",
+        "highest",
+        "swing_low",
+        "swing_high",
+    ],
 )
 def test_an_indicator_is_computed_on_its_source(operand, direct):
     bars = random_bars()
@@ -115,8 +134,8 @@ def test_dividing_by_zero_is_unknown():
 
 @pytest.fixture
 def indicator_calls(monkeypatch) -> list[str]:
-    """Calls to `indicators.rsi` and `indicators.macd` during the test, in order. (Not SMA or
-    EMA: MACD and Bollinger Bands call those internally.)"""
+    """Calls to `indicators.rsi`, `indicators.macd` and `indicators.swing_low` during the test,
+    in order. (Not SMA or EMA: MACD and Bollinger Bands call those internally.)"""
     calls: list[str] = []
 
     def spy(name):
@@ -130,6 +149,7 @@ def indicator_calls(monkeypatch) -> list[str]:
 
     monkeypatch.setattr(indicators, "rsi", spy("rsi"))
     monkeypatch.setattr(indicators, "macd", spy("macd"))
+    monkeypatch.setattr(indicators, "swing_low", spy("swing_low"))
     return calls
 
 
@@ -144,10 +164,12 @@ def test_each_indicator_is_computed_once(indicator_calls):
         {"indicator": "macd", "output": "signal"},  # same MACD, another of its lines
         {"indicator": "rsi", "bars_ago": 3},  # the first RSI, shifted
         {"indicator": "macd", "output": "histogram", "bars_ago": 1},
+        {"indicator": "swing_low", "strength": 3},
+        {"indicator": "swing_low", "strength": 3, "output": "bars_since"},  # same swings
     ]:
         resolver.resolve(parse_operand(operand))
 
-    assert sorted(indicator_calls) == ["macd", "rsi", "rsi"]
+    assert sorted(indicator_calls) == ["macd", "rsi", "rsi", "swing_low"]
 
 
 parse_rule = TypeAdapter(Node).validate_python
@@ -296,6 +318,16 @@ EVERY_RULE = {
                 "op": "crosses_above",
                 "right": {"indicator": "highest", "period": 8, "source": "close", "bars_ago": 1},
             },
+            {
+                "left": {"price": "low"},
+                "op": "<=",
+                "right": {
+                    "multiply": [
+                        {"indicator": "swing_low", "strength": 2, "occurrence": 1},
+                        {"value": 1.002},
+                    ]
+                },
+            },
             {"left": {"price": "low"}, "op": "<=", "right": BBANDS | {"output": "lower"}},
         ]
     },
@@ -329,6 +361,11 @@ EVERY_RULE = {
                         {"indicator": "atr", "period": 5},
                     ]
                 },
+            },
+            {
+                "left": {"indicator": "swing_high", "strength": 2, "output": "bars_since"},
+                "op": "<=",
+                "right": {"value": 2},
             },
         ]
     },
