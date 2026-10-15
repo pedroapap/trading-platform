@@ -112,3 +112,51 @@ test("without points there is nothing to draw", () => {
   expect(screen.getByText("Nothing to draw yet.")).toBeInTheDocument();
   expect(chart.addSeries).not.toHaveBeenCalled();
 });
+
+test("the scale keeps the reference level in view", () => {
+  renderChart();
+  const [[, options]] = chart.addSeries.mock.calls;
+  const provider = options.autoscaleInfoProvider as (
+    base: () => { priceRange: { minValue: number; maxValue: number } },
+  ) => { priceRange: { minValue: number; maxValue: number } };
+
+  // Every point above the initial capital of 10,000: the scale still reaches down to it.
+  expect(provider(() => ({ priceRange: { minValue: 10_200, maxValue: 10_800 } }))).toEqual({
+    priceRange: { minValue: 10_000, maxValue: 10_800 },
+  });
+});
+
+test("points that are events have no time axis", async () => {
+  const { createChart } = await import("lightweight-charts");
+  render(<EquityChart points={POINTS} label="Realized P&L" format={String} sequence />);
+
+  expect(vi.mocked(createChart).mock.lastCall?.[1]).toMatchObject({
+    timeScale: { visible: false },
+  });
+});
+
+test("small amounts get ticks, and a single point is only its marker", () => {
+  render(
+    <EquityChart
+      points={[{ time: "2025-01-01T00:00:00Z", value: 0.0045 }]}
+      label="Realized P&L"
+      format={String}
+      reference={{ value: 0, title: "Break-even" }}
+    />,
+  );
+
+  expect(chart.addSeries.mock.lastCall?.[1]).toMatchObject({
+    priceFormat: { type: "price", precision: 6, minMove: 1e-6 },
+    lineVisible: false,
+    pointMarkersVisible: true,
+  });
+});
+
+test("large amounts keep cent ticks", () => {
+  renderChart();
+
+  expect(chart.addSeries.mock.lastCall?.[1]).toMatchObject({
+    priceFormat: { precision: 2, minMove: 0.01 },
+    lineVisible: true,
+  });
+});

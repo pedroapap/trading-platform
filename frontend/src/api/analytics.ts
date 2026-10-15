@@ -29,3 +29,24 @@ export function usePerformance(by: Schemas["GroupBy"], period: Period, entryType
     placeholderData: keepPreviousData,
   });
 }
+
+/** Realized P&L over time from closed trades: one curve per quote currency. */
+export function useRealizedEquity(symbol: string, strategyId: string, period: Period) {
+  return useQuery({
+    queryKey: ["analytics", "equity", { symbol, strategyId, period }],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/analytics/equity", {
+          params: {
+            query: {
+              symbol: symbol || undefined,
+              strategy_id: strategyId || undefined,
+              closed_from: period.closedFrom,
+              closed_to: period.closedTo,
+            },
+          },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+}

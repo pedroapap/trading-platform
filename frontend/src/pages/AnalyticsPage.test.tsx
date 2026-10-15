@@ -1,8 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw/http";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import type { components } from "../api/schema";
+import type { EquityChartProps } from "../components/EquityChart";
 import { STRATEGY } from "../test/fixtures";
 import { renderPage } from "../test/render";
 import { server } from "../test/server";
@@ -36,8 +37,67 @@ const BY_STRATEGY: Schemas["PerformanceGroup"][] = [
   },
 ];
 
-/** Performance in `groups` whatever is asked; returns the queries asked. */
+// jsdom has no canvas: each chart says what it was given instead.
+vi.mock("../components/EquityChart", () => ({
+  default: ({ points, label, format, reference, sequence }: EquityChartProps) => (
+    <figure>
+      {label}: {points.map((point) => format(point.value)).join(", ")}
+      {reference && `; ${reference.title} at ${reference.value}`}
+      {sequence && "; one point per trade"}
+    </figure>
+  ),
+}));
+
+const CURVES: Schemas["RealizedCurve"][] = [
+  {
+    currency: "BTC",
+    points: [
+      { ts: "2026-01-04T12:00:00Z", trade_id: "t1", pnl: "0.0045", cumulative_pnl: "0.0045" },
+    ],
+    total_pnl: "0.0045",
+    max_drawdown: "0",
+  },
+  {
+    currency: "USDT",
+    points: [
+      { ts: "2026-01-05T16:00:00Z", trade_id: "t2", pnl: "150", cumulative_pnl: "150" },
+      { ts: "2026-01-06T16:00:00Z", trade_id: "t3", pnl: "-30", cumulative_pnl: "120" },
+    ],
+    total_pnl: "120",
+    max_drawdown: "30",
+  },
+  {
+    currency: null,
+    points: [{ ts: "2026-01-07T19:00:00Z", trade_id: "t4", pnl: "-25", cumulative_pnl: "-25" }],
+    total_pnl: "-25",
+    max_drawdown: "25",
+  },
+];
+
+/** The realized curves `curves` whatever is asked, with the symbols and strategies to filter
+ * by; returns the queries asked. */
+function equityEndpoint(curves = CURVES) {
+  const queries: URLSearchParams[] = [];
+  server.use(
+    http.get("/api/analytics/equity", ({ request }) => {
+      queries.push(new URL(request.url).searchParams);
+      return HttpResponse.json({ curves });
+    }),
+    http.get("/api/instruments", () =>
+      HttpResponse.json([
+        { symbol: "AAPL", quote_currency: null },
+        { symbol: "BTCUSDT", quote_currency: "USDT" },
+      ]),
+    ),
+    http.get("/api/strategies", () => HttpResponse.json([STRATEGY])),
+  );
+  return queries;
+}
+
+/** Performance in `groups` whatever is asked, and the realized curves; returns the
+ * performance queries asked. */
 function performanceEndpoint(groups = BY_STRATEGY) {
+  equityEndpoint();
   const queries: URLSearchParams[] = [];
   server.use(
     http.get("/api/analytics/performance", ({ request }) => {
@@ -131,4 +191,57 @@ test("without closed trades there is nothing to show", async () => {
   renderPage("/analytics");
 
   expect(await screen.findByText("No closed trades in this period.")).toBeInTheDocument();
+});
+
+test("realized P&L is drawn per currency, with its total and drawdown", async () => {
+  performanceEndpoint();
+
+  renderPage("/analytics");
+
+  const usdt = await screen.findByRole("article", { name: "Realized P&L in USDT" });
+  expect(usdt).toHaveTextContent("Total 120 USDT over 2 trades; max drawdown 30 USDT.");
+  expect(within(usdt).getByRole("figure")).toHaveTextContent(
+    "Realized P&L: 150.00 USDT, 120.00 USDT; Break-even at 0; one point per trade",
+  );
+  const btc = screen.getByRole("article", { name: "Realized P&L in BTC" });
+  expect(btc).toHaveTextContent("Total 0.0045 BTC over 1 trade; max drawdown 0 BTC.");
+  const unset = screen.getByRole("article", { name: "Realized P&L in no set currency" });
+  expect(within(unset).getByRole("heading")).toHaveTextContent("Currency not set");
+  expect(unset).toHaveTextContent("Total -25 over 1 trade; max drawdown 25.");
+  expect(unset).toHaveTextContent("may add up different currencies");
+  expect(within(unset).getByRole("link", { name: "Set their currencies" })).toHaveAttribute(
+    "href",
+    "/instruments",
+  );
+});
+
+test("the symbol, strategy and closing dates narrow the realized P&L", async () => {
+  performanceEndpoint();
+  const queries = equityEndpoint();
+  const { router, user } = renderPage("/analytics?from=2026-01-01");
+  await screen.findByRole("option", { name: "BTCUSDT" });
+
+  await user.selectOptions(screen.getByLabelText("Symbol"), "BTCUSDT");
+  await user.selectOptions(screen.getByLabelText("Strategy"), STRATEGY.id);
+
+  await waitFor(() =>
+    expect(queries.map((query) => Object.fromEntries(query))).toContainEqual({
+      symbol: "BTCUSDT",
+      strategy_id: STRATEGY.id,
+      closed_from: "2026-01-01T00:00:00.000Z",
+    }),
+  );
+  expect(router.state.location.search).toBe(
+    `?from=2026-01-01&symbol=BTCUSDT&strategy=${STRATEGY.id}`,
+  );
+});
+
+test("without closed trades there is no curve", async () => {
+  performanceEndpoint([]);
+  equityEndpoint([]);
+
+  renderPage("/analytics");
+
+  expect(await screen.findByText("No closed trades for these choices.")).toBeInTheDocument();
+  expect(screen.queryByRole("figure")).not.toBeInTheDocument();
 });

@@ -1,7 +1,10 @@
 import { Link, useSearchParams } from "react-router";
 
-import { usePerformance, type Period } from "../api/analytics";
+import { usePerformance, useRealizedEquity, type Period } from "../api/analytics";
+import { useInstruments } from "../api/instruments";
 import type { components } from "../api/schema";
+import { useStrategies } from "../api/strategies";
+import EquityChart from "../components/EquityChart";
 import Money from "../components/Money";
 import { ErrorMessage, Loading } from "../components/Status";
 import { dayStart, formatMoney, formatPercent } from "../format";
@@ -30,6 +33,8 @@ function useAnalyticsParams() {
   const entryType = FROM_JOURNAL.has(by)
     ? (Object.keys(ENTRY_TYPES).find((key) => key === params.get("entry_type")) ?? "")
     : "";
+  const symbol = params.get("symbol") ?? "";
+  const strategyId = params.get("strategy") ?? "";
   const period: Period = {
     closedFrom: from ? dayStart(from) : undefined,
     closedTo: to ? dayStart(to, 1) : undefined,
@@ -43,7 +48,7 @@ function useAnalyticsParams() {
     setParams(next);
   }
 
-  return { by, from, to, entryType, period, choose };
+  return { by, from, to, entryType, symbol, strategyId, period, choose };
 }
 
 /** A group's P&L in each currency it was traded in, with the average per trade. */
@@ -144,6 +149,99 @@ function Performance({
   );
 }
 
+/** Realized P&L accumulated trade by trade, one chart per quote currency. */
+function RealizedPnl({
+  symbol,
+  strategyId,
+  period,
+  choose,
+}: Pick<ReturnType<typeof useAnalyticsParams>, "symbol" | "strategyId" | "period" | "choose">) {
+  const equity = useRealizedEquity(symbol, strategyId, period);
+  const instruments = useInstruments();
+  const strategies = useStrategies();
+
+  return (
+    <section>
+      <h2>Realized P&amp;L</h2>
+      <div className="grid">
+        <label>
+          Symbol
+          <select value={symbol} onChange={(event) => choose("symbol", event.target.value)}>
+            <option value="">Any symbol</option>
+            {instruments.data?.map((instrument) => (
+              <option key={instrument.symbol} value={instrument.symbol}>
+                {instrument.symbol}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Strategy
+          <select value={strategyId} onChange={(event) => choose("strategy", event.target.value)}>
+            <option value="">Any strategy</option>
+            {strategies.data?.map((strategy) => (
+              <option key={strategy.id} value={strategy.id}>
+                {strategy.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      {equity.isPending && <Loading />}
+      {equity.error && <ErrorMessage error={equity.error} />}
+      <p>
+        Each curve adds up the P&amp;L of its trades in the order they closed, one point per trade:
+        the points are evenly spaced, not to scale in time. Point at one to see its date, or open
+        the table.
+      </p>
+      {equity.data?.curves.length === 0 && <p>No closed trades for these choices.</p>}
+      {equity.data?.curves.map((curve) => (
+        <article
+          key={curve.currency ?? ""}
+          aria-label={`Realized P&L in ${curve.currency ?? "no set currency"}`}
+        >
+          <h3>{curve.currency ?? "Currency not set"}</h3>
+          <p>
+            {/* Without a currency, the heading and the note below already say so. */}
+            Total{" "}
+            {curve.currency ? (
+              <Money amount={curve.total_pnl} currency={curve.currency} />
+            ) : (
+              curve.total_pnl
+            )}{" "}
+            over {curve.points.length} {curve.points.length === 1 ? "trade" : "trades"}; max
+            drawdown{" "}
+            {curve.currency ? (
+              <Money amount={curve.max_drawdown} currency={curve.currency} />
+            ) : (
+              curve.max_drawdown
+            )}
+            .
+          </p>
+          {curve.currency === null && (
+            <p>
+              <small>
+                These trades' symbols have no quote currency set, so this curve may add up different
+                currencies. <Link to="/instruments">Set their currencies</Link>.
+              </small>
+            </p>
+          )}
+          <EquityChart
+            points={curve.points.map((point) => ({
+              time: point.ts,
+              value: Number(point.cumulative_pnl),
+            }))}
+            label="Realized P&L"
+            format={(value) => `${formatMoney(value)}${curve.currency ? ` ${curve.currency}` : ""}`}
+            reference={{ value: 0, title: "Break-even" }}
+            sequence
+          />
+        </article>
+      ))}
+    </section>
+  );
+}
+
 export default function AnalyticsPage() {
   const params = useAnalyticsParams();
 
@@ -173,6 +271,7 @@ export default function AnalyticsPage() {
         </label>
       </div>
       <Performance {...params} />
+      <RealizedPnl {...params} />
     </>
   );
 }

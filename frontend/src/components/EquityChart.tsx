@@ -4,6 +4,7 @@ import {
   LineSeries,
   LineStyle,
   createChart,
+  type AutoscaleInfo,
   type MouseEventParams,
   type Time,
   type UTCTimestamp,
@@ -19,8 +20,11 @@ export type EquityChartProps = {
   label: string;
   /** A value as the readout and the table show it, with its currency. */
   format: (value: number) => string;
-  /** A level drawn as a hairline, such as the initial capital. */
+  /** A level drawn as a hairline, such as the initial capital; the scale always shows it. */
   reference?: { value: number; title: string };
+  /** The points are events, such as closed trades, drawn one after another rather than to
+   * scale in time: the time axis is hidden, and the readout gives each point's time. */
+  sequence?: boolean;
 };
 
 const compact = new Intl.NumberFormat(undefined, {
@@ -57,7 +61,7 @@ function themeOf(element: HTMLElement) {
 
 type Theme = ReturnType<typeof themeOf>;
 
-function chartOptions(theme: Theme) {
+function chartOptions(theme: Theme, sequence: boolean) {
   return {
     layout: {
       background: { type: ColorType.Solid, color: "transparent" },
@@ -70,7 +74,12 @@ function chartOptions(theme: Theme) {
       horzLines: { color: theme.grid, style: LineStyle.Solid },
     },
     rightPriceScale: { borderVisible: false },
-    timeScale: { borderColor: theme.grid, timeVisible: true, secondsVisible: false },
+    timeScale: {
+      visible: !sequence,
+      borderColor: theme.grid,
+      timeVisible: true,
+      secondsVisible: false,
+    },
     // A vertical hairline that snaps to the nearest point.
     crosshair: {
       mode: CrosshairMode.Magnet,
@@ -85,10 +94,22 @@ function chartOptions(theme: Theme) {
   };
 }
 
-function seriesOptions(theme: Theme) {
+/** A price format fine enough for the values: the library puts ticks on multiples of its
+ * minimum move, 0.01 by default, so amounts in BTC and the like would get none. */
+function priceFormatFor(values: number[]) {
+  const span = Math.max(...values) - Math.min(...values) || Math.max(...values.map(Math.abs)) || 1;
+  const exponent = Math.min(-2, Math.floor(Math.log10(span)) - 3);
+  return { type: "price" as const, precision: -exponent, minMove: 10 ** exponent };
+}
+
+function seriesOptions(theme: Theme, points: number) {
   return {
     color: theme.series,
     lineWidth: 2 as const,
+    // A few points, such as one per trade, are marked; a single one is only its marker.
+    lineVisible: points > 1,
+    pointMarkersVisible: points <= 50,
+    pointMarkersRadius: 4,
     // An 8px marker with a 2px ring in the surface color.
     crosshairMarkerRadius: 4,
     crosshairMarkerBorderWidth: 2,
@@ -101,7 +122,13 @@ function seriesOptions(theme: Theme) {
 
 /** One series over time: a line with the value under the pointer read out above it, and the
  * same points as a table for anyone who can't use the chart. */
-export default function EquityChart({ points, label, format, reference }: EquityChartProps) {
+export default function EquityChart({
+  points,
+  label,
+  format,
+  reference,
+  sequence = false,
+}: EquityChartProps) {
   const container = useRef<HTMLDivElement>(null);
   const plotted = useMemo(() => toPlotted(points), [points]);
   const [hovered, setHovered] = useState<PlottedPoint | null>(null);
@@ -114,14 +141,29 @@ export default function EquityChart({ points, label, format, reference }: Equity
     if (!element || plotted.length === 0) return;
     let theme = themeOf(element);
     const chart = createChart(element, {
-      ...chartOptions(theme),
+      ...chartOptions(theme, sequence),
       autoSize: true,
       localization: {
         priceFormatter: tick,
         timeFormatter: (time: Time) => crosshairTime.format(new Date((time as number) * 1000)),
       },
     });
-    const series = chart.addSeries(LineSeries, seriesOptions(theme));
+    const series = chart.addSeries(LineSeries, {
+      ...seriesOptions(theme, plotted.length),
+      priceFormat: priceFormatFor([
+        ...plotted.map((point) => point.value),
+        ...(referenceValue === undefined ? [] : [referenceValue]),
+      ]),
+      // Keep the reference level in view, even when every point is above or below it.
+      autoscaleInfoProvider: (base: () => AutoscaleInfo | null) => {
+        const info = base();
+        if (info?.priceRange && referenceValue !== undefined) {
+          info.priceRange.minValue = Math.min(info.priceRange.minValue, referenceValue);
+          info.priceRange.maxValue = Math.max(info.priceRange.maxValue, referenceValue);
+        }
+        return info;
+      },
+    });
     series.setData(plotted);
     const line =
       referenceValue === undefined
@@ -151,8 +193,8 @@ export default function EquityChart({ points, label, format, reference }: Equity
     const scheme = window.matchMedia?.("(prefers-color-scheme: dark)");
     const restyle = () => {
       theme = themeOf(element);
-      chart.applyOptions(chartOptions(theme));
-      series.applyOptions(seriesOptions(theme));
+      chart.applyOptions(chartOptions(theme, sequence));
+      series.applyOptions(seriesOptions(theme, plotted.length));
       line?.applyOptions({
         color: theme.ink,
         axisLabelColor: theme.ink,
@@ -165,7 +207,7 @@ export default function EquityChart({ points, label, format, reference }: Equity
       chart.unsubscribeCrosshairMove(follow);
       chart.remove();
     };
-  }, [plotted, referenceValue, referenceTitle]);
+  }, [plotted, referenceValue, referenceTitle, sequence]);
 
   if (plotted.length === 0) return <p>Nothing to draw yet.</p>;
   // The point under the pointer, or else the last one.
