@@ -89,7 +89,7 @@ export default function StrategyForm({
       {examples && (
         <details>
           <summary>Start from an example</summary>
-          <ul>
+          <ul className="examples">
             {examples.map((example, i) => (
               <li key={example.name}>
                 <button
