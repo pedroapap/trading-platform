@@ -36,6 +36,8 @@ class ExitReason(StrEnum):
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
     END_OF_DATA = "end_of_data"
+    TRAILING_STOP = "trailing_stop"
+    TIME_EXIT = "time_exit"
 
 
 class EntryType(StrEnum):

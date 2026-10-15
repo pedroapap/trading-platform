@@ -85,6 +85,25 @@ def make_backtest_trade(backtest: Backtest, number: int = 1, **overrides: object
     return BacktestTrade(backtest_id=backtest.id, number=number, **(values | overrides))
 
 
+def test_trades_record_every_exit_reason(db_session, user):
+    backtest = make_backtest(db_session, user, make_strategy(db_session, user))
+    for number, reason in enumerate(ExitReason, 1):
+        db_session.add(make_backtest_trade(backtest, number, exit_reason=reason))
+    db_session.flush()
+
+    stored = db_session.execute(select(BacktestTrade.exit_reason).order_by(BacktestTrade.number))
+    assert stored.scalars().all() == list(ExitReason)
+
+
+def test_an_unknown_exit_reason_is_rejected(db_session, user):
+    backtest = make_backtest(db_session, user, make_strategy(db_session, user))
+    db_session.add(make_backtest_trade(backtest))
+    db_session.flush()
+
+    with pytest.raises(IntegrityError, match="ck_backtest_trades_exit_reason"):
+        db_session.execute(text("UPDATE backtest_trades SET exit_reason = 'margin_call'"))
+
+
 def test_trade_numbers_are_unique_per_backtest(db_session, user):
     backtest = make_backtest(db_session, user, make_strategy(db_session, user))
     db_session.add(make_backtest_trade(backtest, 1))

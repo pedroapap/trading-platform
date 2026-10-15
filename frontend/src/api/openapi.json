@@ -4296,7 +4296,9 @@
           "signal",
           "stop_loss",
           "take_profit",
-          "end_of_data"
+          "end_of_data",
+          "trailing_stop",
+          "time_exit"
         ],
         "title": "ExitReason",
         "description": "Why a backtest closed a position."

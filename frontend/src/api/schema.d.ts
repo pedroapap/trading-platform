@@ -1180,7 +1180,7 @@ export interface components {
          * @description Why a backtest closed a position.
          * @enum {string}
          */
-        ExitReason: "signal" | "stop_loss" | "take_profit" | "end_of_data";
+        ExitReason: "signal" | "stop_loss" | "take_profit" | "end_of_data" | "trailing_stop" | "time_exit";
         /**
          * GroupBy
          * @enum {string}
