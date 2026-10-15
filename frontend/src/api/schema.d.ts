@@ -730,6 +730,7 @@ export interface components {
             /** Symbol */
             symbol: string;
             timeframe: components["schemas"]["Timeframe"];
+            detail_timeframe?: components["schemas"]["Timeframe"] | null;
             /** Start */
             start?: string | null;
             /** End */
@@ -790,6 +791,7 @@ export interface components {
             /** Quote Currency */
             quote_currency: string | null;
             timeframe: components["schemas"]["Timeframe"];
+            detail_timeframe: components["schemas"]["Timeframe"] | null;
             /** Start */
             start: string | null;
             /** End */

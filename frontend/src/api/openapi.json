@@ -2776,6 +2776,16 @@
           "timeframe": {
             "$ref": "#/components/schemas/Timeframe"
           },
+          "detail_timeframe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timeframe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "start": {
             "anyOf": [
               {
@@ -2937,6 +2947,16 @@
           "timeframe": {
             "$ref": "#/components/schemas/Timeframe"
           },
+          "detail_timeframe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Timeframe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "start": {
             "anyOf": [
               {
@@ -3089,6 +3109,7 @@
           "symbol",
           "quote_currency",
           "timeframe",
+          "detail_timeframe",
           "start",
           "end",
           "initial_capital",

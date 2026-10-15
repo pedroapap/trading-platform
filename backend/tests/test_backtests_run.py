@@ -66,6 +66,26 @@ def test_a_run_stores_its_results(db_session, user, strategy):
     assert backtest.equity_curve[-1]["equity"] == expected.equity.iloc[-1]
 
 
+def test_a_run_settles_inside_bars_with_finer_ones(db_session, user, strategy):
+    plain = backtests.run_backtest(
+        db_session, create(db_session, user, strategy, timeframe="5m").id
+    )
+    detailed = backtests.run_backtest(
+        db_session, create(db_session, user, strategy, timeframe="5m", detail_timeframe="1m").id
+    )
+
+    bars = load_bars(db_session, "BTCUSD", Timeframe.M5)
+    finer = load_bars(db_session, "BTCUSD", Timeframe.M1)
+    config = BacktestConfig(10_000, fee_pct=0.1, slippage_pct=0.05)
+    detail = engine.Detail(finer, timedelta(minutes=5))
+    expected = engine.run(bars, StrategyDefinition.model_validate(RSI_SWINGS), config, detail)
+    db_session.refresh(detailed)
+    assert detailed.status == BacktestStatus.COMPLETED
+    assert detailed.metrics == asdict(summarize(expected))
+    # The fingerprint covers the finer bars too.
+    assert detailed.data_hash == backtests.fingerprint(bars, finer) != plain.data_hash
+
+
 def test_runs_over_the_same_bars_have_the_same_fingerprint(db_session, user, strategy):
     end = (ENTRY_TIME + timedelta(minutes=200)).isoformat()
     runs = [

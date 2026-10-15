@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, defer
 
 from app.backtest import engine
 from app.backtest.charts import downsample_equity
-from app.backtest.engine import BacktestConfig, SimulatedTrade
+from app.backtest.engine import BacktestConfig, Detail, SimulatedTrade
 from app.backtest.metrics import summarize
 from app.db import SessionFactory
 from app.enums import BacktestStatus
@@ -36,6 +36,8 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     if version > strategy.current_version:
         raise InvalidOperationError(f"The strategy has no version {version}")
     market_data.require_bars(db, data.symbol, data.timeframe, data.start, data.end)
+    if data.detail_timeframe is not None:
+        market_data.require_bars(db, data.symbol, data.detail_timeframe, data.start, data.end)
 
     backtest = Backtest(
         user_id=user.id,
@@ -43,6 +45,7 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
         strategy_version=version,
         symbol=data.symbol,
         timeframe=data.timeframe,
+        detail_timeframe=data.detail_timeframe,
         start_ts=data.start,
         end_ts=data.end,
         initial_capital=data.initial_capital,
@@ -178,7 +181,14 @@ def _execute(db: Session, backtest: Backtest) -> None:
         fee_pct=float(backtest.fee_pct),
         slippage_pct=float(backtest.slippage_pct),
     )
-    result = engine.run(bars, StrategyDefinition.model_validate(version.definition), config)
+    finer = None
+    if backtest.detail_timeframe is not None:
+        finer = market_data.load_bars(
+            db, backtest.symbol, backtest.detail_timeframe, backtest.start_ts, backtest.end_ts
+        )
+    detail = None if finer is None else Detail(finer, backtest.timeframe.delta)
+    definition = StrategyDefinition.model_validate(version.definition)
+    result = engine.run(bars, definition, config, detail)
 
     if result.trades:
         rows = [_trade_row(backtest.id, n, trade) for n, trade in enumerate(result.trades, 1)]
@@ -190,7 +200,7 @@ def _execute(db: Session, backtest: Backtest) -> None:
     ]
     backtest.bars_count = len(bars)
     backtest.first_bar_ts, backtest.last_bar_ts = bars.index[0], bars.index[-1]
-    backtest.data_hash = fingerprint(bars)
+    backtest.data_hash = fingerprint(bars) if finer is None else fingerprint(bars, finer)
     backtest.status = BacktestStatus.COMPLETED
     backtest.completed_at = func.clock_timestamp()
     db.commit()
@@ -201,9 +211,12 @@ def _trade_row(backtest_id: uuid.UUID, number: int, trade: SimulatedTrade) -> di
     return vars(trade) | {"backtest_id": backtest_id, "number": number}
 
 
-def fingerprint(bars: pd.DataFrame) -> str:
-    """SHA-256 of the bars' start times and values: equal for runs that saw the same data."""
-    digest = hashlib.sha256(bars.index.as_unit("ns").asi8.tobytes())
-    values = bars[list(market_data.BAR_FIELDS)].to_numpy(dtype=np.float64)
-    digest.update(np.ascontiguousarray(values).tobytes())
+def fingerprint(*frames: pd.DataFrame) -> str:
+    """SHA-256 of the bars' start times and values, one set of bars after another (a run's
+    bars, then its finer ones): equal for runs that saw the same data."""
+    digest = hashlib.sha256()
+    for bars in frames:
+        digest.update(bars.index.as_unit("ns").asi8.tobytes())
+        values = bars[list(market_data.BAR_FIELDS)].to_numpy(dtype=np.float64)
+        digest.update(np.ascontiguousarray(values).tobytes())
     return digest.hexdigest()

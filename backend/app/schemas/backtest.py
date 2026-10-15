@@ -22,6 +22,9 @@ class BacktestCreate(BaseModel):
     strategy_version: int | None = Field(default=None, ge=1)
     symbol: Symbol
     timeframe: Timeframe
+    # Finer bars that settle what came first inside a bar where it matters, such as a bar that
+    # reaches both the stop-loss and the take-profit: finer than `timeframe`, and dividing it.
+    detail_timeframe: Timeframe | None = None
     # Bar start times, [start, end); an omitted side is open.
     start: AwareDatetime | None = None
     end: AwareDatetime | None = None
@@ -39,6 +42,15 @@ class BacktestCreate(BaseModel):
             raise ValueError("start must be before end")
         return self
 
+    @model_validator(mode="after")
+    def _detail_is_finer(self) -> Self:
+        detail = self.detail_timeframe
+        if detail is not None and not (
+            detail.seconds < self.timeframe.seconds and detail.divides(self.timeframe)
+        ):
+            raise ValueError("detail_timeframe must be finer than timeframe")
+        return self
+
 
 class BacktestRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -50,6 +62,7 @@ class BacktestRead(BaseModel):
     # The currency of the capital, P&L and equity; None until set (see /api/instruments).
     quote_currency: str | None
     timeframe: Timeframe
+    detail_timeframe: Timeframe | None
     start: datetime | None = Field(validation_alias="start_ts")
     end: datetime | None = Field(validation_alias="end_ts")
     initial_capital: DecimalOut

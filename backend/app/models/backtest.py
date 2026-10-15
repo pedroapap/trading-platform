@@ -38,6 +38,7 @@ class Backtest(Base):
             ondelete="RESTRICT",
         ),
         enum_check("timeframe", Timeframe),
+        enum_check("detail_timeframe", Timeframe),
         enum_check("status", BacktestStatus),
         CheckConstraint("start_ts < end_ts", name="range_not_empty"),
         CheckConstraint("initial_capital > 0", name="initial_capital_positive"),
@@ -66,6 +67,10 @@ class Backtest(Base):
         String(20), ForeignKey("instruments.symbol", ondelete="RESTRICT")
     )
     timeframe: Mapped[Timeframe] = mapped_column(str_enum(Timeframe, "timeframe"))
+    # Finer bars that settle what came first inside a bar; None for none.
+    detail_timeframe: Mapped[Timeframe | None] = mapped_column(
+        str_enum(Timeframe, "detail_timeframe")
+    )
     # Requested bar start times, [start_ts, end_ts); None leaves that side open.
     start_ts: Mapped[datetime | None]
     end_ts: Mapped[datetime | None]

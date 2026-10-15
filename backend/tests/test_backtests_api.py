@@ -52,6 +52,22 @@ def test_a_backtest_needs_data_and_a_version(client, auth_headers, strategy_id, 
     assert (response.status_code, response.json()["detail"]) == (422, message)
 
 
+def test_a_backtest_can_settle_inside_bars_with_finer_ones(client, auth_headers, strategy_id):
+    response = start_backtest(
+        client, auth_headers, strategy_id, timeframe="5m", detail_timeframe="1m"
+    )
+
+    backtest = wait_for_backtest(client, auth_headers, response.json()["id"])
+    assert (backtest["status"], backtest["detail_timeframe"]) == ("completed", "1m")
+
+
+def test_finer_bars_must_be_finer(client, auth_headers, strategy_id):
+    response = start_backtest(client, auth_headers, strategy_id, detail_timeframe="5m")
+
+    assert response.status_code == 422
+    assert "detail_timeframe must be finer than timeframe" in response.json()["detail"][0]["msg"]
+
+
 def test_invalid_parameters_are_rejected_with_their_field(client, auth_headers, strategy_id):
     response = start_backtest(client, auth_headers, strategy_id, fee_pct="11")
 

@@ -130,6 +130,7 @@ export function backtest(
     symbol: "BTCUSDT",
     quote_currency: "USDT",
     timeframe: "1h",
+    detail_timeframe: null,
     start: null,
     end: null,
     initial_capital: "10000",

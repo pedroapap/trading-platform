@@ -94,6 +94,24 @@ def test_bars_can_be_built_from_finer_ones(db_session, user, strategy, minute_ba
     assert backtest.timeframe == Timeframe.H1
 
 
+def test_finer_bars_can_settle_what_came_first(db_session, user, strategy, minute_bars):
+    data = request(strategy.id, timeframe="1h", detail_timeframe="1m")
+
+    backtest = backtests.create_backtest(db_session, user, data)
+
+    assert (backtest.timeframe, backtest.detail_timeframe) == (Timeframe.H1, Timeframe.M1)
+
+
+def test_finer_bars_must_exist(db_session, user, strategy):
+    hourly = random_bars(10)
+    hourly.index = pd.date_range("2026-01-05", periods=10, freq="h", tz="UTC")
+    store_bars(db_session, hourly)
+    data = request(strategy.id, timeframe="4h", detail_timeframe="1m")
+
+    with pytest.raises(InvalidOperationError, match="BTCUSD has no 1m bars, or finer bars"):
+        backtests.create_backtest(db_session, user, data)
+
+
 def test_coarser_bars_cannot_be_split(db_session, user, strategy):
     hourly = random_bars(10)
     hourly.index = pd.date_range("2026-01-05", periods=10, freq="h", tz="UTC")
@@ -116,6 +134,8 @@ def test_coarser_bars_cannot_be_split(db_session, user, strategy):
         {"periods_per_year": 0},
         {"timeframe": "2h"},
         {"leverage": 2},
+        {"timeframe": "1h", "detail_timeframe": "1h"},
+        {"timeframe": "1h", "detail_timeframe": "4h"},
     ],
 )
 def test_invalid_requests_are_rejected(overrides):
