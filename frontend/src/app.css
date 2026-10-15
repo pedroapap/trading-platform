@@ -41,3 +41,15 @@ details.version[open] {
   border-inline-start: 0.25rem solid var(--pico-muted-border-color);
   padding-inline-start: 1rem;
 }
+
+/* JSON typed by hand. */
+textarea.code {
+  font-family: var(--pico-font-family-monospace);
+  font-size: 0.875rem;
+}
+
+/* What the API found wrong in a field, listed under it. */
+ul.problems {
+  color: var(--pico-del-color);
+  font-size: 0.875rem;
+}
