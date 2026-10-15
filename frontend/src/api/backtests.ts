@@ -28,3 +28,40 @@ export function useBacktests(strategyId: string, offset: number, limit: number) 
     refetchInterval: (query) => (query.state.data?.items.some(isRunning) ? POLL_MS : false),
   });
 }
+
+/** One backtest, refreshed until it is done. */
+export function useBacktest(id: string) {
+  return useQuery({
+    queryKey: ["backtests", id],
+    queryFn: () =>
+      unwrap(api.GET("/api/backtests/{backtest_id}", { params: { path: { backtest_id: id } } })),
+    refetchInterval: (query) => (query.state.data && isRunning(query.state.data) ? POLL_MS : false),
+  });
+}
+
+/** A completed backtest's equity curve, downsampled by the API. */
+export function useBacktestEquity(id: string) {
+  return useQuery({
+    queryKey: ["backtests", id, "equity"],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/backtests/{backtest_id}/equity", {
+          params: { path: { backtest_id: id } },
+        }),
+      ),
+  });
+}
+
+/** A page of a completed backtest's trades, in the order they were made. */
+export function useBacktestTrades(id: string, offset: number, limit: number) {
+  return useQuery({
+    queryKey: ["backtests", id, "trades", { offset }],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/backtests/{backtest_id}/trades", {
+          params: { path: { backtest_id: id }, query: { limit, offset } },
+        }),
+      ),
+    placeholderData: keepPreviousData,
+  });
+}

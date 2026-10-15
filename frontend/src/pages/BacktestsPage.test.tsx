@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw/http";
 import { expect, test } from "vitest";
 
@@ -45,6 +45,10 @@ test("backtests show their strategy, bars, status and result", async () => {
     "Jan 10, 2026, 9:00 AMRSI dip v2BTCUSDT1hJan 1, 2025 – Dec 31, 2025completed12.35%42",
   );
   expect(failed).toHaveTextContent("Jan 1, 2027 – last barfailed——");
+  expect(within(completed).getByRole("link", { name: "Jan 10, 2026, 9:00 AM" })).toHaveAttribute(
+    "href",
+    expect.stringMatching(/^\/backtests\/[0-9a-f-]{36}$/),
+  );
   expect(screen.getByText("failed")).toHaveAttribute(
     "title",
     "There are no BTCUSDT bars in this range",

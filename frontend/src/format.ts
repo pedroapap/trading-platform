@@ -39,3 +39,26 @@ const percent = new Intl.NumberFormat(undefined, {
 export function formatPercent(value: number | string | null | undefined): string {
   return value == null ? "—" : `${percent.format(Number(value))}%`;
 }
+
+const cents = new Intl.NumberFormat(undefined, {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+const significant = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 8 });
+
+/** A computed amount of money, such as a backtest's P&L: to the cent from 1 up, and to 8
+ * significant digits below, where amounts in BTC and the like live. */
+export function formatMoney(value: number | string): string {
+  const number = Number(value);
+  return Math.abs(number) >= 1 ? cents.format(number) : significant.format(number);
+}
+
+/** A computed price or size, to 8 significant digits. */
+export function formatDecimal(value: number | string): string {
+  return significant.format(Number(value));
+}
+
+/** A ratio such as Sharpe's, to 2 decimals; "—" when there is none. */
+export function formatRatio(value: number | null | undefined): string {
+  return value == null ? "—" : cents.format(value);
+}

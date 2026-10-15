@@ -46,9 +46,9 @@ export default function NewBacktestPage() {
   const run = useMutation({
     mutationFn: (backtest: BacktestCreate) =>
       unwrap(api.POST("/api/backtests", { body: backtest })),
-    onSuccess: async () => {
+    onSuccess: async (backtest) => {
       await queryClient.invalidateQueries({ queryKey: ["backtests"] });
-      navigate("/backtests");
+      navigate(`/backtests/${backtest.id}`);
     },
   });
   const errors = fieldErrors(run.error);

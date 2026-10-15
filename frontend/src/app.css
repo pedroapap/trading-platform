@@ -66,3 +66,56 @@ table.instruments form,
 table.instruments fieldset {
   margin-bottom: 0;
 }
+
+/* The series color of charts: the dataviz reference palette's first slot, stepped for each
+ * color scheme and validated against Pico's surfaces (#fff and #13171f). Axis text and
+ * gridlines use Pico's muted tokens. Pico's own dark-scheme selectors are mirrored here. */
+:root {
+  --chart-series: #2a78d6;
+}
+@media only screen and (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --chart-series: #3987e5;
+  }
+}
+:root[data-theme="dark"] {
+  --chart-series: #3987e5;
+}
+
+.equity-chart .chart {
+  height: 18rem;
+}
+
+.equity-chart figcaption {
+  margin-bottom: 0.5rem;
+}
+
+/* The value leads the readout; its label follows, muted. */
+.equity-chart figcaption strong {
+  color: var(--pico-color);
+}
+
+/* Headline numbers as tiles: the label above, the value below. */
+dl.metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--pico-spacing);
+}
+
+dl.metrics > div {
+  padding: calc(var(--pico-spacing) / 2) var(--pico-spacing);
+  border: 1px solid var(--pico-muted-border-color);
+  border-radius: var(--pico-border-radius);
+}
+
+dl.metrics dt {
+  color: var(--pico-muted-color);
+  font-size: 0.875rem;
+  font-weight: normal;
+}
+
+dl.metrics dd {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}

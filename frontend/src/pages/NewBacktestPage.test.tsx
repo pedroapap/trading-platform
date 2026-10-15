@@ -33,14 +33,12 @@ function backtestApi(refusal?: Response, strategies = [OTHER, STRATEGY]) {
       posted.push((await request.json()) as BacktestCreate);
       return refusal ?? HttpResponse.json(created, { status: 202 });
     }),
-    http.get("/api/backtests", () =>
-      HttpResponse.json({ items: [created], total: 1, limit: 50, offset: 0 }),
-    ),
+    http.get("/api/backtests/:id", () => HttpResponse.json(created)),
   );
   return posted;
 }
 
-test("a backtest runs with the form's settings, then shows in the list", async () => {
+test("a backtest runs with the form's settings, then shows its page", async () => {
   const posted = backtestApi();
   const { router, user } = renderPage(`/backtests/new?strategy=${STRATEGY.id}`);
   await screen.findByRole("option", { name: "RSI dip" });
@@ -60,8 +58,8 @@ test("a backtest runs with the form's settings, then shows in the list", async (
   await user.type(screen.getByLabelText("Fee %"), "0.1");
   await user.click(screen.getByRole("button", { name: "Run backtest" }));
 
-  expect(await screen.findByText("pending")).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/backtests");
+  expect(await screen.findByText(/^Waiting to run/)).toBeInTheDocument();
+  expect(router.state.location.pathname).toMatch(/^\/backtests\/[0-9a-f-]{36}$/);
   // Amounts go as typed; the version and the end are left for the API to default.
   expect(posted).toEqual([
     {
@@ -86,7 +84,7 @@ test("without a strategy chosen, the first one runs", async () => {
   await user.type(screen.getByLabelText("Symbol"), "BTCUSDT");
   await user.click(screen.getByRole("button", { name: "Run backtest" }));
 
-  await screen.findByText("pending");
+  await screen.findByText(/^Waiting to run/);
   expect(posted[0].strategy_id).toBe(OTHER.id);
 });
 

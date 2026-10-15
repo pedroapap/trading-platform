@@ -80,7 +80,11 @@ export default function BacktestsPage() {
               <tbody>
                 {backtests.data.items.map((backtest) => (
                   <tr key={backtest.id}>
-                    <td>{formatDateTime(backtest.created_at)}</td>
+                    <td>
+                      <Link to={`/backtests/${backtest.id}`}>
+                        {formatDateTime(backtest.created_at)}
+                      </Link>
+                    </td>
                     <td>
                       {strategyNames.get(backtest.strategy_id) ?? "…"} v{backtest.strategy_version}
                     </td>
