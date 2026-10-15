@@ -5491,6 +5491,28 @@
               }
             ],
             "title": "Buy And Hold Max Drawdown Pct"
+          },
+          "average_trade_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Trade Pct"
+          },
+          "average_trade_margin_pct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Average Trade Margin Pct"
           }
         },
         "type": "object",

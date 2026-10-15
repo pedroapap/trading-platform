@@ -94,6 +94,10 @@ class TradeStats:
     # Share of bars on which a position was open at some point, entry and exit bars included
     # (as backtesting.py counts it), in percent.
     exposure_pct: float
+    # The average trade's return on its notional, in percent, and the margin of its 95% range
+    # (1.96 standard errors: from 2 trades). Too few trades make the range wide.
+    average_trade_pct: float | None
+    average_trade_margin_pct: float | None
 
 
 def trade_stats(trades: Sequence[SimulatedTrade], index: pd.DatetimeIndex) -> TradeStats:
@@ -106,6 +110,10 @@ def trade_stats(trades: Sequence[SimulatedTrade], index: pd.DatetimeIndex) -> Tr
         first = index.searchsorted(trade.entry_time)
         held[first : index.searchsorted(trade.exit_time, "right")] = True
     win_rate = _mean(pnls > 0)
+    returns = np.array([trade.pnl_pct for trade in trades], dtype=float)
+    margin = None
+    if len(returns) >= 2:
+        margin = float(1.96 * returns.std(ddof=1) / np.sqrt(len(returns)))
     return TradeStats(
         num_trades=len(pnls),
         win_rate_pct=None if win_rate is None else win_rate * 100,
@@ -114,6 +122,8 @@ def trade_stats(trades: Sequence[SimulatedTrade], index: pd.DatetimeIndex) -> Tr
         average_win=_mean(wins),
         average_loss=_mean(losses),
         exposure_pct=float(held.mean() * 100) if len(index) else 0.0,
+        average_trade_pct=_mean(returns),
+        average_trade_margin_pct=margin,
     )
 
 
@@ -171,6 +181,9 @@ class Metrics:
     buy_and_hold_return_pct: float | None = None
     buy_and_hold_cagr_pct: float | None = None
     buy_and_hold_max_drawdown_pct: float | None = None
+    # See `TradeStats`; None for runs made before they were measured.
+    average_trade_pct: float | None = None
+    average_trade_margin_pct: float | None = None
 
 
 def summarize(

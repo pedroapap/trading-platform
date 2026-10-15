@@ -1545,6 +1545,10 @@ export interface components {
             buy_and_hold_cagr_pct?: number | null;
             /** Buy And Hold Max Drawdown Pct */
             buy_and_hold_max_drawdown_pct?: number | null;
+            /** Average Trade Pct */
+            average_trade_pct?: number | null;
+            /** Average Trade Margin Pct */
+            average_trade_margin_pct?: number | null;
         };
         /** Multiply */
         "Multiply-Input": {

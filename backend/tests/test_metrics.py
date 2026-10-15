@@ -100,6 +100,10 @@ def test_trade_stats_by_hand():
         average_win=150,
         average_loss=-37.5,
         exposure_pct=80,  # bars 0-5, 7 and 8 of 10
+        # Returns of 100, -50, 0, 200 and -25 (in percent): a mean of 45, whose squared
+        # deviations sum to 43,000, a sample variance of 10,750.
+        average_trade_pct=45,
+        average_trade_margin_pct=pytest.approx(1.96 * math.sqrt(10_750 / 5)),
     )
 
 
@@ -112,6 +116,8 @@ def test_trade_stats_without_trades():
         average_win=None,
         average_loss=None,
         exposure_pct=0,
+        average_trade_pct=None,
+        average_trade_margin_pct=None,
     )
 
 
@@ -326,3 +332,23 @@ def test_a_split_needs_bars_on_both_sides(day):
 
     with pytest.raises(ValueError, match="bars on both sides"):
         metrics.split_summaries(BacktestResult([], equity), bars, BacktestConfig(100), split_at)
+
+
+def with_returns(*returns: float) -> list[SimulatedTrade]:
+    return [trade(pnl, bar, bar) for bar, pnl in enumerate(returns)]
+
+
+def test_the_average_trade_and_its_95_percent_range():
+    stats = metrics.trade_stats(with_returns(2, -1, 4, 3), TEN_BARS)
+
+    # A mean of 2; a sample standard deviation of sqrt(14 / 3); 1.96 standard errors.
+    assert stats.average_trade_pct == pytest.approx(2)
+    assert stats.average_trade_margin_pct == pytest.approx(1.96 * math.sqrt(14 / 3) / 2)
+
+
+@pytest.mark.parametrize(("returns", "margin"), [((), None), ((5,), None), ((5, 5), 0)])
+def test_the_range_needs_two_trades(returns, margin):
+    stats = metrics.trade_stats(with_returns(*returns), TEN_BARS)
+
+    assert stats.average_trade_margin_pct == margin
+    assert stats.average_trade_pct == (returns[0] if returns else None)
