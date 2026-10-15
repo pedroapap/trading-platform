@@ -7,7 +7,7 @@ import { useAuditLog, useTrade } from "../api/trades";
 import AuditLog from "../components/AuditLog";
 import Money from "../components/Money";
 import { ErrorMessage, Loading } from "../components/Status";
-import { CancelTrade, CloseTrade } from "../components/TradeActions";
+import { CancelTrade, CloseTrade, CorrectTrade } from "../components/TradeActions";
 import { formatDateTime } from "../format";
 
 type Trade = components["schemas"]["TradeRead"];
@@ -72,6 +72,14 @@ export default function TradeDetailPage() {
               <CloseTrade trade={trade.data} />
               <CancelTrade trade={trade.data} />
             </>
+          )}
+          {trade.data.status === "closed" && (
+            <CorrectTrade
+              // A fresh form once a correction lands, prefilled with the corrected values.
+              key={trade.data.updated_at}
+              trade={trade.data}
+              strategies={strategies.data ?? []}
+            />
           )}
           <h2>History</h2>
           {events.error && <ErrorMessage error={events.error} />}
