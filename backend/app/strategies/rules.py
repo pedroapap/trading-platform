@@ -152,9 +152,21 @@ Indicator = Annotated[
 MAX_ARITHMETIC_DEPTH = 4
 
 
-# Exactly two operands. A tuple of any length with bounds, rather than a pair, so the generated
-# API types are plain arrays (as the API client's response types make them) on both sides.
-Pair = Annotated[tuple["Operand", ...], Field(min_length=2, max_length=2)]
+def _two(operands: tuple) -> tuple:
+    # An after-validator rather than min/max_length, which would also fire when an operand is
+    # invalid and add a confusing "too short" error next to the real one.
+    if len(operands) != 2:
+        raise ValueError("arithmetic takes exactly two operands")
+    return operands
+
+
+# Exactly two operands. A tuple of any length, rather than a pair, so the generated API types
+# are plain arrays (as the API client's response types make them) on both sides.
+Pair = Annotated[
+    tuple["Operand", ...],
+    AfterValidator(_two),
+    Field(json_schema_extra={"minItems": 2, "maxItems": 2}),
+]
 
 
 class Arithmetic(_Rule):

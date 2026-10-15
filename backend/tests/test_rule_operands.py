@@ -117,8 +117,8 @@ def nested_arithmetic(levels: int) -> dict:
         ({"value": 30, "bars_ago": 1}, "Extra inputs are not permitted"),
         ({"threshold": 30}, "An operand needs a 'value', 'price', 'indicator', 'add',"),
         ({"power": [{"value": 2}, {"price": "close"}]}, "or 'divide' key"),
-        ({"add": [{"price": "close"}]}, "Tuple should have at least 2 items"),
-        ({"add": [{"value": 1}] * 3}, "Tuple should have at most 2 items"),
+        ({"add": [{"price": "close"}]}, "arithmetic takes exactly two operands"),
+        ({"add": [{"value": 1}] * 3}, "arithmetic takes exactly two operands"),
         ({"add": [{"price": "close"}, {"value": 1}], "bars_ago": 1}, "Extra inputs"),
         (nested_arithmetic(5), "arithmetic may be nested at most 4 levels deep"),
     ],
@@ -139,3 +139,11 @@ def test_bars_ago_is_only_stored_when_set():
 
 def test_arithmetic_may_nest_four_levels_deep():
     operand.validate_python(nested_arithmetic(4))
+
+
+def test_an_invalid_operand_inside_arithmetic_is_the_only_error():
+    with pytest.raises(ValidationError) as caught:
+        operand.validate_python({"multiply": [{"indicator": "sma", "period": 0}, {"value": 2}]})
+
+    [error] = caught.value.errors()
+    assert error["loc"] == ("multiply", "multiply", 0, "indicator", "sma", "period")
