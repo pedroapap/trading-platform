@@ -2,6 +2,7 @@ import type { RouteObject } from "react-router";
 
 import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import BacktestPage from "./pages/BacktestPage";
 import BacktestsPage from "./pages/BacktestsPage";
 import HomePage from "./pages/HomePage";
@@ -42,6 +43,7 @@ export const routes: RouteObject[] = [
           { path: "backtests/:backtestId", element: <BacktestPage /> },
           { path: "market-data", element: <MarketDataPage /> },
           { path: "instruments", element: <InstrumentsPage /> },
+          { path: "analytics", element: <AnalyticsPage /> },
           { path: "*", element: <p>Page not found.</p> },
         ],
       },

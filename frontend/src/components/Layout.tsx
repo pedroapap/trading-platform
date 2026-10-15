@@ -34,6 +34,9 @@ export default function Layout() {
               <NavLink to="/backtests">Backtests</NavLink>
             </li>
             <li>
+              <NavLink to="/analytics">Analytics</NavLink>
+            </li>
+            <li>
               <NavLink to="/market-data">Market data</NavLink>
             </li>
             <li>

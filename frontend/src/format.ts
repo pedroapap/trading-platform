@@ -62,3 +62,10 @@ export function formatDecimal(value: number | string): string {
 export function formatRatio(value: number | null | undefined): string {
   return value == null ? "—" : cents.format(value);
 }
+
+/** The start of a date input's day (yyyy-mm-dd) in the browser's time zone, `daysLater`
+ * days on, as an ISO timestamp in UTC: an inclusive "to" date is the next day's start. */
+export function dayStart(value: string, daysLater = 0): string {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Date(year, month - 1, day + daysLater).toISOString();
+}
