@@ -11,15 +11,18 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   against the trade.
 - A short sells at entry and buys back at exit, so its loss has no limit; once equity is
   at or below zero, no new position opens.
-- A stop-loss is a percentage of the entry fill price, checked against each bar's low
-  (long) or high (short) from the entry bar on. Once reached it fills like a market
+- A stop-loss is a percentage of the entry fill price, or a price level read on the bar
+  whose signal placed the order; a signal whose levels aren't known yet places no order. It
+  is checked against each bar's low (long) or high (short) from the entry bar on, so a level
+  already passed at the fill exits at that bar's open. Once reached it fills like a market
   order: at the stop, or at the open when the bar gaps past it, with slippage. A signal
   exit pending from the previous close fills at the open, before the stop.
-- A take-profit is a limit order at a percentage of the entry fill price, checked against
-  each bar's high (long) or low (short). It fills at the target, or at the better open
-  when the bar gaps past it, without slippage. When a bar reaches both the stop-loss and
-  the take-profit, the stop-loss counts: the bar doesn't say which came first, so assume
-  the worse.
+- A take-profit is a limit order at a percentage of the entry fill price, at a price level
+  like a stop-loss, or at a multiple of the risk (the distance from the entry fill to the
+  stop-loss). It is checked against each bar's high (long) or low (short), and fills at the
+  target, or at the better open when the bar gaps past it, without slippage. When a bar
+  reaches both the stop-loss and the take-profit, the stop-loss counts: the bar doesn't say
+  which came first, so assume the worse.
 - A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
@@ -103,8 +106,10 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     # take-profit are reached.
     lows, highs = bars["low"].to_numpy(dtype=float), bars["high"].to_numpy(dtype=float)
     adverse, favorable = (lows, highs) if sign == 1 else (highs, lows)
+    # A signal whose levels aren't known yet (an indicator warming up) places no order.
+    entries = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
     # The bars where signals fill: the one after each signal (none after the last bar).
-    entry_fills = np.flatnonzero(orders.entries[:-1]) + 1
+    entry_fills = np.flatnonzero(entries[:-1]) + 1
     exits = orders.exits
     exit_fills = np.flatnonzero(exits[:-1]) + 1 if exits is not None else np.empty(0, dtype=int)
 
@@ -121,13 +126,13 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         signal_exit = _first_from(exit_fills, entry + 1)
         # A signal exit fills at its bar's open, before a stop or target is reached on it.
         watched = slice(entry, len(bars) if signal_exit is None else signal_exit)
+        # The order was placed by the signal on the bar before the fill.
+        stop = _stop_loss(orders.stop_loss, entry_price, entry - 1, sign)
+        target = _take_profit(orders.take_profit, entry_price, stop, entry - 1, sign)
         triggers: list[Trigger] = []
-        stop = target = None
-        if orders.stop_loss is not None:
-            stop = entry_price * (1 - sign * orders.stop_loss.pct / 100)
+        if stop is not None:
             triggers.append((adverse, stop, -sign))
-        if orders.take_profit is not None:
-            target = entry_price * (1 + sign * orders.take_profit.pct / 100)
+        if target is not None:
             triggers.append((favorable, target, sign))
         reached = _first_reached(watched, *triggers)
         if reached is None:
@@ -170,6 +175,33 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
 
     curve = pd.Series(equity, index=bars.index).ffill().fillna(config.initial_capital)
     return BacktestResult(trades, curve)
+
+
+def _known(level: Level | None) -> np.ndarray | bool:
+    """Where a level is known: everywhere, unless it is a price per bar."""
+    return True if level is None or level.at is None else ~np.isnan(level.at)
+
+
+def _stop_loss(level: Level | None, entry_price: float, signal: int, sign: int) -> float | None:
+    """The stop-loss price of a trade entered at `entry_price` on the order of `signal`'s bar."""
+    if level is None:
+        return None
+    if level.at is not None:
+        return float(level.at[signal])
+    return entry_price * (1 - sign * level.pct / 100)
+
+
+def _take_profit(
+    level: Level | None, entry_price: float, stop: float | None, signal: int, sign: int
+) -> float | None:
+    """The take-profit price of a trade entered at `entry_price`, whose stop-loss is `stop`."""
+    if level is None:
+        return None
+    if level.at is not None:
+        return float(level.at[signal])
+    if level.r is not None:
+        return entry_price + sign * level.r * abs(entry_price - stop)
+    return entry_price * (1 + sign * level.pct / 100)
 
 
 def _first_from(bars: np.ndarray, start: int) -> int | None:

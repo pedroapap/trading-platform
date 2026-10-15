@@ -6125,6 +6125,177 @@
               }
             ],
             "title": "Take Profit Pct"
+          },
+          "stop_loss_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Input"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss At"
+          },
+          "take_profit_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Input"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit At"
+          },
+          "take_profit_r": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit R"
           }
         },
         "additionalProperties": false,
@@ -6134,7 +6305,7 @@
           "entry"
         ],
         "title": "StrategyDefinition",
-        "description": "The versioned part of a strategy. Stop-loss and take-profit are percentages of the\nentry price."
+        "description": "The versioned part of a strategy: when to enter, in which direction, and how to get out.\n\nA stop-loss or take-profit is a percentage of the entry price (`_pct`), or a price level\nread on the bar whose signal placed the order (`_at`). A take-profit can also be a\nmultiple of the risk, the distance from the entry to the stop-loss (`take_profit_r`)."
       },
       "StrategyDefinition-Output": {
         "properties": {
@@ -6247,6 +6418,177 @@
               }
             ],
             "title": "Take Profit Pct"
+          },
+          "stop_loss_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Output"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Loss At"
+          },
+          "take_profit_at": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Value"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Price"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/Sma"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Ema"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Rsi"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Macd"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Bbands"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Atr"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Lowest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/Highest"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingLow"
+                      },
+                      {
+                        "$ref": "#/components/schemas/SwingHigh"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "indicator",
+                      "mapping": {
+                        "atr": "#/components/schemas/Atr",
+                        "bbands": "#/components/schemas/Bbands",
+                        "ema": "#/components/schemas/Ema",
+                        "highest": "#/components/schemas/Highest",
+                        "lowest": "#/components/schemas/Lowest",
+                        "macd": "#/components/schemas/Macd",
+                        "rsi": "#/components/schemas/Rsi",
+                        "sma": "#/components/schemas/Sma",
+                        "swing_high": "#/components/schemas/SwingHigh",
+                        "swing_low": "#/components/schemas/SwingLow"
+                      }
+                    }
+                  },
+                  {
+                    "$ref": "#/components/schemas/Add-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Subtract-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Multiply-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Divide-Output"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit At"
+          },
+          "take_profit_r": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Take Profit R"
           }
         },
         "additionalProperties": false,
@@ -6256,7 +6598,7 @@
           "entry"
         ],
         "title": "StrategyDefinition",
-        "description": "The versioned part of a strategy. Stop-loss and take-profit are percentages of the\nentry price."
+        "description": "The versioned part of a strategy: when to enter, in which direction, and how to get out.\n\nA stop-loss or take-profit is a percentage of the entry price (`_pct`), or a price level\nread on the bar whose signal placed the order (`_at`). A take-profit can also be a\nmultiple of the risk, the distance from the entry to the stop-loss (`take_profit_r`)."
       },
       "StrategyRead": {
         "properties": {

@@ -1698,8 +1698,11 @@ export interface components {
         };
         /**
          * StrategyDefinition
-         * @description The versioned part of a strategy. Stop-loss and take-profit are percentages of the
-         *     entry price.
+         * @description The versioned part of a strategy: when to enter, in which direction, and how to get out.
+         *
+         *     A stop-loss or take-profit is a percentage of the entry price (`_pct`), or a price level
+         *     read on the bar whose signal placed the order (`_at`). A take-profit can also be a
+         *     multiple of the risk, the distance from the entry to the stop-loss (`take_profit_r`).
          */
         "StrategyDefinition-Input": {
             direction: components["schemas"]["Direction"];
@@ -1711,11 +1714,20 @@ export interface components {
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
             take_profit_pct?: number | null;
+            /** Stop Loss At */
+            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
+            /** Take Profit At */
+            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
+            /** Take Profit R */
+            take_profit_r?: number | null;
         };
         /**
          * StrategyDefinition
-         * @description The versioned part of a strategy. Stop-loss and take-profit are percentages of the
-         *     entry price.
+         * @description The versioned part of a strategy: when to enter, in which direction, and how to get out.
+         *
+         *     A stop-loss or take-profit is a percentage of the entry price (`_pct`), or a price level
+         *     read on the bar whose signal placed the order (`_at`). A take-profit can also be a
+         *     multiple of the risk, the distance from the entry to the stop-loss (`take_profit_r`).
          */
         "StrategyDefinition-Output": {
             direction: components["schemas"]["Direction"];
@@ -1727,6 +1739,12 @@ export interface components {
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
             take_profit_pct?: number | null;
+            /** Stop Loss At */
+            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
+            /** Take Profit At */
+            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
+            /** Take Profit R */
+            take_profit_r?: number | null;
         };
         /** StrategyRead */
         StrategyRead: {

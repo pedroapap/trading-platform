@@ -6,7 +6,9 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from app.backtest.engine import BacktestConfig, SimulatedTrade, run, simulate
+from app.backtest import indicators
+from app.backtest.engine import BacktestConfig, SimulatedTrade, run, simulate, simulate_orders
+from app.backtest.orders import Level, Orders
 from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
 from app.services.pnl import trade_pnl
@@ -575,6 +577,112 @@ def test_when_a_bar_reaches_both_a_short_stop_loss_counts():
     assert trade.exit_price == approx(108.9 * 1.01)
 
 
+def run_with_levels(rows, stop_loss, take_profit=None, *, direction=Direction.LONG, entries=(0,)):
+    """Signals on the given bars (bar 0 by default), all of 10,000, no costs."""
+    bars = bars_from(rows)
+    orders = Orders(direction, at(len(bars), *entries), None, stop_loss, take_profit)
+    return bars, simulate_orders(bars, orders, BacktestConfig(initial_capital=10_000))
+
+
+def level(price: float, length: int = 5, unknown: tuple[int, ...] = ()) -> Level:
+    """A price level of `price` on every bar, except the `unknown` ones."""
+    prices = np.full(length, float(price))
+    prices[list(unknown)] = np.nan
+    return Level(at=prices)
+
+
+# In the level tests, bar 0's signal buys 100 @ 100 on bar 1, with a stop-loss at a level of
+# 95 read on bar 0: 5 below the entry.
+
+
+def test_a_stop_loss_at_a_level_fills_there():
+    # fmt: off
+    bars, result = run_with_levels([
+        (100, 101,  99, 100),
+        (100, 104,  98, 103),
+        (103, 104,  94,  96),  # the low of 94 reaches 95
+        ( 96,  97,  95,  96),
+        ( 96,  97,  95,  96),
+    ], level(95))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.STOP_LOSS)
+    assert (trade.exit_price, trade.pnl) == (95, -500)
+
+
+def test_a_take_profit_at_twice_the_risk():
+    # fmt: off
+    bars, result = run_with_levels([
+        (100, 101,  99, 100),
+        (100, 104,  98, 103),
+        (103, 108, 101, 107),
+        (107, 111, 106, 110),  # 2R is 100 + 2 * 5 = 110, reached by the high of 111
+        (110, 112, 109, 111),
+    ], level(95), Level(r=2))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[3], ExitReason.TAKE_PROFIT)
+    assert (trade.exit_price, trade.pnl) == (110, 1_000)
+
+
+def test_a_take_profit_at_a_level():
+    # fmt: off
+    bars, result = run_with_levels([
+        (100, 101,  99, 100),
+        (100, 104,  98, 103),
+        (103, 108, 101, 107),  # the high of 108 reaches 106
+        (107, 111, 106, 110),
+        (110, 112, 109, 111),
+    ], level(95), level(106))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.TAKE_PROFIT)
+    assert trade.exit_price == 106
+
+
+def test_a_stop_loss_already_passed_exits_at_the_entry_open():
+    # A stop at 101 is above the entry of 100: reached as soon as the position opens.
+    bars, result = run_with_levels([(100, 101, 99, 100)] * 5, level(101))
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.exit_time) == (bars.index[1], bars.index[1])
+    assert (trade.exit_price, trade.exit_reason, trade.pnl) == (100, ExitReason.STOP_LOSS, 0)
+
+
+def test_a_signal_whose_level_is_unknown_places_no_order():
+    # fmt: off
+    bars, result = run_with_levels([
+        (100, 101,  99, 100),  # signal, but no stop level yet
+        (100, 104,  98, 103),  # signal
+        (103, 108, 101, 107),  # buy
+        (107, 111, 106, 110),
+        (110, 112, 109, 111),
+    ], level(95, unknown=(0,)), entries=(0, 1))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[2], 103)
+
+
+def test_a_short_stop_and_target_at_levels():
+    # fmt: off
+    bars, result = run_with_levels([
+        (100, 101,  99, 100),
+        (100, 102,  97,  98),
+        ( 98,  99,  94,  95),  # 1R below the entry of 100 is 95, reached by the low of 94
+        ( 95,  96,  94,  95),
+        ( 95,  96,  94,  95),
+    ], level(105), Level(r=1), direction=Direction.SHORT)
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_reason) == (bars.index[2], ExitReason.TAKE_PROFIT)
+    assert (trade.exit_price, trade.pnl) == (95, 500)
+
+
 def rsi_strategy(direction: Direction) -> StrategyDefinition:
     """Trades RSI(5) swings, with a stop-loss and a take-profit, so that every kind of exit
     happens within a few hundred random bars."""
@@ -605,6 +713,38 @@ def test_run_trades_the_definition(direction):
     assert result.equity.equals(expected.equity)
     assert {trade.exit_reason for trade in result.trades} >= {
         ExitReason.SIGNAL,
+        ExitReason.STOP_LOSS,
+        ExitReason.TAKE_PROFIT,
+    }
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_run_reads_levels_on_the_signal_bar(direction):
+    bars = random_bars()
+    definition = StrategyDefinition.model_validate(
+        rsi_strategy(direction).model_dump()
+        | {
+            "stop_loss_pct": None,
+            "stop_loss_at": {
+                "indicator": "lowest" if direction == "long" else "highest",
+                "period": 3,
+            },
+            "take_profit_pct": None,
+            "take_profit_r": 2,
+        }
+    )
+
+    result = run(bars, definition, COSTS)
+
+    entries, exits = strategy_signals(definition, bars)
+    extreme = (
+        indicators.lowest(bars["low"], 3)
+        if direction == "long"
+        else indicators.highest(bars["high"], 3)
+    )
+    orders = Orders(direction, entries, exits, Level(at=extreme.to_numpy()), Level(r=2))
+    assert result.trades == simulate_orders(bars, orders, COSTS).trades
+    assert {trade.exit_reason for trade in result.trades} >= {
         ExitReason.STOP_LOSS,
         ExitReason.TAKE_PROFIT,
     }

@@ -127,17 +127,26 @@ def strategy_signals(
 
 def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Orders:
     """What the definition asks of the engine on `bars`."""
-    entries, exits = strategy_signals(definition, bars)
+    resolver = OperandResolver(bars)
+    entries = evaluate(definition.entry, resolver)
+    exits = None if definition.exit is None else evaluate(definition.exit, resolver)
+    take_profit = (
+        Level(r=definition.take_profit_r)
+        if definition.take_profit_r is not None
+        else _level(definition.take_profit_pct, definition.take_profit_at, resolver)
+    )
     return Orders(
         direction=definition.direction,
         entries=entries,
         exits=exits,
-        stop_loss=_percentage(definition.stop_loss_pct),
-        take_profit=_percentage(definition.take_profit_pct),
+        stop_loss=_level(definition.stop_loss_pct, definition.stop_loss_at, resolver),
+        take_profit=take_profit,
     )
 
 
-def _percentage(pct: float | None) -> Level | None:
+def _level(pct: float | None, at: Operand | None, resolver: OperandResolver) -> Level | None:
+    if at is not None:
+        return Level(at=resolver.resolve(at))
     return None if pct is None else Level(pct=pct)
 
 

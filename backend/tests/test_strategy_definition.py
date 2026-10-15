@@ -51,6 +51,16 @@ def six_groups_deep(rule: dict) -> dict:
         {"exit": None, "stop_loss_pct": None},
         {"take_profit_pct": 150},  # a long can more than double
         {"direction": "short", "stop_loss_pct": 150, "take_profit_pct": 50},
+        {"stop_loss_pct": None, "stop_loss_at": {"indicator": "swing_low", "strength": 3}},
+        {"take_profit_pct": None, "take_profit_r": 2},
+        {"take_profit_pct": None, "take_profit_at": {"indicator": "highest", "period": 20}},
+        # A stop at a fixed price is a way out too.
+        {
+            "exit": None,
+            "stop_loss_pct": None,
+            "take_profit_pct": None,
+            "stop_loss_at": {"value": 95},
+        },
     ],
 )
 def test_valid_variations(overrides):
@@ -71,8 +81,36 @@ def test_valid_variations(overrides):
         ({"entry": None}, "A rule is a condition"),
         ({"entry": six_groups_deep(RSI_BELOW_30)}, "at most 6 levels"),
         ({"leverage": 3}, "Extra inputs are not permitted"),
+        ({"stop_loss_at": {"value": 95}}, "one stop-loss: stop_loss_pct or stop_loss_at"),
+        ({"take_profit_r": 2}, "one take-profit: take_profit_pct, take_profit_at or"),
+        (
+            {"stop_loss_pct": None, "take_profit_pct": None, "take_profit_r": 2},
+            "take_profit_r needs a stop-loss",
+        ),
+        ({"take_profit_pct": None, "take_profit_r": 0}, "greater than 0"),
+        ({"take_profit_pct": None, "take_profit_r": 101}, "less than or equal to 100"),
+        ({"stop_loss_pct": None, "stop_loss_at": {"indicator": "vwap"}}, "expected tags"),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):
     with pytest.raises(ValidationError, match=message):
         definition(**overrides)
+
+
+def test_levels_are_only_stored_when_set():
+    assert set(definition().model_dump(mode="json")) == {
+        "direction",
+        "entry",
+        "exit",
+        "stop_loss_pct",
+        "take_profit_pct",
+    }
+    with_levels = definition(
+        stop_loss_pct=None,
+        stop_loss_at={"price": "low", "bars_ago": 1},
+        take_profit_pct=None,
+        take_profit_r=2,
+    ).model_dump(mode="json")
+    assert with_levels["stop_loss_at"] == {"price": "low", "bars_ago": 1}
+    assert with_levels["take_profit_r"] == 2
+    assert "take_profit_at" not in with_levels
