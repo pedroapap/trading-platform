@@ -44,7 +44,10 @@ test("trades show their P&L in their quote currency", async () => {
   expect(await screen.findByText("RSI dip v2")).toBeInTheDocument();
   const [btc, aapl, eth] = rows();
   expect(btc).toHaveTextContent("BTCUSDTlongclosed1 @ 500001 @ 50120120 USDT0.24%RSI dip v2");
-  expect(within(aapl).getByText("currency not set")).toBeInTheDocument();
+  expect(within(aapl).getByRole("link", { name: "currency not set" })).toHaveAttribute(
+    "href",
+    "/instruments",
+  );
   expect(aapl).toHaveTextContent("-5 currency not set-0.25%");
   expect(eth).toHaveTextContent("ETHBTClongopen2 @ 0.05——");
   expect(btc).toHaveTextContent("Jan 5, 2026, 2:30 PM");

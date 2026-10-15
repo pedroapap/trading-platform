@@ -34,6 +34,9 @@ export default function Layout() {
               <NavLink to="/market-data">Market data</NavLink>
             </li>
             <li>
+              <NavLink to="/instruments">Instruments</NavLink>
+            </li>
+            <li>
               <button type="button" className="secondary outline" onClick={logOut}>
                 Log out
               </button>

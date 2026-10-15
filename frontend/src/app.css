@@ -60,3 +60,9 @@ td.number {
   text-align: end;
   font-variant-numeric: tabular-nums;
 }
+
+/* A form in each row: keep the rows compact. */
+table.instruments form,
+table.instruments fieldset {
+  margin-bottom: 0;
+}

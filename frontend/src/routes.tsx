@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router";
 import Layout from "./components/Layout";
 import RequireAuth from "./components/RequireAuth";
 import HomePage from "./pages/HomePage";
+import InstrumentsPage from "./pages/InstrumentsPage";
 import JournalEntryPage from "./pages/JournalEntryPage";
 import JournalPage from "./pages/JournalPage";
 import LoginPage from "./pages/LoginPage";
@@ -34,6 +35,7 @@ export const routes: RouteObject[] = [
           { path: "strategies/new", element: <NewStrategyPage /> },
           { path: "strategies/:strategyId", element: <StrategyPage /> },
           { path: "market-data", element: <MarketDataPage /> },
+          { path: "instruments", element: <InstrumentsPage /> },
           { path: "*", element: <p>Page not found.</p> },
         ],
       },
