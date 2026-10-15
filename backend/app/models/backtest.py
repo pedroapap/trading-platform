@@ -41,6 +41,11 @@ class Backtest(Base):
         enum_check("detail_timeframe", Timeframe),
         enum_check("status", BacktestStatus),
         CheckConstraint("start_ts < end_ts", name="range_not_empty"),
+        CheckConstraint(
+            "out_of_sample_from IS NULL OR ((start_ts IS NULL OR out_of_sample_from > start_ts)"
+            " AND (end_ts IS NULL OR out_of_sample_from < end_ts))",
+            name="out_of_sample_inside_range",
+        ),
         CheckConstraint("initial_capital > 0", name="initial_capital_positive"),
         CheckConstraint(
             "position_size_pct > 0 AND position_size_pct <= 100", name="position_size_in_range"
@@ -74,6 +79,8 @@ class Backtest(Base):
     # Requested bar start times, [start_ts, end_ts); None leaves that side open.
     start_ts: Mapped[datetime | None]
     end_ts: Mapped[datetime | None]
+    # Bars from here on are out-of-sample: the run reports them apart from the bars before.
+    out_of_sample_from: Mapped[datetime | None]
 
     initial_capital: Mapped[Decimal] = mapped_column(Price)
     position_size_pct: Mapped[Decimal] = mapped_column(PERCENT)
@@ -94,6 +101,8 @@ class Backtest(Base):
     data_hash: Mapped[str | None] = mapped_column(String(64))
 
     metrics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    # With an out-of-sample start: {"in_sample": metrics, "out_of_sample": metrics}.
+    split_metrics: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     # Downsampled for charts: [{"ts": ..., "equity": ...}, ...].
     equity_curve: Mapped[list[dict[str, Any]] | None] = mapped_column(JSONB)
 

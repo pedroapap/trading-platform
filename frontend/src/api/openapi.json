@@ -2810,6 +2810,18 @@
             ],
             "title": "End"
           },
+          "out_of_sample_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Sample From"
+          },
           "initial_capital": {
             "anyOf": [
               {
@@ -2981,6 +2993,18 @@
             ],
             "title": "End"
           },
+          "out_of_sample_from": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Out Of Sample From"
+          },
           "initial_capital": {
             "type": "string",
             "title": "Initial Capital"
@@ -3071,6 +3095,16 @@
               }
             ]
           },
+          "split_metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Split"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3112,6 +3146,7 @@
           "detail_timeframe",
           "start",
           "end",
+          "out_of_sample_from",
           "initial_capital",
           "position_size_pct",
           "fee_pct",
@@ -3124,6 +3159,7 @@
           "last_bar_ts",
           "data_hash",
           "metrics",
+          "split_metrics",
           "created_at",
           "started_at",
           "completed_at"
@@ -6262,6 +6298,23 @@
           "period"
         ],
         "title": "Sma"
+      },
+      "Split": {
+        "properties": {
+          "in_sample": {
+            "$ref": "#/components/schemas/Metrics"
+          },
+          "out_of_sample": {
+            "$ref": "#/components/schemas/Metrics"
+          }
+        },
+        "type": "object",
+        "required": [
+          "in_sample",
+          "out_of_sample"
+        ],
+        "title": "Split",
+        "description": "A backtest's metrics before and after its out-of-sample start."
       },
       "StrategyCreate": {
         "properties": {

@@ -7,7 +7,7 @@ import pytest
 from pydantic import TypeAdapter
 
 from app.backtest import metrics
-from app.backtest.engine import BacktestConfig, SimulatedTrade, simulate
+from app.backtest.engine import BacktestConfig, BacktestResult, SimulatedTrade, simulate
 from app.enums import Direction, ExitReason
 from tests.helpers import random_bars
 
@@ -270,3 +270,59 @@ def test_metrics_stored_before_buy_and_hold_still_read():
         del stored[field]
 
     assert TypeAdapter(metrics.Metrics).validate_python(stored).buy_and_hold_return_pct is None
+
+
+def trade_between(entry: pd.Timestamp, exit_: pd.Timestamp, pnl: float) -> SimulatedTrade:
+    return SimulatedTrade(
+        direction=Direction.LONG,
+        entry_time=entry,
+        entry_price=100,
+        exit_time=exit_,
+        exit_price=100 + pnl,
+        size=1,
+        entry_fee=0,
+        exit_fee=0,
+        slippage=0,
+        pnl=pnl,
+        pnl_pct=pnl,
+        exit_reason=ExitReason.SIGNAL,
+    )
+
+
+def test_split_summaries_by_hand():
+    bars = daily([(100, 100), (100, 110), (110, 105), (105, 120), (120, 90), (90, 99)])
+    days = bars.index
+    equity = pd.Series([100.0, 110, 105, 120, 90, 99], index=days)
+    # One trade crosses the split (it counts where it was entered), one is after it.
+    trades = [trade_between(days[1], days[4], -10), trade_between(days[4], days[5], 9)]
+
+    split = metrics.split_summaries(
+        BacktestResult(trades, equity), bars, BacktestConfig(100), days[3]
+    )
+
+    before, after = split.in_sample, split.out_of_sample
+    assert (before.total_return_pct, before.max_drawdown_pct) == (
+        pytest.approx(5),
+        pytest.approx(100 * 5 / 110),
+    )
+    # From the last equity before the split, 105: down to 99, and 25% below the peak of 120.
+    assert after.total_return_pct == pytest.approx((99 / 105 - 1) * 100)
+    assert after.max_drawdown_pct == pytest.approx(25)
+    assert (before.num_trades, after.num_trades) == (1, 1)
+    # The first trade holds two of the three bars before the split; the second, two of the
+    # three after it.
+    assert before.exposure_pct == pytest.approx(200 / 3)
+    assert after.exposure_pct == pytest.approx(200 / 3)
+    # Each side has its own buy and hold: 100 -> 105, then 105 -> 99.
+    assert before.buy_and_hold_return_pct == pytest.approx(5)
+    assert after.buy_and_hold_return_pct == pytest.approx((99 / 105 - 1) * 100)
+
+
+@pytest.mark.parametrize("day", [0, 6], ids=["at the first bar", "after the last bar"])
+def test_a_split_needs_bars_on_both_sides(day):
+    bars = daily([(100, 100), (100, 110), (110, 105), (105, 120), (120, 90), (90, 99)])
+    equity = pd.Series(100.0, index=bars.index)
+    split_at = bars.index[0] + pd.Timedelta(days=day)
+
+    with pytest.raises(ValueError, match="bars on both sides"):
+        metrics.split_summaries(BacktestResult([], equity), bars, BacktestConfig(100), split_at)

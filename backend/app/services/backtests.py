@@ -13,8 +13,8 @@ from sqlalchemy.orm import Session, defer
 
 from app.backtest import engine
 from app.backtest.charts import downsample_equity
-from app.backtest.engine import BacktestConfig, Detail, SimulatedTrade
-from app.backtest.metrics import buy_and_hold, summarize
+from app.backtest.engine import BacktestConfig, BacktestResult, Detail, SimulatedTrade
+from app.backtest.metrics import Split, buy_and_hold, split_summaries, summarize
 from app.db import SessionFactory
 from app.enums import BacktestStatus
 from app.errors import ConflictError, DomainError, InvalidOperationError, NotFoundError
@@ -38,6 +38,8 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     market_data.require_bars(db, data.symbol, data.timeframe, data.start, data.end)
     if data.detail_timeframe is not None:
         market_data.require_bars(db, data.symbol, data.detail_timeframe, data.start, data.end)
+    if data.out_of_sample_from is not None:
+        _require_both_sides(db, data)
 
     backtest = Backtest(
         user_id=user.id,
@@ -48,6 +50,7 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
         detail_timeframe=data.detail_timeframe,
         start_ts=data.start,
         end_ts=data.end,
+        out_of_sample_from=data.out_of_sample_from,
         initial_capital=data.initial_capital,
         position_size_pct=data.position_size_pct,
         fee_pct=data.fee_pct,
@@ -59,6 +62,19 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     db.commit()
     db.refresh(backtest)
     return backtest
+
+
+def _require_both_sides(db: Session, data: BacktestCreate) -> None:
+    """Raise unless there are bars on both sides of the out-of-sample start."""
+    try:
+        market_data.require_bars(
+            db, data.symbol, data.timeframe, data.start, data.out_of_sample_from
+        )
+        market_data.require_bars(db, data.symbol, data.timeframe, data.out_of_sample_from, data.end)
+    except InvalidOperationError:
+        raise InvalidOperationError(
+            "There must be bars on both sides of out_of_sample_from"
+        ) from None
 
 
 def _own_backtests(user: User):
@@ -195,6 +211,9 @@ def _execute(db: Session, backtest: Backtest) -> None:
         db.execute(insert(BacktestTrade), rows)
     benchmark = buy_and_hold(bars, config)
     backtest.metrics = asdict(summarize(result, backtest.periods_per_year, benchmark))
+    if backtest.out_of_sample_from is not None:
+        split = _split(result, bars, config, backtest)
+        backtest.split_metrics = asdict(split)
     equity = downsample_equity(result.equity)
     held = benchmark.equity.reindex(equity.index)
     backtest.equity_curve = [
@@ -207,6 +226,22 @@ def _execute(db: Session, backtest: Backtest) -> None:
     backtest.status = BacktestStatus.COMPLETED
     backtest.completed_at = func.clock_timestamp()
     db.commit()
+
+
+def _split(
+    result: BacktestResult, bars: pd.DataFrame, config: BacktestConfig, backtest: Backtest
+) -> Split:
+    try:
+        return split_summaries(
+            result,
+            bars,
+            config,
+            pd.Timestamp(backtest.out_of_sample_from),
+            backtest.periods_per_year,
+        )
+    except ValueError as exc:
+        # The bars on one side were removed after the backtest was created.
+        raise InvalidOperationError(f"Cannot split the results: {exc}") from None
 
 
 def _trade_row(backtest_id: uuid.UUID, number: int, trade: SimulatedTrade) -> dict[str, Any]:

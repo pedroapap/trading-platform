@@ -2,7 +2,7 @@
 
 import math
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 
 import numpy as np
 import pandas as pd
@@ -102,7 +102,9 @@ def trade_stats(trades: Sequence[SimulatedTrade], index: pd.DatetimeIndex) -> Tr
     wins, losses = pnls[pnls > 0], pnls[pnls < 0]
     held = np.zeros(len(index), dtype=bool)
     for trade in trades:
-        held[index.get_loc(trade.entry_time) : index.get_loc(trade.exit_time) + 1] = True
+        # A trade may reach past the bars: one entered before a split and closed after it.
+        first = index.searchsorted(trade.entry_time)
+        held[first : index.searchsorted(trade.exit_time, "right")] = True
     win_rate = _mean(pnls > 0)
     return TradeStats(
         num_trades=len(pnls),
@@ -190,4 +192,46 @@ def summarize(
         sortino_ratio=sortino_ratio(equity, periods_per_year),
         **asdict(trade_stats(result.trades, equity.index)),
         **compared,
+    )
+
+
+@dataclass(frozen=True)
+class Split:
+    """A backtest's metrics before and after its out-of-sample start."""
+
+    in_sample: Metrics
+    out_of_sample: Metrics
+
+
+def split_summaries(
+    result: BacktestResult,
+    bars: pd.DataFrame,
+    config: BacktestConfig,
+    out_of_sample_from: pd.Timestamp,
+    periods_per_year: int = 365,
+) -> Split:
+    """The metrics of the bars before `out_of_sample_from` and of the bars from it on, each
+    with its own buy and hold. A trade counts on the side it was entered. The out-of-sample
+    equity counts from its value on the last bar before the split."""
+    before = result.equity.index < out_of_sample_from
+    if before.all() or not before.any():
+        raise ValueError("there must be bars on both sides of the out-of-sample start")
+    equity = result.equity
+    after = equity[~before]
+    from_split = pd.concat([equity[before].iloc[-1:], after])
+    early = [trade for trade in result.trades if trade.entry_time < out_of_sample_from]
+    late = result.trades[len(early) :]
+    out_of_sample = summarize(
+        BacktestResult(late, from_split), periods_per_year, buy_and_hold(bars[~before], config)
+    )
+    return Split(
+        in_sample=summarize(
+            BacktestResult(early, equity[before]),
+            periods_per_year,
+            buy_and_hold(bars[before], config),
+        ),
+        # Exposure over the out-of-sample bars alone, not the starting point added before them.
+        out_of_sample=replace(
+            out_of_sample, exposure_pct=trade_stats(late, after.index).exposure_pct
+        ),
     )

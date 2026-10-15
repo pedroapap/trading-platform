@@ -53,6 +53,20 @@ def test_invalid_parameters_are_rejected(db_session, user, overrides, constraint
         make_backtest(db_session, user, strategy, **overrides)
 
 
+def test_the_out_of_sample_start_is_inside_the_range(db_session, user):
+    strategy = make_strategy(db_session, user)
+
+    with pytest.raises(IntegrityError, match="ck_backtests_out_of_sample_inside_range"):
+        make_backtest(
+            db_session,
+            user,
+            strategy,
+            start_ts=ENTRY_TIME,
+            end_ts=ENTRY_TIME + timedelta(days=1),
+            out_of_sample_from=ENTRY_TIME + timedelta(days=2),
+        )
+
+
 def test_a_failed_backtest_says_why(db_session, user):
     strategy = make_strategy(db_session, user)
 

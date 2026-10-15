@@ -5,7 +5,7 @@ from typing import Annotated, Self
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
 
-from app.backtest.metrics import Metrics
+from app.backtest.metrics import Metrics, Split
 from app.enums import BacktestStatus, Direction, ExitReason
 from app.market_data.timeframes import Timeframe
 from app.schemas.common import DecimalOut, Price, Symbol
@@ -28,6 +28,8 @@ class BacktestCreate(BaseModel):
     # Bar start times, [start, end); an omitted side is open.
     start: AwareDatetime | None = None
     end: AwareDatetime | None = None
+    # Bars from here on are out-of-sample, reported apart from the bars before.
+    out_of_sample_from: AwareDatetime | None = None
     initial_capital: Price = Decimal(10_000)
     # Share of equity committed to each trade, entry fee included.
     position_size_pct: PositionSize = Decimal(100)
@@ -40,6 +42,16 @@ class BacktestCreate(BaseModel):
     def _range_is_not_empty(self) -> Self:
         if self.start is not None and self.end is not None and self.start >= self.end:
             raise ValueError("start must be before end")
+        return self
+
+    @model_validator(mode="after")
+    def _split_is_inside_the_range(self) -> Self:
+        split = self.out_of_sample_from
+        if split is not None and (
+            (self.start is not None and split <= self.start)
+            or (self.end is not None and split >= self.end)
+        ):
+            raise ValueError("out_of_sample_from must be between start and end")
         return self
 
     @model_validator(mode="after")
@@ -65,6 +77,7 @@ class BacktestRead(BaseModel):
     detail_timeframe: Timeframe | None
     start: datetime | None = Field(validation_alias="start_ts")
     end: datetime | None = Field(validation_alias="end_ts")
+    out_of_sample_from: datetime | None
     initial_capital: DecimalOut
     position_size_pct: DecimalOut
     fee_pct: DecimalOut
@@ -78,6 +91,8 @@ class BacktestRead(BaseModel):
     last_bar_ts: datetime | None
     data_hash: str | None
     metrics: Metrics | None
+    # With an out-of-sample start, the metrics before it and from it on.
+    split_metrics: Split | None
     created_at: datetime
     started_at: datetime | None
     completed_at: datetime | None

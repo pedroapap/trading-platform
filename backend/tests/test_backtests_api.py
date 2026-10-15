@@ -61,6 +61,41 @@ def test_a_backtest_can_settle_inside_bars_with_finer_ones(client, auth_headers,
     assert (backtest["status"], backtest["detail_timeframe"]) == ("completed", "1m")
 
 
+def test_a_backtest_reports_its_out_of_sample_bars_apart(client, auth_headers, strategy_id):
+    # 300 minute bars from 14:30: the last 100 are out-of-sample.
+    response = start_backtest(
+        client, auth_headers, strategy_id, out_of_sample_from="2026-01-05T17:50:00Z"
+    )
+
+    backtest = wait_for_backtest(client, auth_headers, response.json()["id"])
+    split = backtest["split_metrics"]
+    assert backtest["out_of_sample_from"] == "2026-01-05T17:50:00Z"
+    assert (
+        split["in_sample"]["num_trades"] + split["out_of_sample"]["num_trades"]
+        == (backtest["metrics"]["num_trades"])
+    )
+    assert split["out_of_sample"]["num_trades"] > 0
+
+
+@pytest.mark.parametrize(
+    ("fields", "message"),
+    [
+        ({"out_of_sample_from": "2026-01-06T00:00:00Z"}, "bars on both sides"),
+        (
+            {"start": "2026-01-05T15:00:00Z", "out_of_sample_from": "2026-01-05T15:00:00Z"},
+            "out_of_sample_from must be between start and end",
+        ),
+    ],
+)
+def test_an_out_of_sample_start_must_split_the_bars(
+    client, auth_headers, strategy_id, fields, message
+):
+    response = start_backtest(client, auth_headers, strategy_id, **fields)
+
+    assert response.status_code == 422
+    assert message in str(response.json()["detail"])
+
+
 def test_finer_bars_must_be_finer(client, auth_headers, strategy_id):
     response = start_backtest(client, auth_headers, strategy_id, detail_timeframe="5m")
 

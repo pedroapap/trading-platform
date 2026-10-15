@@ -735,6 +735,8 @@ export interface components {
             start?: string | null;
             /** End */
             end?: string | null;
+            /** Out Of Sample From */
+            out_of_sample_from?: string | null;
             /**
              * Initial Capital
              * @default 10000
@@ -796,6 +798,8 @@ export interface components {
             start: string | null;
             /** End */
             end: string | null;
+            /** Out Of Sample From */
+            out_of_sample_from: string | null;
             /** Initial Capital */
             initial_capital: string;
             /** Position Size Pct */
@@ -818,6 +822,7 @@ export interface components {
             /** Data Hash */
             data_hash: string | null;
             metrics: components["schemas"]["Metrics"] | null;
+            split_metrics: components["schemas"]["Split"] | null;
             /**
              * Created At
              * Format: date-time
@@ -1750,6 +1755,14 @@ export interface components {
              * @default 0
              */
             bars_ago?: number;
+        };
+        /**
+         * Split
+         * @description A backtest's metrics before and after its out-of-sample start.
+         */
+        Split: {
+            in_sample: components["schemas"]["Metrics"];
+            out_of_sample: components["schemas"]["Metrics"];
         };
         /** StrategyCreate */
         StrategyCreate: {
