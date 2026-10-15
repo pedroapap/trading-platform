@@ -419,6 +419,7 @@ EVERY_RULE = {
                 },
             },
             {"left": {"price": "low"}, "op": "<=", "right": BBANDS | {"output": "lower"}},
+            {"pattern": "equal_lows", "strength": 2, "within": 30, "tolerance_pct": 0.3},
         ]
     },
     "exit": {

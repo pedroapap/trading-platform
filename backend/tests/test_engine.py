@@ -20,7 +20,7 @@ from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
 from app.services.pnl import trade_pnl
 from app.strategies.definition import StrategyDefinition
-from tests.helpers import ENTRY_TIME, random_bars
+from tests.helpers import ENTRY_TIME, finer_bars, random_bars
 
 
 def bars_from(rows: list[tuple[float, float, float, float]]) -> pd.DataFrame:
@@ -1337,6 +1337,78 @@ def test_run_exits_after_so_many_bars():
     orders = Orders(Direction.LONG, entries, None, Level(pct=3), Level(pct=4), exit_after_bars=12)
     assert result.trades == simulate_orders(bars, orders, COSTS).trades
     assert ExitReason.TIME_EXIT in {trade.exit_reason for trade in result.trades}
+
+
+def every_order(direction: Direction) -> StrategyDefinition:
+    """Every kind of order and exit, on a rule with every kind of event: a limit entry, a stop
+    under a swing point, a target at twice the risk, a chandelier trailing stop and a time
+    exit. Mirrored for shorts."""
+    long = direction == Direction.LONG
+    swing = "swing_low" if long else "swing_high"
+    extreme, far = ("lowest", "highest") if long else ("highest", "lowest")
+    behind = "subtract" if long else "add"
+    atr = {"indicator": "atr", "period": 5}
+    return StrategyDefinition.model_validate(
+        {
+            "direction": direction,
+            "entry": {
+                "all": [
+                    {
+                        "left": {"indicator": "rsi", "period": 5},
+                        "op": "<" if long else ">",
+                        "right": {"value": 45 if long else 55},
+                    },
+                    {
+                        "happened": {
+                            "left": {"price": "low" if long else "high"},
+                            "op": "<=" if long else ">=",
+                            "right": {"indicator": extreme, "period": 10, "bars_ago": 1},
+                        },
+                        "within": 5,
+                    },
+                ]
+            },
+            "entry_order": {
+                "type": "limit",
+                "price": {"multiply": [{"price": "close"}, {"value": 0.998 if long else 1.002}]},
+                "expires_after": 3,
+            },
+            "stop_loss_at": {behind: [{"indicator": swing, "strength": 2}, atr]},
+            "take_profit_r": 2,
+            "trailing_stop_at": {
+                behind: [
+                    {"indicator": far, "period": 10},
+                    {"multiply": [atr, {"value": 3}]},
+                ]
+            },
+            "exit_after_bars": 30,
+        }
+    )
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+@pytest.mark.parametrize("finer", [False, True], ids=["bars", "finer bars"])
+def test_no_order_or_exit_looks_ahead(direction, finer):
+    bars = random_bars(200)
+    other = random_bars(200, seed=8)
+    definition = every_order(direction)
+
+    def backtest(bars):
+        detail = Detail(finer_bars(bars), pd.Timedelta(minutes=1)) if finer else None
+        return run(bars, definition, COSTS, detail)
+
+    result = backtest(bars)
+    reasons = {trade.exit_reason for trade in result.trades}
+    assert len(result.trades) > 10
+    assert len(reasons) >= 3, reasons
+
+    for t in range(len(bars)):
+        # Replace every bar after t (and the finer bars inside them) with another random walk.
+        changed = backtest(pd.concat([bars.iloc[: t + 1], other.iloc[t + 1 :]]))
+
+        assert changed.equity.iloc[: t + 1].equals(result.equity.iloc[: t + 1])
+        finished = [trade for trade in result.trades if trade.exit_time <= bars.index[t]]
+        assert changed.trades[: len(finished)] == finished
 
 
 @pytest.mark.parametrize("direction", list(Direction))

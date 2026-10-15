@@ -76,3 +76,54 @@ def test_limit_orders_on_every_bar_backtest_in_under_five_seconds():
 
     assert summary.num_trades > 1_000
     assert elapsed < 5, f"took {elapsed:.1f} s"
+
+
+@pytest.mark.slow
+def test_every_new_block_backtests_a_year_in_under_five_seconds():
+    # A double bottom after a new low, so swings, patterns, events and arithmetic; a limit
+    # entry, a stop under the swing low, a 2R target, a chandelier trailing stop and a time
+    # exit. (The test above covers many more trades, each costing about the same.)
+    bars = random_bars(MINUTES_IN_A_YEAR)
+    atr = {"indicator": "atr", "period": 14}
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "entry": {
+                "all": [
+                    {"pattern": "equal_lows", "strength": 3, "within": 60, "tolerance_pct": 0.2},
+                    {
+                        "happened": {
+                            "left": {"price": "low"},
+                            "op": "<",
+                            "right": {"indicator": "lowest", "period": 20, "bars_ago": 1},
+                        },
+                        "within": 10,
+                    },
+                ]
+            },
+            "entry_order": {
+                "type": "limit",
+                "price": {
+                    "multiply": [{"indicator": "swing_low", "strength": 3}, {"value": 1.003}]
+                },
+                "expires_after": 6,
+            },
+            "stop_loss_at": {"subtract": [{"indicator": "swing_low", "strength": 3}, atr]},
+            "take_profit_r": 2,
+            "trailing_stop_at": {
+                "subtract": [
+                    {"indicator": "highest", "period": 22},
+                    {"multiply": [atr, {"value": 3}]},
+                ]
+            },
+            "exit_after_bars": 240,
+        }
+    )
+    config = BacktestConfig(10_000, fee_pct=0.1, slippage_pct=0.05)
+
+    start = time.perf_counter()
+    summary = summarize(run(bars, definition, config))
+    elapsed = time.perf_counter() - start
+
+    assert summary.num_trades > 1_000
+    assert elapsed < 5, f"took {elapsed:.1f} s"

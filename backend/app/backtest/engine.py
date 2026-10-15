@@ -406,10 +406,14 @@ class _StopLoss:
         if not self._trails:
             return self._fixed
         sign = self._sign
-        before = np.concatenate([[self._best], self._values[start : end - 1]])
-        best = sign * np.fmax.accumulate(sign * before)
-        self._best = sign * np.fmax(sign * best[-1], sign * self._values[end - 1])
-        trailing = best * self._factor
+        # The best so far, then each bar's value, as a long's (higher is tighter); the best on
+        # each bar is the running maximum of what came before it.
+        seen = np.empty(end - start + 1)
+        seen[0] = sign * self._best
+        np.multiply(self._values[start:end], sign, out=seen[1:])
+        np.fmax.accumulate(seen, out=seen)
+        self._best = sign * seen[-1]
+        trailing = seen[:-1] * (sign * self._factor)
         self._chunk = (start, trailing)
         if self._fixed is None:
             return trailing
@@ -455,9 +459,13 @@ def _first_exit(
 
 
 def _tightest(levels: np.ndarray, sign: int) -> float:
-    """The tightest known level for a stop: a long's highest, a short's lowest."""
-    known = levels[~np.isnan(levels)]
-    return float(sign * np.max(sign * known)) if known.size else np.nan
+    """The tightest known level for a stop: a long's highest, a short's lowest. (A few levels,
+    those read between a signal and its fill: quicker in Python than in numpy.)"""
+    tightest = np.nan
+    for level in levels.tolist():
+        if level == level and not sign * (level - tightest) <= 0:  # skip NaN; NaN beats nothing
+            tightest = level
+    return tightest
 
 
 class _Entering:

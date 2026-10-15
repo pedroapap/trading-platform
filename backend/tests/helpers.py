@@ -137,6 +137,29 @@ def random_bars(length: int = 300, seed: int = 7) -> pd.DataFrame:
     )
 
 
+def finer_bars(bars: pd.DataFrame, seed: int = 3) -> pd.DataFrame:
+    """Three finer bars inside each of `bars` (one width apart), consistent with it: price
+    goes from its open to its high and its low, in a random order, then to its close."""
+    rng = np.random.default_rng(seed)
+    high_first = rng.random(len(bars)) < 0.5
+    first = np.where(high_first, bars["high"], bars["low"])
+    second = np.where(high_first, bars["low"], bars["high"])
+    path = np.stack([bars["open"], first, second, bars["close"]], axis=1)
+    starts, ends = path[:, :-1].ravel(), path[:, 1:].ravel()
+    offsets = pd.to_timedelta(np.arange(3) * (bars.index[1] - bars.index[0]) / 3)
+    times = bars.index.repeat(3) + pd.TimedeltaIndex(np.tile(offsets, len(bars)))
+    return pd.DataFrame(
+        {
+            "open": starts,
+            "high": np.maximum(starts, ends),
+            "low": np.minimum(starts, ends),
+            "close": ends,
+            "volume": 1.0,
+        },
+        index=times,
+    )
+
+
 def store_bars(db: Session, bars: pd.DataFrame, symbol: str = "BTCUSD") -> None:
     """Store bars, such as random_bars makes, through the CSV importer."""
     import_bars(db, io.StringIO(bars.rename_axis("timestamp").to_csv()), symbol)
