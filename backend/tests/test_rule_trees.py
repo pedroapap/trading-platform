@@ -5,6 +5,7 @@ from app.strategies.rules import (
     AllOf,
     AnyOf,
     Condition,
+    EqualLows,
     Happened,
     Node,
     Not,
@@ -54,6 +55,20 @@ def test_not_and_happened_wrap_a_rule():
     assert depth(tree) == 4
 
 
+DOUBLE_BOTTOM = {"pattern": "equal_lows", "strength": 3, "within": 48, "tolerance_pct": 0.5}
+
+
+def test_a_pattern_is_a_rule():
+    tree = node.validate_python({"all": [RSI_BELOW_30, DOUBLE_BOTTOM]})
+
+    pattern = tree.all[1]
+    assert pattern == EqualLows(
+        pattern="equal_lows", strength=3, times=2, within=48, tolerance_pct=0.5, source="low"
+    )
+    assert depth(tree) == 2
+    assert conditions(tree) == [tree.all[0]]
+
+
 def test_not_is_written_not():
     tree = node.validate_python({"not": RSI_BELOW_30})
 
@@ -91,6 +106,11 @@ def test_trees_round_trip_through_json():
         ({"happened": RSI_BELOW_30, "within": 5, "times": 0}, "greater than or equal to 1"),
         ({"happened": RSI_BELOW_30, "within": 5, "times": 11}, "less than or equal to 10"),
         ({"not": RSI_BELOW_30, "within": 5}, "Extra inputs are not permitted"),
+        ({"pattern": "head_and_shoulders"}, "does not match any of the expected tags"),
+        ({**DOUBLE_BOTTOM, "times": 1}, "greater than or equal to 2"),
+        ({**DOUBLE_BOTTOM, "tolerance_pct": 0}, "greater than 0"),
+        ({**DOUBLE_BOTTOM, "within": 1}, "greater than or equal to 2"),
+        ({"pattern": "equal_highs", "strength": 2, "within": 10}, "Field required"),
     ],
 )
 def test_invalid_trees_are_rejected(data, message):
@@ -116,6 +136,7 @@ def test_limits_allow_six_levels_and_twenty_conditions():
         (nested(6), "at most 6 levels deep"),
         ({"not": {"happened": nested(4), "within": 5}}, "at most 6 levels deep"),
         ({"happened": {"any": [RSI_BELOW_30] * 21}, "within": 5}, "at most 20 conditions"),
+        ({"any": [RSI_BELOW_30] * 10 + [DOUBLE_BOTTOM] * 11}, "at most 20 conditions and patterns"),
         ({"any": [RSI_BELOW_30] * 21}, "at most 20 conditions"),
     ],
 )

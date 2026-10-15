@@ -7,7 +7,7 @@ aligned with them, and element `t` depends on bars `0..t` only.
 import numpy as np
 import pandas as pd
 
-from app.backtest import indicators
+from app.backtest import indicators, patterns
 from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import (
     AllOf,
@@ -17,6 +17,8 @@ from app.strategies.rules import (
     Bbands,
     Condition,
     Ema,
+    EqualHighs,
+    EqualLows,
     Happened,
     Highest,
     Indicator,
@@ -40,6 +42,7 @@ class OperandResolver:
     def __init__(self, bars: pd.DataFrame) -> None:
         self._bars = bars
         self._indicators: dict[tuple, pd.Series | pd.DataFrame] = {}
+        self._patterns: dict[EqualLows | EqualHighs, np.ndarray] = {}
 
     def resolve(self, operand: Operand) -> np.ndarray:
         if isinstance(operand, Value):
@@ -48,6 +51,19 @@ class OperandResolver:
             left, right = (self.resolve(each) for each in operand.operands)
             return _ARITHMETIC[operand.key](left, right)
         return _shifted(self._current(operand), operand.bars_ago)
+
+    def detect(self, pattern: EqualLows | EqualHighs) -> np.ndarray:
+        """Where the pattern is confirmed, as a boolean array."""
+        if pattern not in self._patterns:
+            find = patterns.equal_lows if isinstance(pattern, EqualLows) else patterns.equal_highs
+            self._patterns[pattern] = find(
+                self._bars[pattern.source],
+                pattern.strength,
+                pattern.times,
+                pattern.within,
+                pattern.tolerance_pct,
+            )
+        return self._patterns[pattern]
 
     def _current(self, operand: Price | Indicator) -> np.ndarray:
         """The operand's values as of each bar, before any `bars_ago` shift."""
@@ -90,6 +106,10 @@ def _evaluate(node: Node, resolver: OperandResolver) -> tuple[np.ndarray, np.nda
         case Happened(happened=rule, within=within, times=times):
             holds, known = _evaluate(rule, resolver)
             return _runs_within(holds, within) >= times, _known_throughout(known, within)
+        case EqualLows() | EqualHighs():
+            # A pattern is either confirmed on a bar or not: there is nothing unknown in it.
+            holds = resolver.detect(node)
+            return holds, np.ones_like(holds)
     raise TypeError(f"not a rule: {node!r}")
 
 

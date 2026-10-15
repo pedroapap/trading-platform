@@ -2403,6 +2403,23 @@
                 },
                 {
                   "$ref": "#/components/schemas/Happened-Input"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EqualLows"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EqualHighs"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "pattern",
+                    "mapping": {
+                      "equal_highs": "#/components/schemas/EqualHighs",
+                      "equal_lows": "#/components/schemas/EqualLows"
+                    }
+                  }
                 }
               ]
             },
@@ -2437,6 +2454,23 @@
                 },
                 {
                   "$ref": "#/components/schemas/Happened-Output"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EqualLows"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EqualHighs"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "pattern",
+                    "mapping": {
+                      "equal_highs": "#/components/schemas/EqualHighs",
+                      "equal_lows": "#/components/schemas/EqualLows"
+                    }
+                  }
                 }
               ]
             },
@@ -2471,6 +2505,23 @@
                 },
                 {
                   "$ref": "#/components/schemas/Happened-Input"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EqualLows"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EqualHighs"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "pattern",
+                    "mapping": {
+                      "equal_highs": "#/components/schemas/EqualHighs",
+                      "equal_lows": "#/components/schemas/EqualLows"
+                    }
+                  }
                 }
               ]
             },
@@ -2505,6 +2556,23 @@
                 },
                 {
                   "$ref": "#/components/schemas/Happened-Output"
+                },
+                {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/EqualLows"
+                    },
+                    {
+                      "$ref": "#/components/schemas/EqualHighs"
+                    }
+                  ],
+                  "discriminator": {
+                    "propertyName": "pattern",
+                    "mapping": {
+                      "equal_highs": "#/components/schemas/EqualHighs",
+                      "equal_lows": "#/components/schemas/EqualLows"
+                    }
+                  }
                 }
               ]
             },
@@ -4091,6 +4159,118 @@
         ],
         "title": "EntryType"
       },
+      "EqualHighs": {
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "const": "equal_highs",
+            "title": "Pattern"
+          },
+          "strength": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Strength"
+          },
+          "times": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Times",
+            "default": 2
+          },
+          "within": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "Within"
+          },
+          "tolerance_pct": {
+            "type": "number",
+            "maximum": 10.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance Pct"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "high"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pattern",
+          "strength",
+          "within",
+          "tolerance_pct"
+        ],
+        "title": "EqualHighs",
+        "description": "Swing highs at one level, such as a double top (see `EqualLows`)."
+      },
+      "EqualLows": {
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "const": "equal_lows",
+            "title": "Pattern"
+          },
+          "strength": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Strength"
+          },
+          "times": {
+            "type": "integer",
+            "maximum": 5.0,
+            "minimum": 2.0,
+            "title": "Times",
+            "default": 2
+          },
+          "within": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 2.0,
+            "title": "Within"
+          },
+          "tolerance_pct": {
+            "type": "number",
+            "maximum": 10.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Tolerance Pct"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close",
+              "volume"
+            ],
+            "title": "Source",
+            "default": "low"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "pattern",
+          "strength",
+          "within",
+          "tolerance_pct"
+        ],
+        "title": "EqualLows",
+        "description": "Swing lows at one level, such as a double bottom: true on the bar where the latest of\n`times` swing lows is confirmed. The earlier ones began fewer than `within` bars before it\nand are within `tolerance_pct` of it, and price held that line in between."
+      },
       "EquityPoint": {
         "properties": {
           "ts": {
@@ -4162,6 +4342,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Input"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Happened"
@@ -4207,6 +4404,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Output"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Happened"
@@ -5370,6 +5584,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Input"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Not"
@@ -5401,6 +5632,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Output"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Not"
@@ -5787,6 +6035,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Input"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Entry"
@@ -5809,6 +6074,23 @@
                   },
                   {
                     "$ref": "#/components/schemas/Happened-Input"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/EqualLows"
+                      },
+                      {
+                        "$ref": "#/components/schemas/EqualHighs"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "pattern",
+                      "mapping": {
+                        "equal_highs": "#/components/schemas/EqualHighs",
+                        "equal_lows": "#/components/schemas/EqualLows"
+                      }
+                    }
                   }
                 ]
               },
@@ -5875,6 +6157,23 @@
               },
               {
                 "$ref": "#/components/schemas/Happened-Output"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/EqualLows"
+                  },
+                  {
+                    "$ref": "#/components/schemas/EqualHighs"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "pattern",
+                  "mapping": {
+                    "equal_highs": "#/components/schemas/EqualHighs",
+                    "equal_lows": "#/components/schemas/EqualLows"
+                  }
+                }
               }
             ],
             "title": "Entry"
@@ -5897,6 +6196,23 @@
                   },
                   {
                     "$ref": "#/components/schemas/Happened-Output"
+                  },
+                  {
+                    "oneOf": [
+                      {
+                        "$ref": "#/components/schemas/EqualLows"
+                      },
+                      {
+                        "$ref": "#/components/schemas/EqualHighs"
+                      }
+                    ],
+                    "discriminator": {
+                      "propertyName": "pattern",
+                      "mapping": {
+                        "equal_highs": "#/components/schemas/EqualHighs",
+                        "equal_lows": "#/components/schemas/EqualLows"
+                      }
+                    }
                   }
                 ]
               },

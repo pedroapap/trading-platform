@@ -252,6 +252,15 @@ def test_not_happened_waits_for_a_whole_window():
     assert holds(rule, close=[1, 1, 1, 1, 3]) == [F, F, T, T, F]
 
 
+def test_a_pattern_holds_where_it_is_confirmed():
+    lows = [10, 9, 8, 9, 10, 9.5, 9, 9.5, 10, 9, 8.02, 9, 10]
+    double_bottom = {"pattern": "equal_lows", "strength": 2, "within": 10, "tolerance_pct": 0.5}
+
+    assert holds(double_bottom, low=lows) == [F] * 12 + [T]
+    # Nothing in a pattern is unknown, so its negation holds everywhere else.
+    assert holds({"not": double_bottom}, low=lows) == [T] * 12 + [F]
+
+
 def test_crosses_above():
     # Touching the level is not above it, so 2 -> 3 is a cross.
     rule = {"left": CLOSE, "op": "crosses_above", "right": {"value": 2}}
@@ -437,6 +446,7 @@ EVERY_RULE = {
                 "within": 6,
                 "times": 2,
             },
+            {"pattern": "equal_highs", "strength": 2, "within": 30, "tolerance_pct": 0.3},
         ]
     },
 }

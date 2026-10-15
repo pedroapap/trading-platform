@@ -91,12 +91,19 @@ def swing_high(values: pd.Series, strength: int, occurrence: int = 0) -> pd.Data
     return _swings(values, strength, occurrence, values)
 
 
+def swing_peaks(peaks: pd.Series, strength: int) -> np.ndarray:
+    """The positions of the bars higher than each of the `strength` bars before them and no
+    lower than each of the `strength` bars after them, in order. (Pass negated values to find
+    swing lows.)"""
+    before = peaks.shift(1).rolling(strength, min_periods=strength).max()
+    after = peaks.rolling(strength, min_periods=strength).max().shift(-strength)
+    return np.flatnonzero((peaks > before) & (peaks >= after))
+
+
 def _swings(peaks: pd.Series, strength: int, occurrence: int, values: pd.Series) -> pd.DataFrame:
     """Swing highs of `peaks` (the values, or their negatives for lows), reported with
     `values`."""
-    before = peaks.shift(1).rolling(strength, min_periods=strength).max()
-    after = peaks.rolling(strength, min_periods=strength).max().shift(-strength)
-    swing_bars = np.flatnonzero((peaks > before) & (peaks >= after))
+    swing_bars = swing_peaks(peaks, strength)
     bars = np.arange(len(values))
     # On each bar, the number of swings known so far, then which of them is wanted.
     known = np.searchsorted(swing_bars + strength, bars, side="right")

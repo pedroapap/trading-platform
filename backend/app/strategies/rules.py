@@ -1,6 +1,6 @@
 """The strategy rule language: operands (values, prices, indicators and arithmetic on them)
-compared by conditions, combined with all/any, negated with not, and remembered over time
-with happened.
+compared by conditions, or chart patterns; combined with all/any, negated with not, and
+remembered over time with happened.
 
 Every model is frozen, so identical operands are equal and hashable, which lets the
 backtester compute each distinct indicator once.
@@ -307,14 +307,48 @@ class Happened(_Rule):
     times: Annotated[int, Field(ge=1, le=10)] = 1
 
 
-_NODE_KEYS = ("all", "any", "op", "not", "happened")
+class EqualLows(_Rule):
+    """Swing lows at one level, such as a double bottom: true on the bar where the latest of
+    `times` swing lows is confirmed. The earlier ones began fewer than `within` bars before it
+    and are within `tolerance_pct` of it, and price held that line in between."""
+
+    pattern: Literal["equal_lows"]
+    strength: Strength
+    times: Annotated[int, Field(ge=2, le=5)] = 2
+    within: Annotated[int, Field(ge=2, le=1000)]
+    tolerance_pct: float = Field(gt=0, le=10, allow_inf_nan=False)
+    source: PriceField = "low"
+
+
+class EqualHighs(_Rule):
+    """Swing highs at one level, such as a double top (see `EqualLows`)."""
+
+    pattern: Literal["equal_highs"]
+    strength: Strength
+    times: Annotated[int, Field(ge=2, le=5)] = 2
+    within: Annotated[int, Field(ge=2, le=1000)]
+    tolerance_pct: float = Field(gt=0, le=10, allow_inf_nan=False)
+    source: PriceField = "high"
+
+
+Pattern = Annotated[EqualLows | EqualHighs, Field(discriminator="pattern")]
+
+_NODE_KEYS = ("all", "any", "op", "not", "happened", "pattern")
+_NODE_KINDS = {
+    Condition: "op",
+    AllOf: "all",
+    AnyOf: "any",
+    Not: "not",
+    Happened: "happened",
+    EqualLows: "pattern",
+    EqualHighs: "pattern",
+}
 
 
 def _node_kind(data: object) -> str | None:
     if isinstance(data, dict):
         return next((key for key in _NODE_KEYS if key in data), None)
-    kinds = {Condition: "op", AllOf: "all", AnyOf: "any", Not: "not", Happened: "happened"}
-    return kinds.get(type(data))
+    return _NODE_KINDS.get(type(data))
 
 
 Node = Annotated[
@@ -322,12 +356,14 @@ Node = Annotated[
     | Annotated[AllOf, Tag("all")]
     | Annotated[AnyOf, Tag("any")]
     | Annotated[Not, Tag("not")]
-    | Annotated[Happened, Tag("happened")],
+    | Annotated[Happened, Tag("happened")]
+    | Annotated[Pattern, Tag("pattern")],
     Discriminator(
         _node_kind,
         custom_error_type="invalid_rule",
         custom_error_message=(
-            "A rule is a condition (left/op/right), an 'all'/'any' group, 'not' or 'happened'"
+            "A rule is a condition (left/op/right), an 'all'/'any' group, 'not', 'happened'"
+            " or a 'pattern'"
         ),
     ),
 ]
@@ -347,22 +383,27 @@ def children(node: Node) -> tuple[Node, ...]:
             return ()
 
 
+def leaves(node: Node) -> list[Condition | EqualLows | EqualHighs]:
+    """Every condition and pattern in the tree, depth first."""
+    inside = children(node)
+    if not inside:
+        return [node]
+    return [leaf for child in inside for leaf in leaves(child)]
+
+
 def conditions(node: Node) -> list[Condition]:
     """Every condition in the tree, depth first."""
-    if isinstance(node, Condition):
-        return [node]
-    return [condition for child in children(node) for condition in conditions(child)]
+    return [leaf for leaf in leaves(node) if isinstance(leaf, Condition)]
 
 
 def depth(node: Node) -> int:
-    if isinstance(node, Condition):
-        return 1
-    return 1 + max(depth(child) for child in children(node))
+    inside = children(node)
+    return 1 + max(depth(child) for child in inside) if inside else 1
 
 
 def check_limits(node: Node) -> None:
     """Keep rule trees small enough to read and to evaluate quickly."""
     if depth(node) > MAX_DEPTH:
         raise ValueError(f"rules may be nested at most {MAX_DEPTH} levels deep")
-    if len(conditions(node)) > MAX_CONDITIONS:
-        raise ValueError(f"rules may contain at most {MAX_CONDITIONS} conditions")
+    if len(leaves(node)) > MAX_CONDITIONS:
+        raise ValueError(f"rules may contain at most {MAX_CONDITIONS} conditions and patterns")

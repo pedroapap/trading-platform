@@ -610,7 +610,7 @@ export interface components {
          */
         "AllOf-Input": {
             /** All */
-            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"])[];
+            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
         };
         /**
          * AllOf
@@ -618,7 +618,7 @@ export interface components {
          */
         "AllOf-Output": {
             /** All */
-            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"])[];
+            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
         };
         /**
          * AnyOf
@@ -626,7 +626,7 @@ export interface components {
          */
         "AnyOf-Input": {
             /** Any */
-            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"])[];
+            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
         };
         /**
          * AnyOf
@@ -634,7 +634,7 @@ export interface components {
          */
         "AnyOf-Output": {
             /** Any */
-            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"])[];
+            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
         };
         /**
          * Atr
@@ -1107,6 +1107,64 @@ export interface components {
          * @enum {string}
          */
         EntryType: "pre_trade" | "post_trade" | "note";
+        /**
+         * EqualHighs
+         * @description Swing highs at one level, such as a double top (see `EqualLows`).
+         */
+        EqualHighs: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            pattern: "equal_highs";
+            /** Strength */
+            strength: number;
+            /**
+             * Times
+             * @default 2
+             */
+            times?: number;
+            /** Within */
+            within: number;
+            /** Tolerance Pct */
+            tolerance_pct: number;
+            /**
+             * Source
+             * @default high
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+        };
+        /**
+         * EqualLows
+         * @description Swing lows at one level, such as a double bottom: true on the bar where the latest of
+         *     `times` swing lows is confirmed. The earlier ones began fewer than `within` bars before it
+         *     and are within `tolerance_pct` of it, and price held that line in between.
+         */
+        EqualLows: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            pattern: "equal_lows";
+            /** Strength */
+            strength: number;
+            /**
+             * Times
+             * @default 2
+             */
+            times?: number;
+            /** Within */
+            within: number;
+            /** Tolerance Pct */
+            tolerance_pct: number;
+            /**
+             * Source
+             * @default low
+             * @enum {string}
+             */
+            source?: "open" | "high" | "low" | "close" | "volume";
+        };
         /** EquityPoint */
         EquityPoint: {
             /**
@@ -1141,7 +1199,7 @@ export interface components {
          */
         "Happened-Input": {
             /** Happened */
-            happened: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
+            happened: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Within */
             within: number;
             /**
@@ -1158,7 +1216,7 @@ export interface components {
          */
         "Happened-Output": {
             /** Happened */
-            happened: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
+            happened: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Within */
             within: number;
             /**
@@ -1479,7 +1537,7 @@ export interface components {
          */
         "Not-Input": {
             /** Not */
-            not: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
+            not: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
         };
         /**
          * Not
@@ -1488,7 +1546,7 @@ export interface components {
          */
         "Not-Output": {
             /** Not */
-            not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
+            not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
         };
         /** PerformanceGroup */
         PerformanceGroup: {
@@ -1646,9 +1704,9 @@ export interface components {
         "StrategyDefinition-Input": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"];
+            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Exit */
-            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"]) | null;
+            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
@@ -1662,9 +1720,9 @@ export interface components {
         "StrategyDefinition-Output": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"];
+            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Exit */
-            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"]) | null;
+            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
