@@ -10,9 +10,9 @@ export default function NewStrategyPage() {
   const queryClient = useQueryClient();
   const create = useMutation({
     mutationFn: (fields: StrategyFields) => unwrap(api.POST("/api/strategies", { body: fields })),
-    onSuccess: async () => {
+    onSuccess: async (strategy) => {
       await queryClient.invalidateQueries({ queryKey: ["strategies"] });
-      navigate("/strategies");
+      navigate(`/strategies/${strategy.id}`);
     },
   });
 

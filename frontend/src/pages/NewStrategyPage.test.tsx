@@ -17,6 +17,8 @@ function strategiesApi(refusal?: Response) {
   const strategies: components["schemas"]["StrategyRead"][] = [];
   server.use(
     http.get("/api/strategies", () => HttpResponse.json(strategies)),
+    http.get("/api/strategies/:id", () => HttpResponse.json(strategies.at(-1))),
+    http.get("/api/strategies/:id/versions", () => HttpResponse.json([])),
     http.post("/api/strategies", async ({ request }) => {
       const body = (await request.json()) as StrategyCreate;
       posted.push(body);
@@ -34,7 +36,7 @@ function typeDefinition(definition: unknown) {
   fireEvent.change(definitionBox(), { target: { value: JSON.stringify(definition) } });
 }
 
-test("a strategy starts from a working definition", async () => {
+test("a strategy starts from a working definition and is then shown", async () => {
   const posted = strategiesApi();
   const { router, user } = renderPage("/strategies/new");
 
@@ -43,8 +45,8 @@ test("a strategy starts from a working definition", async () => {
   await user.type(screen.getByLabelText("Description (optional)"), "Buys oversold dips");
   await user.click(screen.getByRole("button", { name: "Create strategy" }));
 
-  expect(await screen.findByRole("cell", { name: "RSI dip" })).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/strategies");
+  expect(await screen.findByRole("heading", { name: "RSI dip" })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe(`/strategies/${STRATEGY.id}`);
   expect(posted).toEqual([
     { name: "RSI dip", description: "Buys oversold dips", definition: STARTER_DEFINITION },
   ]);

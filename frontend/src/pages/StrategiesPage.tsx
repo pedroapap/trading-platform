@@ -33,7 +33,9 @@ export default function StrategiesPage() {
             <tbody>
               {strategies.data.map((strategy) => (
                 <tr key={strategy.id}>
-                  <td>{strategy.name}</td>
+                  <td>
+                    <Link to={`/strategies/${strategy.id}`}>{strategy.name}</Link>
+                  </td>
                   <td>{strategy.definition.direction}</td>
                   <td>v{strategy.current_version}</td>
                   <td>{formatDateTime(strategy.updated_at)}</td>

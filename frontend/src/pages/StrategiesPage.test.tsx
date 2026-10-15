@@ -25,6 +25,10 @@ test("strategies show their direction, version, last change and description", as
   const [breakout, dip] = screen.getAllByRole("row").slice(1);
   expect(breakout).toHaveTextContent("Breakoutlongv2Jan 2, 2026, 9:00 AMRange breaks on volume");
   expect(dip).toHaveTextContent("RSI diplongv2Jan 2, 2026, 9:00 AM—");
+  expect(screen.getByRole("link", { name: "RSI dip" })).toHaveAttribute(
+    "href",
+    `/strategies/${STRATEGY.id}`,
+  );
 });
 
 test("without strategies there is nothing to list, but one can be made", async () => {
