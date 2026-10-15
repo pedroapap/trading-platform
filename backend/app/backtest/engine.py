@@ -35,6 +35,11 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   take-profit doesn't: the bar doesn't say whether it came after the fill.
 - A time exit leaves at the open a set number of bars after the entry bar, before a stop or
   target on that bar, as a signal exit does; if both fall on one bar, the signal counts.
+- With finer bars (a `Detail`), the bars where it matters what came first are replayed
+  through them, in order: the bar where a limit or stop entry fills after the open (where
+  and at what price it filled, and whether a stop-loss or take-profit came after it), and a
+  bar that reaches both the stop-loss and the take-profit. Where the finer bars are missing
+  or don't reach what the bar does, the worst case above stands.
 - A position still open on the last bar is closed at that bar's close.
 - The equity curve is marked to market at each bar's close.
 """
@@ -84,11 +89,23 @@ class BacktestResult:
     equity: pd.Series
 
 
+@dataclass(frozen=True)
+class Detail:
+    """Finer bars inside a backtest's bars (`open/high/low/close` by time, in order), to settle
+    what came first inside a bar; `width` is the width of the bars they divide."""
+
+    bars: pd.DataFrame
+    width: pd.Timedelta
+
+
 def run(
-    bars: pd.DataFrame, definition: StrategyDefinition, config: BacktestConfig
+    bars: pd.DataFrame,
+    definition: StrategyDefinition,
+    config: BacktestConfig,
+    detail: Detail | None = None,
 ) -> BacktestResult:
     """Backtest a strategy definition on `bars`."""
-    return simulate_orders(bars, strategy_orders(definition, bars), config)
+    return simulate_orders(bars, strategy_orders(definition, bars), config, detail)
 
 
 def simulate(
@@ -107,8 +124,11 @@ def simulate(
     return simulate_orders(bars, Orders(direction, entries, exits, stop_loss, take_profit), config)
 
 
-def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) -> BacktestResult:
-    """Trades and equity from a strategy's orders on `bars`."""
+def simulate_orders(
+    bars: pd.DataFrame, orders: Orders, config: BacktestConfig, detail: Detail | None = None
+) -> BacktestResult:
+    """Trades and equity from a strategy's orders on `bars`, with the finer bars of `detail`
+    settling what came first inside a bar where it matters."""
     opens = bars["open"].to_numpy(dtype=float)
     closes = bars["close"].to_numpy(dtype=float)
     fee = config.fee_pct / 100
@@ -126,6 +146,7 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     entering = _Entering(orders.entry, signals & _known(orders.entry), opens, adverse, favorable)
     exits = orders.exits
     exit_fills = (np.flatnonzero(exits[:-1]) + 1).tolist() if exits is not None else []
+    inside_bars = None if detail is None else _Inside(detail, bars.index, sign)
 
     cash = config.initial_capital
     equity = np.full(len(bars), np.nan)
@@ -134,6 +155,14 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
     earliest_signal = 0
     while cash > 0 and (fill := entering.next(earliest_signal, sign)) is not None:
         entry, signal, unslipped_entry, inside = fill
+        # Where an order filled inside its bar, by the finer bars: (finer bar, price, whether
+        # at its open). A finer bar that gapped past the order fills it at its open.
+        settled_fill = None
+        if inside and inside_bars is not None:
+            limit = orders.entry.kind == "limit"
+            settled_fill = inside_bars.fill(entry, unslipped_entry, limit)
+            if settled_fill is not None:
+                unslipped_entry = settled_fill[1]
         # A limit order gets its price; market and stop orders fill like market orders.
         slipped = orders.entry.kind != "limit"
         entry_price = unslipped_entry * (1 + sign * slip) if slipped else unslipped_entry
@@ -156,7 +185,17 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
         stops = None
         if fixed is not None or trail is not None:
             stops = _StopLoss(fixed, trail, entry, signal, unslipped_entry, favorable, sign)
-        if inside and stops is not None and _reaches(adverse[entry], stops.level(entry), -sign):
+        # An exit the finer bars settled: (whether the stop-loss, price before slippage).
+        settled_exit = None
+        if settled_fill is not None:
+            # Replay the rest of the fill's bar.
+            finer, price, at_open = settled_fill
+            stop = None if stops is None else stops.level(entry)
+            after = None if at_open else price
+            settled_exit = inside_bars.exit(finer, entry, stop, target, after)
+        if settled_exit is not None:
+            reached = entry
+        elif inside and settled_fill is None and _stopped(stops, adverse, entry, sign):
             # Filled inside its bar, whose low (long) reaches the stop: the worst case is that
             # it came after the fill.
             reached = entry
@@ -168,6 +207,18 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
             first = entry + 1 if inside else entry
             reached = _first_exit(first, last, stops, target, adverse, favorable, sign)
         stop, trailing = (None, False) if stops is None or reached is None else stops.at(reached)
+        both = (
+            settled_exit is None
+            and reached is not None
+            and stop is not None
+            and target is not None
+            and _reaches(adverse[reached], stop, -sign)
+            and _reaches(favorable[reached], target, sign)
+        )
+        if both and inside_bars is not None:
+            # The bar reaches both the stop-loss and the take-profit: its finer bars say which
+            # came first.
+            settled_exit = inside_bars.exit(None, reached, stop, target)
         if reached is None:
             if open_exit is not None:
                 exit_, unslipped_exit = open_exit, opens[open_exit]
@@ -175,6 +226,14 @@ def simulate_orders(bars: pd.DataFrame, orders: Orders, config: BacktestConfig) 
             else:
                 exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
             exit_price = unslipped_exit * (1 - sign * slip)
+        elif settled_exit is not None:
+            exit_ = reached
+            stopped, unslipped_exit = settled_exit
+            if stopped:
+                reason = ExitReason.TRAILING_STOP if trailing else ExitReason.STOP_LOSS
+                exit_price = unslipped_exit * (1 - sign * slip)
+            else:
+                reason, exit_price = ExitReason.TAKE_PROFIT, unslipped_exit
         elif stop is not None and _reaches(adverse[reached], stop, -sign):
             # Checked first: when a bar reaches both, the stop-loss counts. After an inside
             # fill, the rest of the bar starts at the fill price.
@@ -255,6 +314,63 @@ def _trades(
             reason,
         ), entry_time, exit_time in zip(made, entry_times, exit_times, strict=True)
     ]
+
+
+class _Inside:
+    """The finer bars inside each bar of a backtest, replayed in order where it matters what
+    came first inside a bar. Where they are missing, or don't reach what the bar does, nothing
+    is settled and the worst case stands."""
+
+    def __init__(self, detail: Detail, times: pd.DatetimeIndex, sign: int) -> None:
+        index = detail.bars.index
+        self._first = index.searchsorted(times)
+        self._end = index.searchsorted(times + detail.width)
+        self._opens = detail.bars["open"].to_numpy(dtype=float)
+        lows = detail.bars["low"].to_numpy(dtype=float)
+        highs = detail.bars["high"].to_numpy(dtype=float)
+        self._adverse, self._favorable = (lows, highs) if sign == 1 else (highs, lows)
+        self._sign = sign
+
+    def fill(self, bar: int, price: float, limit: bool) -> tuple[int, float, bool] | None:
+        """Where an order at `price` fills inside `bar`: the finer bar, the price, and whether
+        it filled at that finer bar's open."""
+        sign = self._sign
+        values, side = (self._adverse, -sign) if limit else (self._favorable, sign)
+        for finer in range(self._first[bar], self._end[bar]):
+            if _reaches(values[finer], price, side):
+                at_open = _reaches(self._opens[finer], price, side)
+                return finer, float(self._opens[finer]) if at_open else price, at_open
+        return None
+
+    def exit(
+        self,
+        first: int | None,
+        bar: int,
+        stop: float | None,
+        target: float | None,
+        after: float | None = None,
+    ) -> tuple[bool, float] | None:
+        """The first exit inside `bar`, from its finer bar `first` (or its first one) on:
+        whether it is the stop-loss (which counts first on each finer bar) and its price before
+        slippage. `after` is the price of an order filled inside that first finer bar: there it
+        stands for the open, and a take-profit doesn't count."""
+        sign = self._sign
+        start = self._first[bar] if first is None else first
+        for finer in range(start, self._end[bar]):
+            filled_inside = after is not None and finer == start
+            open_ = after if filled_inside else self._opens[finer]
+            if stop is not None and _reaches(self._adverse[finer], stop, -sign):
+                return True, float(_fill_price(open_, stop, -sign))
+            # After an inside fill, the finer bar's high (long) may have come before it.
+            reached = target is not None and _reaches(self._favorable[finer], target, sign)
+            if reached and not filled_inside:
+                return False, float(_fill_price(open_, target, sign))
+        return None
+
+
+def _stopped(stops: "_StopLoss | None", adverse: np.ndarray, bar: int, sign: int) -> bool:
+    """Whether the stop-loss is reached on `bar`, the next bar `stops` reads."""
+    return stops is not None and bool(_reaches(adverse[bar], stops.level(bar), -sign))
 
 
 class _StopLoss:

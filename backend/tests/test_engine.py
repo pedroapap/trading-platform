@@ -7,7 +7,14 @@ import pandas as pd
 import pytest
 
 from app.backtest import indicators
-from app.backtest.engine import BacktestConfig, SimulatedTrade, run, simulate, simulate_orders
+from app.backtest.engine import (
+    BacktestConfig,
+    Detail,
+    SimulatedTrade,
+    run,
+    simulate,
+    simulate_orders,
+)
 from app.backtest.orders import Entry, Level, Orders
 from app.backtest.signals import strategy_signals
 from app.enums import Direction, ExitReason
@@ -1043,6 +1050,150 @@ def test_a_time_exit_beyond_the_data_closes_at_the_end():
 
     [trade] = result.trades
     assert (trade.exit_time, trade.exit_reason) == (bars.index[4], ExitReason.END_OF_DATA)
+
+
+def hourly(rows) -> pd.DataFrame:
+    bars = bars_from(rows)
+    bars.index = pd.date_range(ENTRY_TIME, periods=len(rows), freq="h")
+    return bars
+
+
+def detail_of(bars: pd.DataFrame, inside: dict[int, list[tuple]]) -> Detail:
+    """Finer bars inside the given hourly bars, spread evenly over each hour."""
+    parts = []
+    for bar, rows in inside.items():
+        part = pd.DataFrame(rows, columns=["open", "high", "low", "close"], dtype=float)
+        step = pd.Timedelta(hours=1) / len(rows)
+        part.index = pd.date_range(bars.index[bar], periods=len(rows), freq=step)
+        parts.append(part)
+    return Detail(pd.concat(parts).sort_index(), pd.Timedelta(hours=1))
+
+
+# Bar 0's signal buys 100 @ 100 on bar 1, with a 5% stop at 95 and a 5% target at 105; bar 2
+# reaches both.
+# fmt: off
+BOTH_ON_BAR_2 = hourly([
+    (100, 101, 99, 100),
+    (100, 101, 99, 100),
+    (100, 106, 94, 100),
+    (100, 101, 99, 100),
+])
+# fmt: on
+BRACKET = Orders(Direction.LONG, at(4, 0), None, Level(pct=5), Level(pct=5))
+
+
+def test_finer_bars_say_which_level_came_first():
+    # fmt: off
+    target_first = detail_of(BOTH_ON_BAR_2, {2: [
+        (100, 106, 99, 105),
+        (105, 105, 94, 95),
+        ( 95, 101, 95, 100),
+    ]})
+    stop_first = detail_of(BOTH_ON_BAR_2, {2: [
+        (100, 101, 94, 95),
+        ( 95, 106, 95, 105),
+        (105, 105, 99, 100),
+    ]})
+    # fmt: on
+    config = BacktestConfig(initial_capital=10_000)
+
+    [up] = simulate_orders(BOTH_ON_BAR_2, BRACKET, config, target_first).trades
+    [down] = simulate_orders(BOTH_ON_BAR_2, BRACKET, config, stop_first).trades
+    [unknown] = simulate_orders(BOTH_ON_BAR_2, BRACKET, config).trades
+
+    assert (up.exit_reason, up.exit_price) == (ExitReason.TAKE_PROFIT, 105)
+    assert (down.exit_reason, down.exit_price) == (ExitReason.STOP_LOSS, 95)
+    assert (unknown.exit_reason, unknown.exit_price) == (ExitReason.STOP_LOSS, 95)
+    assert up.exit_time == down.exit_time == BOTH_ON_BAR_2.index[2]
+
+
+def test_missing_or_inconsistent_finer_bars_leave_the_worst_case():
+    config = BacktestConfig(initial_capital=10_000)
+    elsewhere = detail_of(BOTH_ON_BAR_2, {1: [(100, 101, 99, 100)]})
+    # Finer bars that reach neither level, unlike their bar.
+    inconsistent = detail_of(BOTH_ON_BAR_2, {2: [(100, 101, 99, 100), (100, 101, 99, 100)]})
+
+    for detail in (elsewhere, inconsistent):
+        [trade] = simulate_orders(BOTH_ON_BAR_2, BRACKET, config, detail).trades
+        assert (trade.exit_reason, trade.exit_price) == (ExitReason.STOP_LOSS, 95)
+
+
+def limit_at_98(rows, inside, **levels):
+    """Bar 0's signal places a limit order at 98, for 10,000 with no costs."""
+    bars = hourly(rows)
+    entry = Entry("limit", np.full(len(bars), 98.0))
+    orders = Orders(Direction.LONG, at(len(bars), 0), None, entry=entry, **levels)
+    detail = detail_of(bars, inside)
+    return bars, simulate_orders(bars, orders, BacktestConfig(initial_capital=10_000), detail)
+
+
+def test_finer_bars_let_a_take_profit_count_after_an_inside_fill():
+    # Without finer bars, the target on the fill's bar wouldn't count (it may have come first).
+    # fmt: off
+    bars, result = limit_at_98([
+        (100, 101,  99, 100),
+        (100, 110,  97, 104),
+        (104, 106, 103, 105),
+    ], {1: [
+        (100, 100,  97,  98),  # buys at 98
+        ( 98, 106,  98, 105),  # then reaches 105
+        (105, 110, 103, 104),
+    ]}, take_profit=Level(at=np.full(3, 105.0)))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_price, trade.exit_time, trade.exit_price) == (98, bars.index[1], 105)
+    assert trade.exit_reason == ExitReason.TAKE_PROFIT
+
+
+def test_finer_bars_fill_an_order_at_a_gap_past_it():
+    # fmt: off
+    bars, result = limit_at_98([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),
+        ( 96,  97,  95,  96),
+    ], {1: [
+        (100, 101,  99,  99),
+        ( 96,  97,  95,  96),  # opens below 98: buys at 96
+    ]})
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.entry_time, trade.entry_price) == (bars.index[1], 96)
+
+
+def test_finer_bars_stop_a_trade_after_an_inside_fill():
+    # fmt: off
+    bars, result = limit_at_98([
+        (100, 101,  99, 100),
+        (100, 101,  95,  96),
+        ( 96,  97,  95,  96),
+    ], {1: [
+        (100, 100,  97,  98),    # buys at 98; the stop at 96 isn't reached yet
+        ( 98,  99,  95.5, 96),  # then it is
+    ]}, stop_loss=Level(at=np.full(3, 96.0)))
+    # fmt: on
+
+    [trade] = result.trades
+    assert (trade.exit_time, trade.exit_price) == (bars.index[1], 96)
+    assert trade.exit_reason == ExitReason.STOP_LOSS
+
+
+def test_run_passes_finer_bars_to_the_simulation():
+    detail = detail_of(BOTH_ON_BAR_2, {2: [(100, 106, 99, 105), (105, 105, 94, 95)]})
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "entry": {"left": {"price": "close"}, "op": "<=", "right": {"value": 100}},
+            "stop_loss_pct": 5,
+            "take_profit_pct": 5,
+        }
+    )
+    config = BacktestConfig(initial_capital=10_000)
+
+    [trade, *_] = run(BOTH_ON_BAR_2, definition, config, detail).trades
+
+    assert (trade.exit_reason, trade.exit_price) == (ExitReason.TAKE_PROFIT, 105)
 
 
 def rsi_strategy(direction: Direction) -> StrategyDefinition:
