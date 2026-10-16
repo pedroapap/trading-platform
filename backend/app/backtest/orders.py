@@ -34,6 +34,16 @@ class Entry:
 
 
 @dataclass(frozen=True)
+class Flat:
+    """When a position must be out, for the trading day of each bar: the first bar of the day
+    starting at or after the flat-by time, whose open it leaves at (-1 if the day has none),
+    and the day's last bar, whose close it leaves at otherwise."""
+
+    at_open: np.ndarray
+    day_last: np.ndarray
+
+
+@dataclass(frozen=True)
 class Orders:
     """A strategy's orders on a set of bars: entry and exit signals on each bar's close (no
     exits without an exit rule), how entries are made, and where each trade's stop-loss,
@@ -52,3 +62,5 @@ class Orders:
     exit_after_bars: int | None = None
     # The bars an entry may fill on; every bar when None.
     can_fill: np.ndarray | None = None
+    # Out by a time of day; held across days when None.
+    flat: Flat | None = None

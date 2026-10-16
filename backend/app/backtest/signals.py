@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from app.backtest import indicators, patterns
-from app.backtest.orders import Entry, Level, Orders
+from app.backtest.orders import Entry, Flat, Level, Orders
 from app.backtest.sessions import Calendar, calendar
 from app.strategies.definition import PriceEntry, Session, StrategyDefinition
 from app.strategies.rules import (
@@ -144,7 +144,7 @@ def strategy_signals(
 
 def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Orders:
     """What the definition asks of the engine on `bars`. With a session, entries fill only on
-    bars in it."""
+    bars in it; with a flat-by time, not from it to the end of the day."""
     resolver = OperandResolver(bars, definition.session)
     entries = evaluate(definition.entry, resolver)
     exits = None if definition.exit is None else evaluate(definition.exit, resolver)
@@ -153,6 +153,11 @@ def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Order
         if definition.take_profit_r is not None
         else _level(definition.take_profit_pct, definition.take_profit_at, resolver)
     )
+    can_fill = None if definition.session is None else resolver.calendar.in_session
+    flat = None
+    if definition.flat_at is not None:
+        flat, before = _flat(resolver.calendar, minutes(definition.flat_at))
+        can_fill = before if can_fill is None else can_fill & before
     order = definition.entry_order
     entry = (
         Entry(order.type, resolver.resolve(order.price), order.expires_after)
@@ -168,8 +173,26 @@ def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Order
         entry=entry,
         trailing_stop=_level(definition.trailing_stop_pct, definition.trailing_stop_at, resolver),
         exit_after_bars=definition.exit_after_bars,
-        can_fill=None if definition.session is None else resolver.calendar.in_session,
+        can_fill=can_fill,
+        flat=flat,
     )
+
+
+def _flat(calendar: Calendar, flat_at: int) -> tuple[Flat, np.ndarray]:
+    """Where a position leaves to be out by `flat_at` (minutes into its trading day), and the
+    bars an entry may still fill on: those before it."""
+    late = calendar.elapsed >= flat_at
+    bars = np.arange(len(late))
+    # Bars come in trading days, one day after another.
+    starts = np.flatnonzero(np.diff(calendar.day, prepend=calendar.day[:1] - 1))
+    ends = np.append(starts[1:], len(late)) - 1
+    group = np.searchsorted(starts, bars, side="right") - 1
+    # The first late bar of each day that has one.
+    late_bars = np.flatnonzero(late)
+    days, first = np.unique(group[late_bars], return_index=True)
+    first_late = np.full(len(starts), -1)
+    first_late[days] = late_bars[first]
+    return Flat(at_open=first_late[group], day_last=ends[group]), ~late
 
 
 def _level(pct: float | None, at: Operand | None, resolver: OperandResolver) -> Level | None:

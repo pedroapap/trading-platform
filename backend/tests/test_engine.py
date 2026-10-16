@@ -1488,3 +1488,128 @@ def test_with_a_session_entries_fill_only_in_it():
     assert [f"{time:%H:%M}" for time in entered] == [
         "09:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30",
     ]  # fmt: skip
+
+
+NEW_YORK = {"timezone": "America/New_York", "start": "09:30", "end": "16:00"}
+ALWAYS = {"left": {"price": "close"}, "op": ">", "right": {"value": 0}}
+
+
+def new_york_bars(rows: list[tuple[str, float, float, float, float]]) -> pd.DataFrame:
+    """Bars from (New York time, open, high, low, close) rows."""
+    bars = pd.DataFrame(
+        [row[1:] for row in rows], columns=["open", "high", "low", "close"], dtype=float
+    )
+    bars["volume"] = 1.0
+    times = pd.DatetimeIndex([row[0] for row in rows]).tz_localize("America/New_York")
+    bars.index = times.tz_convert("UTC")
+    return bars
+
+
+def run_flat(bars, *, flat_at="15:55", entries=None, **fields) -> list[SimulatedTrade]:
+    """A long with a New York session and a flat-by time, entering wherever `entries` holds
+    (on every bar when None), with no slippage or fees."""
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "session": NEW_YORK,
+            "entry": entries or ALWAYS,
+            "flat_at": flat_at,
+        }
+        | fields
+    )
+    return run(bars, definition, BacktestConfig(10_000)).trades
+
+
+# fmt: off
+CLOSING_MINUTES = new_york_bars([
+    # New York time,     open, high,  low, close
+    ("2026-03-06 15:40", 100,  101,   99,  100),  # 0 signal
+    ("2026-03-06 15:45", 100,  102,  100,  101),  # 1 buy at 100
+    ("2026-03-06 15:50", 101,  103,  101,  102),  # 2
+    ("2026-03-06 15:55", 103,  104,  102,  103),  # 3 out at the open: 103
+    ("2026-03-09 09:30", 104,  105,  103,  104),  # 4 Monday
+])
+# fmt: on
+
+
+def test_a_position_leaves_at_the_open_of_the_first_bar_at_the_flat_time():
+    first, *_ = run_flat(CLOSING_MINUTES, entries={"time": ["15:40", "15:45"]})
+
+    assert (first.entry_time, first.entry_price) == (CLOSING_MINUTES.index[1], 100)
+    assert (first.exit_time, first.exit_price) == (CLOSING_MINUTES.index[3], 103)
+    assert first.exit_reason == ExitReason.END_OF_DAY
+
+
+def test_no_entry_fills_from_the_flat_time():
+    # The 15:50 bar's signal would fill at 15:55, the flat time, so it is dropped; the 15:55
+    # bar's fills at Monday's open.
+    trades = run_flat(CLOSING_MINUTES, entries={"time": ["15:50", "16:00"]})
+
+    assert [trade.entry_time for trade in trades] == [CLOSING_MINUTES.index[4]]
+
+
+def test_an_entry_order_does_not_fill_from_the_flat_time():
+    # Placed on the 15:45 bar to buy on a rise to 103.5, for 2 bars: only the 15:55 bar, at the
+    # flat time, reaches it.
+    trades = run_flat(
+        CLOSING_MINUTES,
+        entries={"time": ["15:45", "15:50"]},
+        entry_order={"type": "stop", "price": {"value": 103.5}, "expires_after": 2},
+    )
+
+    assert trades == []
+
+
+# fmt: off
+SHORT_DAY = new_york_bars([
+    ("2026-11-27 12:50", 100, 101,  99, 100),  # 0 signal; the market closes at 13:00
+    ("2026-11-27 12:55", 100, 102, 100, 101),  # 1 buy at 100, out at the close: 101
+    ("2026-11-30 09:30", 104, 105, 103, 104),  # 2 Monday
+])
+# fmt: on
+
+
+def test_a_day_ending_before_the_flat_time_closes_the_position_at_its_last_close():
+    [trade] = run_flat(SHORT_DAY, entries={"time": ["12:50", "12:55"]})
+
+    assert (trade.exit_time, trade.exit_price) == (SHORT_DAY.index[1], 101)
+    assert trade.exit_reason == ExitReason.END_OF_DAY
+
+
+def test_out_at_the_close_is_flat_at_the_session_end():
+    [trade] = run_flat(CLOSING_MINUTES, flat_at="16:00", entries={"time": ["15:40", "15:45"]})
+
+    assert (trade.exit_time, trade.exit_price) == (CLOSING_MINUTES.index[3], 103)
+    assert trade.exit_reason == ExitReason.END_OF_DAY
+
+
+def test_an_exit_signal_on_the_flat_bar_counts_first():
+    [trade] = run_flat(
+        CLOSING_MINUTES,
+        entries={"time": ["15:40", "15:45"]},
+        exit={"time": ["15:50", "15:55"]},
+    )
+
+    assert (trade.exit_time, trade.exit_reason) == (CLOSING_MINUTES.index[3], ExitReason.SIGNAL)
+
+
+def test_with_a_flat_time_no_position_is_held_overnight():
+    # Five-minute bars over three New York sessions, entering whenever it can and never
+    # leaving on its own.
+    days = [
+        pd.date_range(f"{day} 09:30", f"{day} 15:55", freq="5min", tz="America/New_York")
+        for day in ("2026-03-05", "2026-03-06", "2026-03-09")
+    ]
+    times = days[0].append(days[1]).append(days[2])
+    bars = random_bars(len(times))
+    bars.index = times.tz_convert("UTC")
+
+    trades = run_flat(bars)
+
+    assert len(trades) == 3
+    for trade in trades:
+        entered, left = (
+            time.tz_convert("America/New_York") for time in (trade.entry_time, trade.exit_time)
+        )
+        assert entered.date() == left.date()
+        assert f"{left:%H:%M}" == "15:55"

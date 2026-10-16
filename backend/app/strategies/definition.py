@@ -104,6 +104,10 @@ class StrategyDefinition(BaseModel):
     trailing_stop_at: Operand | None = _added()
     # Leave at the open this many bars after the entry bar, unless something exits first.
     exit_after_bars: int | None = _added(ge=1, le=100_000)
+    # Be out by this time each trading day (in the session's time zone): no entry fills from
+    # then to the end of the day, and a position still open leaves at the open of the first
+    # bar starting at or after it, or at the close of the day's last bar if the day ends first.
+    flat_at: ClockTime | None = _added()
 
     @model_validator(mode="after")
     def _is_tradable(self) -> Self:
@@ -125,11 +129,18 @@ class StrategyDefinition(BaseModel):
             )
         if self.take_profit_r is not None and not stops:
             raise ValueError("take_profit_r needs a stop-loss to measure the risk from")
-        if self.exit is None and not (stops or targets or trailing or self.exit_after_bars):
+        if self.exit is None and not (
+            stops or targets or trailing or self.exit_after_bars or self.flat_at
+        ):
             raise ValueError(
                 "a strategy needs a way out: an exit rule, a stop-loss, a take-profit, a trailing"
-                " stop or exit_after_bars"
+                " stop, exit_after_bars or flat_at"
             )
+        session = self.session or Session()
+        if self.flat_at is not None and not (
+            minutes(session.start) < minutes(self.flat_at) <= minutes(session.end)
+        ):
+            raise ValueError("flat_at is after the session starts and no later than it ends")
         # Price cannot fall below zero, so a long's stops or a short's target must be < 100%.
         downside = (
             {"stop-loss": self.stop_loss_pct, "trailing stop": self.trailing_stop_pct}

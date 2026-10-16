@@ -80,6 +80,17 @@ def six_groups_deep(rule: dict) -> dict:
         {"session": {"timezone": "Asia/Tokyo", "start": "09:00", "end": "15:00"}},
         {"session": {"start": "00:00", "end": "24:00"}},
         {"session": {}},
+        # Out by a time of day is a way out too.
+        {"exit": None, "stop_loss_pct": None, "take_profit_pct": None, "flat_at": "23:55"},
+        {"flat_at": "24:00"},
+        {
+            "session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"},
+            "flat_at": "15:55",
+        },
+        {
+            "session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"},
+            "flat_at": "16:00",
+        },
     ],
 )
 def test_valid_variations(overrides):
@@ -91,7 +102,8 @@ def test_valid_variations(overrides):
     [
         (
             {"exit": None, "stop_loss_pct": None, "take_profit_pct": None},
-            "needs a way out: an exit rule, a stop-loss, a take-profit, a trailing stop or",
+            "needs a way out: an exit rule, a stop-loss, a take-profit, a trailing stop,"
+            " exit_after_bars or flat_at",
         ),
         ({"stop_loss_pct": 0}, "greater than 0"),
         ({"stop_loss_pct": 100}, "a long stop-loss must be below 100%"),
@@ -129,6 +141,16 @@ def test_valid_variations(overrides):
         ({"session": {"start": "16:00", "end": "09:30"}}, "starts before it ends"),
         ({"session": {"start": "24:00"}}, "starts before it ends"),
         ({"session": {"timezone": "UTC", "open": "09:30"}}, "Extra inputs"),
+        ({"flat_at": "3pm"}, "HH:MM on a 24-hour clock"),
+        ({"flat_at": "00:00"}, "flat_at is after the session starts"),
+        (
+            {"session": {"start": "09:30", "end": "16:00"}, "flat_at": "09:30"},
+            "flat_at is after the session starts and no later than it ends",
+        ),
+        (
+            {"session": {"start": "09:30", "end": "16:00"}, "flat_at": "16:05"},
+            "flat_at is after the session starts and no later than it ends",
+        ),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):

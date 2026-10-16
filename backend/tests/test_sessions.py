@@ -73,6 +73,8 @@ def test_a_bar_reaching_into_the_next_days_session_belongs_to_that_day():
 
     assert found.in_session.tolist() == [False, True, True]
     assert dates(found.day[1:]) == ["2026-03-07", "2026-03-07"]
+    # The bar from 22:00 starts two hours before its trading day.
+    assert found.elapsed.tolist() == [1080, -120, 120]
 
 
 def test_a_session_in_another_time_zone_crosses_utc_midnight():

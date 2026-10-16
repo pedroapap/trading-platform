@@ -6850,6 +6850,18 @@
               }
             ],
             "title": "Exit After Bars"
+          },
+          "flat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d|24:00)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flat At"
           }
         },
         "additionalProperties": false,
@@ -7290,6 +7302,18 @@
               }
             ],
             "title": "Exit After Bars"
+          },
+          "flat_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d|24:00)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flat At"
           }
         },
         "additionalProperties": false,

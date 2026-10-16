@@ -37,6 +37,10 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   take-profit doesn't: the bar doesn't say whether it came after the fill.
 - A time exit leaves at the open a set number of bars after the entry bar, before a stop or
   target on that bar, as a signal exit does; if both fall on one bar, the signal counts.
+- With a flat-by time, no entry fills from it to the end of its trading day, and a position
+  still open leaves at the open of the day's first bar starting at or after it, like a time
+  exit (a signal or time exit on that bar counts first). A day that ends before it (a
+  shortened session) closes the position at the close of its last bar.
 - With finer bars (a `Detail`), the bars where it matters what came first are replayed
   through them, in order: the bar where a limit or stop entry fills after the open (where
   and at what price it filled, and whether a stop-loss or take-profit came after it), and a
@@ -178,10 +182,22 @@ def simulate_orders(
         timed_exit = None
         if orders.exit_after_bars is not None and entry + orders.exit_after_bars < len(bars):
             timed_exit = entry + orders.exit_after_bars
-        # A signal or timed exit fills at its bar's open, before a stop or target is reached
-        # on it; if both fall on one bar, the signal counts.
-        open_exit = min((bar for bar in (signal_exit, timed_exit) if bar is not None), default=None)
-        last = len(bars) if open_exit is None else open_exit
+        # Out by the flat-by time: at the open of the day's first bar at or after it, or else
+        # at the close of the day's last bar. Without one, at the close of the last bar.
+        flat_exit, close_exit = None, len(bars) - 1
+        if orders.flat is not None:
+            if orders.flat.at_open[entry] >= 0:
+                flat_exit = int(orders.flat.at_open[entry])
+            else:
+                close_exit = int(orders.flat.day_last[entry])
+        # A signal, timed or flat-by exit fills at its bar's open, before a stop or target is
+        # reached on it; if several fall on one bar, the signal counts, then the timed exit.
+        open_exit = min(
+            (bar for bar in (signal_exit, timed_exit, flat_exit) if bar is not None), default=None
+        )
+        if open_exit is not None and open_exit > close_exit:
+            open_exit = None
+        last = close_exit + 1 if open_exit is None else open_exit
         fixed = _stop_loss(orders.stop_loss, entry_price, signal, sign)
         target = _take_profit(orders.take_profit, entry_price, fixed, signal, sign)
 
@@ -226,9 +242,16 @@ def simulate_orders(
         if reached is None:
             if open_exit is not None:
                 exit_, unslipped_exit = open_exit, opens[open_exit]
-                reason = ExitReason.SIGNAL if open_exit == signal_exit else ExitReason.TIME_EXIT
+                reason = (
+                    ExitReason.SIGNAL
+                    if open_exit == signal_exit
+                    else ExitReason.TIME_EXIT
+                    if open_exit == timed_exit
+                    else ExitReason.END_OF_DAY
+                )
             else:
-                exit_, unslipped_exit, reason = len(bars) - 1, closes[-1], ExitReason.END_OF_DATA
+                exit_, unslipped_exit = close_exit, closes[close_exit]
+                reason = ExitReason.END_OF_DATA if orders.flat is None else ExitReason.END_OF_DAY
             exit_price = unslipped_exit * (1 - sign * slip)
         elif settled_exit is not None:
             exit_ = reached
