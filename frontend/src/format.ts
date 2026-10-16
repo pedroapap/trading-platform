@@ -46,10 +46,40 @@ const cents = new Intl.NumberFormat(undefined, {
 });
 const significant = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 8 });
 
-/** A computed amount of money, such as a backtest's P&L: to the cent from 1 up, and to 8
- * significant digits below, where amounts in BTC and the like live. */
-export function formatMoney(value: number | string): string {
+// The fiat currencies the app recognizes in symbols, and the dollar stablecoins.
+const FIAT = new Set(["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "TRY", "BRL"]);
+const STABLECOINS = new Set(["USDT", "USDC", "FDUSD", "BUSD", "TUSD"]);
+const fixedFormats = new Map<string, Intl.NumberFormat>();
+
+/** How amounts in `currency` are shown when it has a smallest unit: a fiat currency's own
+ * (cents; none for JPY), a cent for a dollar stablecoin. None for coins and unset currencies. */
+function fixedFormat(currency: string | null): Intl.NumberFormat | undefined {
+  if (currency === null || !(FIAT.has(currency) || STABLECOINS.has(currency))) return undefined;
+  if (!fixedFormats.has(currency)) {
+    const digits = FIAT.has(currency)
+      ? new Intl.NumberFormat("en", { style: "currency", currency }).resolvedOptions()
+          .maximumFractionDigits
+      : 2;
+    fixedFormats.set(
+      currency,
+      new Intl.NumberFormat(undefined, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+        signDisplay: "negative",
+      }),
+    );
+  }
+  return fixedFormats.get(currency);
+}
+
+/** A computed amount of money in `currency`, such as a backtest's P&L. In a fiat currency it
+ * shows to its smallest unit, and in a dollar stablecoin to the cent. In a coin such as BTC,
+ * or without a set currency, it shows to the cent from 1 up and to 8 significant digits below,
+ * where amounts in BTC and the like live. */
+export function formatMoney(value: number | string, currency: string | null): string {
   const number = Number(value);
+  const fixed = fixedFormat(currency);
+  if (fixed) return fixed.format(number);
   return Math.abs(number) >= 1 ? cents.format(number) : significant.format(number);
 }
 

@@ -43,7 +43,7 @@ const EXIT_REASONS: Record<Schemas["ExitReason"], string> = {
 
 /** A computed amount in the backtest's currency. */
 function Amount({ value, currency }: { value: number | string | null; currency: string | null }) {
-  return <Money amount={value == null ? null : formatMoney(value)} currency={currency} />;
+  return <Money amount={value == null ? null : formatMoney(value, currency)} currency={currency} />;
 }
 
 function range(first: string | null, last: string | null): string {
@@ -356,7 +356,7 @@ function Equity({ backtest }: { backtest: Backtest }) {
       points={curves.points}
       compared={curves.compared}
       label="Equity"
-      format={(value) => `${formatMoney(value)}${currency ? ` ${currency}` : ""}`}
+      format={(value) => `${formatMoney(value, currency)}${currency ? ` ${currency}` : ""}`}
       reference={{ value: Number(backtest.initial_capital), title: "Initial capital" }}
     />
   );
@@ -404,9 +404,9 @@ function Trades({ backtest }: { backtest: Backtest }) {
                   <td className="number">{formatDecimal(trade.size)}</td>
                   <td
                     className="number"
-                    title={`Fees ${formatMoney(fees)}, slippage ${formatMoney(trade.slippage)}`}
+                    title={`Fees ${formatMoney(fees, currency)}, slippage ${formatMoney(trade.slippage, currency)}`}
                   >
-                    {formatMoney(fees + Number(trade.slippage))}
+                    {formatMoney(fees + Number(trade.slippage), currency)}
                   </td>
                   <td className="number">
                     <Amount value={trade.pnl} currency={currency} />

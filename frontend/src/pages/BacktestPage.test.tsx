@@ -158,6 +158,22 @@ test("the average trade comes with its 95% range", async () => {
 });
 
 test.each([
+  { currency: "USDT", shown: "-0.42 USDT" },
+  { currency: "BTC", shown: "-0.42290331 BTC" },
+])("an amount in $currency is shown to its unit", async ({ currency, shown }) => {
+  const done = backtest({
+    quote_currency: currency,
+    metrics: { ...DONE.metrics!, expectancy: -0.42290331 },
+  });
+  backtestApi([done]);
+
+  renderPage(`/backtests/${done.id}`);
+
+  await screen.findByRole("heading", { name: "Results" });
+  expect(tile("Expectancy")).toHaveTextContent(new RegExp(`^Expectancy${shown}$`));
+});
+
+test.each([
   { trades: 29, says: "With 29 trades, under 30," },
   { trades: 1, says: "With 1 trade, under 30," },
 ])("$trades trades are too few to judge", async ({ trades, says }) => {

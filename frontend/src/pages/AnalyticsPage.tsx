@@ -58,7 +58,7 @@ function ByCurrency({ totals }: { totals: Schemas["CurrencyPnl"][] }) {
       <Money amount={total.total_pnl} currency={total.currency} />{" "}
       <small>
         ({total.num_trades} {total.num_trades === 1 ? "trade" : "trades"}, average{" "}
-        {formatMoney(total.average_pnl)})
+        {formatMoney(total.average_pnl, total.currency)})
       </small>
     </div>
   ));
@@ -232,7 +232,9 @@ function RealizedPnl({
               value: Number(point.cumulative_pnl),
             }))}
             label="Realized P&L"
-            format={(value) => `${formatMoney(value)}${curve.currency ? ` ${curve.currency}` : ""}`}
+            format={(value) =>
+              `${formatMoney(value, curve.currency)}${curve.currency ? ` ${curve.currency}` : ""}`
+            }
             reference={{ value: 0, title: "Break-even" }}
             sequence
           />
