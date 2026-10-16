@@ -1,11 +1,13 @@
 """What a strategy does: when to enter, when to leave, and in which direction."""
 
+from functools import cache
 from typing import Annotated, Literal, Self
+from zoneinfo import available_timezones
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.enums import Direction
-from app.strategies.rules import Node, Operand, check_limits
+from app.strategies.rules import ClockTime, Node, Operand, check_limits, minutes
 
 
 def _unset(value: object) -> bool:
@@ -16,6 +18,39 @@ def _unset(value: object) -> bool:
 # unset, so definitions written before it are stored as they were.
 def _added(**constraints: object):
     return Field(default=None, exclude_if=_unset, **constraints)
+
+
+@cache
+def _time_zones() -> frozenset[str]:
+    return frozenset(available_timezones())
+
+
+class Session(BaseModel):
+    """When the market trades each day, in its own time zone: an IANA name such as
+    America/New_York, whose daylight saving is followed. A bar belongs to the trading day whose
+    session it overlaps; a bar that overlaps none is outside the session. Without a session,
+    the trading day is the whole UTC day."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    timezone: str = "UTC"
+    start: ClockTime = "00:00"
+    end: ClockTime = "24:00"
+
+    @field_validator("timezone")
+    @classmethod
+    def _known_zone(cls, zone: str) -> str:
+        if zone not in _time_zones():
+            raise ValueError(
+                f"unknown time zone {zone!r}: use an IANA name, such as America/New_York"
+            )
+        return zone
+
+    @model_validator(mode="after")
+    def _within_a_day(self) -> Self:
+        if minutes(self.start) >= minutes(self.end):
+            raise ValueError("a session starts before it ends, on the same day")
+        return self
 
 
 class MarketEntry(BaseModel):
@@ -54,6 +89,8 @@ class StrategyDefinition(BaseModel):
     direction: Direction
     entry: Node
     exit: Node | None = None
+    # When the trading day runs; the UTC day when left out.
+    session: Session | None = _added()
     stop_loss_pct: float | None = Field(default=None, gt=0, le=1000, allow_inf_nan=False)
     take_profit_pct: float | None = Field(default=None, gt=0, le=1000, allow_inf_nan=False)
     stop_loss_at: Operand | None = _added()

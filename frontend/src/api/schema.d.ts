@@ -1739,6 +1739,30 @@ export interface components {
              */
             bars_ago?: number;
         };
+        /**
+         * Session
+         * @description When the market trades each day, in its own time zone: an IANA name such as
+         *     America/New_York, whose daylight saving is followed. A bar belongs to the trading day whose
+         *     session it overlaps; a bar that overlaps none is outside the session. Without a session,
+         *     the trading day is the whole UTC day.
+         */
+        Session: {
+            /**
+             * Timezone
+             * @default UTC
+             */
+            timezone?: string;
+            /**
+             * Start
+             * @default 00:00
+             */
+            start?: string;
+            /**
+             * End
+             * @default 24:00
+             */
+            end?: string;
+        };
         /** Sma */
         Sma: {
             /**
@@ -1790,6 +1814,7 @@ export interface components {
             entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Exit */
             exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
+            session?: components["schemas"]["Session"] | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */
@@ -1823,6 +1848,7 @@ export interface components {
             entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
             /** Exit */
             exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
+            session?: components["schemas"]["Session"] | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
             /** Take Profit Pct */

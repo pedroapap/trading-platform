@@ -6,6 +6,7 @@ Every model is frozen, so identical operands are equal and hashable, which lets 
 backtester compute each distinct indicator once.
 """
 
+import re
 from typing import Annotated, ClassVar, Literal, Self
 
 from pydantic import (
@@ -23,6 +24,26 @@ Period = Annotated[int, Field(ge=1, le=1000)]
 # The value this many bars earlier (1 is the previous bar). Left out of a dumped definition
 # when 0, so definitions written before it existed are stored as they were.
 BarsAgo = Annotated[int, Field(ge=0, le=1000, exclude_if=lambda bars: bars == 0)]
+
+_CLOCK = re.compile(r"^(([01]\d|2[0-3]):[0-5]\d|24:00)$")
+
+
+def _clock(value: str) -> str:
+    if not _CLOCK.match(value):
+        raise ValueError("a time of day is HH:MM on a 24-hour clock, such as 09:30")
+    return value
+
+
+# A time of day, "HH:MM"; "24:00" is the end of the day.
+ClockTime = Annotated[
+    str, AfterValidator(_clock), Field(json_schema_extra={"pattern": _CLOCK.pattern})
+]
+
+
+def minutes(clock: str) -> int:
+    """A time of day in minutes after midnight: "09:30" is 570."""
+    hours, mins = clock.split(":")
+    return int(hours) * 60 + int(mins)
 
 
 class _Rule(BaseModel):

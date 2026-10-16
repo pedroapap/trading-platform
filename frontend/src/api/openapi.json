@@ -6280,6 +6280,31 @@
         ],
         "title": "Rsi"
       },
+      "Session": {
+        "properties": {
+          "timezone": {
+            "type": "string",
+            "title": "Timezone",
+            "default": "UTC"
+          },
+          "start": {
+            "type": "string",
+            "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d|24:00)$",
+            "title": "Start",
+            "default": "00:00"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d|24:00)$",
+            "title": "End",
+            "default": "24:00"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "Session",
+        "description": "When the market trades each day, in its own time zone: an IANA name such as\nAmerica/New_York, whose daylight saving is followed. A bar belongs to the trading day whose\nsession it overlaps; a bar that overlaps none is outside the session. Without a session,\nthe trading day is the whole UTC day."
+      },
       "Sma": {
         "properties": {
           "indicator": {
@@ -6455,6 +6480,16 @@
               }
             ],
             "title": "Exit"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Session"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stop_loss_pct": {
             "anyOf": [
@@ -6879,6 +6914,16 @@
               }
             ],
             "title": "Exit"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Session"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stop_loss_pct": {
             "anyOf": [

@@ -76,6 +76,10 @@ def six_groups_deep(rule: dict) -> dict:
             "take_profit_pct": None,
             "stop_loss_at": {"value": 95},
         },
+        {"session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"}},
+        {"session": {"timezone": "Asia/Tokyo", "start": "09:00", "end": "15:00"}},
+        {"session": {"start": "00:00", "end": "24:00"}},
+        {"session": {}},
     ],
 )
 def test_valid_variations(overrides):
@@ -119,6 +123,12 @@ def test_valid_variations(overrides):
         ({"trailing_stop_pct": 100}, "a long trailing stop must be below 100%"),
         ({"trailing_stop_pct": 0}, "greater than 0"),
         ({"exit_after_bars": 0}, "greater than or equal to 1"),
+        ({"session": {"timezone": "Mars/Olympus"}}, "unknown time zone 'Mars/Olympus'"),
+        ({"session": {"start": "9:30"}}, "HH:MM on a 24-hour clock"),
+        ({"session": {"end": "24:30"}}, "HH:MM on a 24-hour clock"),
+        ({"session": {"start": "16:00", "end": "09:30"}}, "starts before it ends"),
+        ({"session": {"start": "24:00"}}, "starts before it ends"),
+        ({"session": {"timezone": "UTC", "open": "09:30"}}, "Extra inputs"),
     ],
 )
 def test_invalid_definitions_are_rejected(overrides, message):
