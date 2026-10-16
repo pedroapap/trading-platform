@@ -513,3 +513,54 @@ def test_days_without_bars_in_the_session_dont_count():
 
     assert_series(today["high"], [12, 14, NAN, 21, 25])
     assert yesterday.iloc[2:].to_numpy().tolist() == [[10, 14, 9, 13]] * 3
+
+
+def range_of(highs, lows, elapsed, *, minutes, width, day=None, in_session=None):
+    """The opening range of bars starting `elapsed` minutes into their day, for a session that
+    opens at 09:30 (570)."""
+    count = len(highs)
+    return indicators.opening_range(
+        pd.Series(highs, dtype=float),
+        pd.Series(lows, dtype=float),
+        np.zeros(count, dtype=int) if day is None else np.array(day),
+        np.array(elapsed),
+        np.ones(count, dtype=bool) if in_session is None else np.array(in_session),
+        start=570,
+        minutes=minutes,
+        width=width,
+    )
+
+
+def test_the_opening_range_is_known_once_its_last_bar_closes():
+    # Five-minute bars from 09:30: the first 15 minutes are the 09:30, 09:35 and 09:40 bars.
+    found = range_of(
+        [101, 103, 102, 108, 104],
+        [99, 100, 98, 101, 97],
+        [570, 575, 580, 585, 590],
+        minutes=15,
+        width=5,
+    )
+
+    assert_series(found["high"], [NAN, NAN, 103, 103, 103])
+    assert_series(found["low"], [NAN, NAN, 98, 98, 98])
+
+
+def test_each_day_has_its_own_opening_range_and_none_outside_the_session():
+    found = range_of(
+        [101, 103, 107, 111, 112],
+        [99, 100, 105, 109, 110],
+        [570, 575, 570, 575, 960],
+        minutes=10,
+        width=5,
+        day=[1, 1, 2, 2, 2],
+        in_session=[True, True, True, True, False],
+    )
+
+    assert_series(found["high"], [NAN, 103, NAN, 111, NAN])
+
+
+def test_bars_longer_than_the_range_use_the_first_bar():
+    # Half-hour bars with a 15-minute range: the 09:30 bar covers it, known at its close.
+    found = range_of([101, 103], [99, 100], [570, 600], minutes=15, width=30)
+
+    assert_series(found["high"], [101, 101])

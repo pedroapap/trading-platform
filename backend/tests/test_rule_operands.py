@@ -121,6 +121,16 @@ def nested_arithmetic(levels: int) -> dict:
         ),
         ({"indicator": "day", "output": "high", "days_ago": 11}, "less than or equal to 10"),
         ({"indicator": "vwap", "period": 20}, "Extra inputs are not permitted"),
+        ({"indicator": "opening_range", "output": "high"}, "Field required"),
+        (
+            {"indicator": "opening_range", "minutes": 0, "output": "high"},
+            "greater than or equal to 1",
+        ),
+        (
+            {"indicator": "opening_range", "minutes": 241, "output": "low"},
+            "less than or equal to 240",
+        ),
+        ({"indicator": "opening_range", "minutes": 30, "output": "close"}, "'high' or 'low'"),
         ({"value": float("nan")}, "finite number"),
         ({"price": "low", "bars_ago": -1}, "greater than or equal to 0"),
         ({"indicator": "rsi", "bars_ago": 1001}, "less than or equal to 1000"),

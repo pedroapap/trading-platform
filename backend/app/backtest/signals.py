@@ -30,6 +30,7 @@ from app.strategies.rules import (
     Macd,
     Node,
     Not,
+    OpeningRange,
     Operand,
     Price,
     Rsi,
@@ -117,6 +118,18 @@ class OperandResolver:
                 calendar.day,
                 calendar.in_session,
                 operand.days_ago,
+            )
+        if isinstance(operand, OpeningRange):
+            calendar = self.calendar
+            return indicators.opening_range(
+                bars["high"],
+                bars["low"],
+                calendar.day,
+                calendar.elapsed,
+                calendar.in_session,
+                minutes((self._session or Session()).start),
+                operand.minutes,
+                calendar.width,
             )
         return _compute(operand, bars)
 

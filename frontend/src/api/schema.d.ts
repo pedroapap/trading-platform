@@ -597,12 +597,12 @@ export interface components {
         /** Add */
         "Add-Input": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Add */
         "Add-Output": {
             /** Add */
-            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            add: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * AllOf
@@ -1005,14 +1005,14 @@ export interface components {
          */
         "Condition-Input": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
         };
         /**
          * Condition
@@ -1020,14 +1020,14 @@ export interface components {
          */
         "Condition-Output": {
             /** Left */
-            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            left: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
             /**
              * Op
              * @enum {string}
              */
             op: "<" | "<=" | ">" | ">=" | "crosses_above" | "crosses_below";
             /** Right */
-            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            right: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
         };
         /** CoverageRead */
         CoverageRead: {
@@ -1072,7 +1072,7 @@ export interface components {
          */
         "Divide-Input": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Divide
@@ -1080,7 +1080,7 @@ export interface components {
          */
         "Divide-Output": {
             /** Divide */
-            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            divide: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /** Ema */
         Ema: {
@@ -1553,12 +1553,12 @@ export interface components {
         /** Multiply */
         "Multiply-Input": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /** Multiply */
         "Multiply-Output": {
             /** Multiply */
-            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            multiply: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * Not
@@ -1577,6 +1577,31 @@ export interface components {
         "Not-Output": {
             /** Not */
             not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
+        };
+        /**
+         * OpeningRange
+         * @description The high or low of the trading day's opening range: its bars that start in the
+         *     session's first `minutes`. Unknown until the last of them closes, and outside the session;
+         *     then the same for the rest of the day.
+         */
+        OpeningRange: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            indicator: "opening_range";
+            /** Minutes */
+            minutes: number;
+            /**
+             * Output
+             * @enum {string}
+             */
+            output: "high" | "low";
+            /**
+             * Bars Ago
+             * @default 0
+             */
+            bars_ago?: number;
         };
         /** PerformanceGroup */
         PerformanceGroup: {
@@ -1633,7 +1658,7 @@ export interface components {
              */
             type: "limit" | "stop";
             /** Price */
-            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
+            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"];
             /**
              * Expires After
              * @default 1
@@ -1654,7 +1679,7 @@ export interface components {
              */
             type: "limit" | "stop";
             /** Price */
-            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
+            price: components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"];
             /**
              * Expires After
              * @default 1
@@ -1820,9 +1845,9 @@ export interface components {
             /** Take Profit Pct */
             take_profit_pct?: number | null;
             /** Stop Loss At */
-            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
+            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
             /** Take Profit At */
-            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
+            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
             /** Take Profit R */
             take_profit_r?: number | null;
             /** Entry Order */
@@ -1830,7 +1855,7 @@ export interface components {
             /** Trailing Stop Pct */
             trailing_stop_pct?: number | null;
             /** Trailing Stop At */
-            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
+            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"]) | null;
             /** Exit After Bars */
             exit_after_bars?: number | null;
             /** Flat At */
@@ -1856,9 +1881,9 @@ export interface components {
             /** Take Profit Pct */
             take_profit_pct?: number | null;
             /** Stop Loss At */
-            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
+            stop_loss_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
             /** Take Profit At */
-            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
+            take_profit_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
             /** Take Profit R */
             take_profit_r?: number | null;
             /** Entry Order */
@@ -1866,7 +1891,7 @@ export interface components {
             /** Trailing Stop Pct */
             trailing_stop_pct?: number | null;
             /** Trailing Stop At */
-            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
+            trailing_stop_at?: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"]) | null;
             /** Exit After Bars */
             exit_after_bars?: number | null;
             /** Flat At */
@@ -1927,7 +1952,7 @@ export interface components {
          */
         "Subtract-Input": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Input"] | components["schemas"]["Subtract-Input"] | components["schemas"]["Multiply-Input"] | components["schemas"]["Divide-Input"])[];
         };
         /**
          * Subtract
@@ -1935,7 +1960,7 @@ export interface components {
          */
         "Subtract-Output": {
             /** Subtract */
-            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
+            subtract: (components["schemas"]["Value"] | components["schemas"]["Price"] | (components["schemas"]["Sma"] | components["schemas"]["Ema"] | components["schemas"]["Rsi"] | components["schemas"]["Macd"] | components["schemas"]["Bbands"] | components["schemas"]["Atr"] | components["schemas"]["Lowest"] | components["schemas"]["Highest"] | components["schemas"]["SwingLow"] | components["schemas"]["SwingHigh"] | components["schemas"]["Vwap"] | components["schemas"]["TradingDay"] | components["schemas"]["OpeningRange"]) | components["schemas"]["Add-Output"] | components["schemas"]["Subtract-Output"] | components["schemas"]["Multiply-Output"] | components["schemas"]["Divide-Output"])[];
         };
         /**
          * SwingHigh

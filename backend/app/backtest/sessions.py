@@ -18,12 +18,14 @@ class Calendar:
     """Each bar's place in the trading days: the day it belongs to (a local date, as days
     since 1970-01-01), when it starts (minutes after local midnight), and whether it overlaps
     the session at all. `elapsed` counts its start from the midnight that begins its trading
-    day instead, so it is negative for a bar that starts the evening before."""
+    day instead, so it is negative for a bar that starts the evening before. Bars last `width`
+    minutes."""
 
     day: np.ndarray
     minute: np.ndarray
     in_session: np.ndarray
     elapsed: np.ndarray
+    width: int
 
 
 def calendar(times: pd.DatetimeIndex, session: Session | None) -> Calendar:
@@ -36,7 +38,8 @@ def calendar(times: pd.DatetimeIndex, session: Session | None) -> Calendar:
     wall = times.tz_convert(session.timezone).tz_localize(None).as_unit("ns").asi8
     elapsed = wall // _NS_PER_MINUTE
     date, minute = elapsed // _MINUTES_PER_DAY, elapsed % _MINUTES_PER_DAY
-    end = minute + _width(times)
+    width = _width(times)
+    end = minute + width
     opens, closes = minutes(session.start), minutes(session.end)
     today = (minute < closes) & (end > opens)
     tomorrow = ~today & (end > _MINUTES_PER_DAY + opens)
@@ -45,6 +48,7 @@ def calendar(times: pd.DatetimeIndex, session: Session | None) -> Calendar:
         minute=minute,
         in_session=today | tomorrow,
         elapsed=minute - _MINUTES_PER_DAY * tomorrow,
+        width=width,
     )
 
 

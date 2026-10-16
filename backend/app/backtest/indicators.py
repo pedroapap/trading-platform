@@ -138,6 +138,29 @@ def trading_day(
     return pd.DataFrame(values, index=prices.index, columns=whole.columns)
 
 
+def opening_range(
+    high: pd.Series,
+    low: pd.Series,
+    day: np.ndarray,
+    elapsed: np.ndarray,
+    in_session: np.ndarray,
+    start: int,
+    minutes: int,
+    width: int,
+) -> pd.DataFrame:
+    """The `high` and `low` of each trading day's bars in the session that start in its first
+    `minutes` after `start` (minutes into the day; bars start at `elapsed` and last `width`).
+    Known from the bar whose end reaches the range's end, when all of them have closed; unknown
+    before it and outside the session."""
+    in_range = in_session & (elapsed >= start) & (elapsed < start + minutes)
+    by_day = pd.DataFrame({"high": high.where(in_range), "low": low.where(in_range)}).groupby(day)
+    whole = pd.DataFrame(
+        {"high": by_day["high"].transform("max"), "low": by_day["low"].transform("min")}
+    )
+    whole.loc[~(in_session & (elapsed + width >= start + minutes))] = np.nan
+    return whole
+
+
 def swing_low(values: pd.Series, strength: int, occurrence: int = 0) -> pd.DataFrame:
     """The swing lows known on each bar. A swing low is a bar lower than each of the `strength`
     bars before it and no higher than each of the `strength` bars after it, so the first bar of

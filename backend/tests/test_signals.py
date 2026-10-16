@@ -559,3 +559,17 @@ def test_yesterdays_high_is_known_all_day_and_todays_high_so_far_grows():
     assert np.isnan(yesterday[:5]).all()
     assert yesterday[5:].tolist() == [104] * 5
     assert today.tolist() == [101, 103, 103, 104, 104, 110, 110, 110, 110, 110]
+
+
+def test_the_opening_range_of_a_new_york_session():
+    # Half-hour bars: the first hour's range is the 09:30 and 10:00 bars, known from 10:00.
+    bars = HALF_HOURS.copy()
+    bars["high"] = [101, 103, 102, 104, 101, 110, 108, 109, 107, 106]
+
+    high = OperandResolver(bars, NEW_YORK).resolve(
+        parse_operand({"indicator": "opening_range", "minutes": 60, "output": "high"})
+    )
+
+    assert np.isnan(high[[0, 5]]).all()
+    assert high[[1, 2, 3, 4]].tolist() == [103] * 4
+    assert high[[6, 7, 8, 9]].tolist() == [110] * 4

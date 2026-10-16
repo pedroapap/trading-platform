@@ -185,6 +185,17 @@ class TradingDay(_Rule):
     bars_ago: BarsAgo = 0
 
 
+class OpeningRange(_Rule):
+    """The high or low of the trading day's opening range: its bars that start in the
+    session's first `minutes`. Unknown until the last of them closes, and outside the session;
+    then the same for the rest of the day."""
+
+    indicator: Literal["opening_range"]
+    minutes: Annotated[int, Field(ge=1, le=240)]
+    output: Literal["high", "low"]
+    bars_ago: BarsAgo = 0
+
+
 Indicator = Annotated[
     Sma
     | Ema
@@ -197,7 +208,8 @@ Indicator = Annotated[
     | SwingLow
     | SwingHigh
     | Vwap
-    | TradingDay,
+    | TradingDay
+    | OpeningRange,
     Field(discriminator="indicator"),
 ]
 
