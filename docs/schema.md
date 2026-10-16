@@ -1,592 +1,452 @@
-# Trading Platform Database Schema
+# The data model
 
-## Entity Relationship Diagram
+Everything the app knows is kept in one PostgreSQL 16 database with the
+[TimescaleDB](https://docs.timescale.com/) extension. This page describes its tables as the
+migrations in [`backend/alembic/versions`](../backend/alembic/versions) build them. A test
+compares every table's columns here with a freshly migrated database, so the page stays true.
+
+To look for yourself, `make db-shell` opens `psql` on the database. There, `\d+ trades`
+describes a table, with its columns in the same order as below.
+
+## How the tables fit together
 
 ```mermaid
 erDiagram
-    USERS ||--o{ TRADES : creates
-    USERS ||--o{ STRATEGIES : creates
-    USERS ||--o{ JOURNAL_ENTRIES : creates
-    USERS ||--o{ BACKTESTS : creates
-    USERS ||--o{ TRADE_AUDIT_LOG : "changes"
-    USERS ||--o{ JOURNAL_ENTRY_VERSIONS : "edits"
-    
-    TRADES ||--o{ TRADE_AUDIT_LOG : "has"
-    TRADES ||--o{ JOURNAL_ENTRIES : "referenced_by"
-    TRADES }o--|| STRATEGIES : "follows"
-    
-    STRATEGIES ||--o{ STRATEGY_VERSIONS : "has"
-    STRATEGIES ||--o{ BACKTESTS : "used_in"
-    
-    JOURNAL_ENTRIES ||--o{ JOURNAL_ENTRY_VERSIONS : "has"
-    
-    BACKTESTS ||--o{ BACKTEST_TRADES : "contains"
+    users ||--o{ trades : logs
+    users ||--o{ strategies : writes
+    users ||--o{ backtests : runs
+    users ||--o{ journal_entries : writes
+    users ||--o{ trade_audit_log : "made the change"
+    instruments ||--o{ trades : "quotes"
+    instruments ||--o{ backtests : "quotes"
+    instruments ||..o{ market_data : "same symbol, no key"
+    strategies ||--|{ strategy_versions : has
+    strategy_versions |o--o{ trades : "followed by"
+    strategy_versions ||--o{ backtests : "tested by"
+    trades ||--|{ trade_audit_log : "history"
+    trades |o--o{ journal_entries : "written about in"
+    journal_entries ||--o{ journal_entry_versions : "published as"
+    backtests ||--o{ backtest_trades : "simulated"
 
-    USERS {
+    users {
         uuid id PK
-        string email UK
-        string password_hash
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
+        varchar email UK
     }
-
-    TRADES {
+    instruments {
+        varchar symbol PK
+        varchar quote_currency
+    }
+    market_data {
+        varchar symbol PK
+        varchar timeframe PK
+        timestamptz ts PK
+    }
+    trades {
         uuid id PK
         uuid user_id FK
+        varchar symbol FK
         uuid strategy_id FK
-        string symbol
-        string direction
-        string status
-        numeric entry_price
-        timestamp entry_time
-        numeric entry_size
-        numeric entry_fee
-        numeric exit_price
-        timestamp exit_time
-        numeric exit_size
-        numeric exit_fee
-        numeric stop_loss
-        numeric take_profit
-        numeric leverage
-        numeric margin_used
-        numeric liquidation_price
-        numeric pnl
-        numeric pnl_pct
-        timestamp created_at
-        timestamp updated_at
-        uuid updated_by FK
+        int strategy_version FK
     }
-
-    TRADE_AUDIT_LOG {
-        uuid id PK
+    trade_audit_log {
+        bigint id PK
         uuid trade_id FK
-        string event_type
-        jsonb old_values
-        jsonb new_values
         uuid changed_by FK
-        string change_reason
-        timestamp created_at
     }
-
-    STRATEGIES {
+    strategies {
         uuid id PK
         uuid user_id FK
-        string name
-        text description
-        jsonb entry_rules
-        jsonb exit_rules
-        jsonb parameters
-        int version
-        boolean is_active
-        timestamp created_at
-        timestamp updated_at
+        varchar name
     }
-
-    STRATEGY_VERSIONS {
+    strategy_versions {
         uuid id PK
         uuid strategy_id FK
-        int version_number
-        jsonb entry_rules
-        jsonb exit_rules
-        jsonb parameters
-        string[] changed_fields
-        timestamp created_at
+        int version
     }
-
-    JOURNAL_ENTRIES {
+    backtests {
+        uuid id PK
+        uuid user_id FK
+        uuid strategy_id FK
+        int strategy_version FK
+        varchar symbol FK
+    }
+    backtest_trades {
+        uuid backtest_id PK, FK
+        int number PK
+    }
+    journal_entries {
         uuid id PK
         uuid user_id FK
         uuid trade_id FK
-        string status
-        string entry_type
-        text thesis
-        text market_context
-        string emotion_state
-        text risk_assessment
-        numeric actual_pnl
-        text lessons
-        int current_version
-        timestamp published_at
-        timestamp created_at
-        timestamp updated_at
     }
-
-    JOURNAL_ENTRY_VERSIONS {
+    journal_entry_versions {
         uuid id PK
-        uuid journal_entry_id FK
-        int version_number
-        text thesis
-        text market_context
-        string emotion_state
-        text risk_assessment
-        text lessons
-        uuid edited_by FK
-        string edit_reason
-        timestamp created_at
-    }
-
-    MARKET_DATA {
-        uuid id PK
-        string symbol
-        timestamp timestamp
-        numeric open
-        numeric high
-        numeric low
-        numeric close
-        bigint volume
-        string source
-        uuid import_batch_id
-        timestamp created_at
-    }
-
-    BACKTESTS {
-        uuid id PK
-        uuid user_id FK
-        uuid strategy_id FK
-        int strategy_version
-        string symbol
-        date date_start
-        date date_end
-        numeric initial_capital
-        numeric position_size_pct
-        numeric slippage_pct
-        numeric commission_pct
-        numeric max_leverage
-        string status
-        numeric total_pnl
-        numeric total_return_pct
-        numeric sharpe_ratio
-        numeric max_drawdown_pct
-        numeric win_rate
-        int num_trades
-        text error_message
-        timestamp started_at
-        timestamp completed_at
-        timestamp created_at
-    }
-
-    BACKTEST_TRADES {
-        uuid id PK
-        uuid backtest_id FK
-        int trade_num
-        timestamp entry_time
-        timestamp exit_time
-        numeric entry_price
-        numeric exit_price
-        numeric size
-        numeric pnl
-        numeric pnl_pct
-        numeric slippage
-        numeric fees
-        timestamp created_at
+        uuid entry_id FK
+        int version
     }
 ```
 
----
+In words:
 
-## Core Schema Relationships
+- **Your records.** An account owns its trades, strategies, backtests and journal entries.
+- **Shared tables.** Instruments and market data belong to no one: every account sees the
+  same prices and currencies.
+- **History.** A trade keeps every change in its audit log. A strategy's rules live in
+  numbered versions, and a published journal entry keeps each edit as a version.
+- **Links.** A trade can name the strategy version it followed, and a journal entry the trade
+  it is about. A backtest always names the strategy version it ran.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ DATA FLOW & OWNERSHIP                                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                              │
-│ USERS (root)                                                │
-│ ├─ TRADES (1:N)                                            │
-│ │  ├─ TRADE_AUDIT_LOG (immutable, append-only)             │
-│ │  ├─ JOURNAL_ENTRIES (1:N, trades linked)                 │
-│ │  │  └─ JOURNAL_ENTRY_VERSIONS (versioned history)        │
-│ │  └─ STRATEGIES (referenced, optional)                     │
-│ │     ├─ STRATEGY_VERSIONS (1:N, full snapshots)           │
-│ │     └─ BACKTESTS (1:N, uses strategy_version)            │
-│ │        └─ BACKTEST_TRADES (results per trade)            │
-│                                                              │
-│ MARKET_DATA (global, shared across users)                  │
-│ └─ TimescaleDB hypertable (1-sec OHLCV candles)            │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-```
+## Conventions
 
----
+- **Names.** Keys and rules are named by pattern: `pk_<table>`,
+  `fk_<table>_<column>_<other table>`, `uq_<table>_<column>`, `ck_<table>_<rule>` and
+  `ix_<table>_<columns>`. When the database refuses a change, its error names the rule.
+- **IDs** are UUIDs the database makes with `gen_random_uuid()`. The exceptions are
+  instruments and bars, keyed by what they are; simulated trades, numbered within their
+  backtest; and the audit log, numbered in order.
+- **Times** are `timestamptz`: stored in UTC, and shown in your time zone by the app.
+  - Most `created_at` columns default to `now()`, the time the transaction started.
+  - Tables where order matters use `clock_timestamp()`, the time of the insert itself, so
+    rows written in one transaction keep their order.
+- **Money.** Prices, sizes, fees and P&L are `numeric(28,12)`: exact decimals with 12
+  places, enough for a coin priced at 0.000012345678. Volume is `numeric(28,8)`.
+- **Choices,** such as a trade's direction, are `varchar` with a CHECK rule listing the
+  allowed values. A migration adds a value by replacing the rule.
+- **Types** are written short below: `varchar` is `character varying`, and `timestamptz` is
+  `timestamp with time zone`. Defaults leave out their casts: `'open'` is
+  `'open'::character varying`.
 
-## Complete SQL DDL
+## What can't be changed or deleted
 
-### Users Table
+- **Append-only tables.** `trade_audit_log`, `strategy_versions` and
+  `journal_entry_versions` refuse `UPDATE`, `DELETE` and `TRUNCATE`. Triggers run a function
+  that raises a `restrict_violation` error: `trade_audit_log_append_only()` for the audit
+  log, and `append_only()` for the two version tables.
+
+  ```text
+  ERROR:  strategy_versions is append-only: UPDATE is not allowed
+  ```
+
+- **History holds on.** The keys that point at history use `ON DELETE RESTRICT`. So a trade
+  with an audit log, a strategy with versions, a version a trade or backtest used, a trade a
+  journal entry is about, and a journal entry with versions can't be deleted.
+- **Accounts.** Deleting a user cascades to their trades, strategies, backtests and journal
+  entries, but stops at the first one with a history. So an account that has been used can't
+  be deleted.
+- **Backtests can go.** Deleting a backtest deletes its simulated trades, and nothing else
+  depends on it. The app has no button for it; in `make db-shell`,
+  `DELETE FROM backtests WHERE …` removes old runs.
+
+## The tables
+
+### `users`
+
+One row per account. The app is for one person: `make user` creates the account, and
+`POST /api/auth/register` works only while this table is empty.
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `email` | `varchar(255)` | not null | | The login. Unique (`uq_users_email`) |
+| `password_hash` | `varchar(255)` | not null | | The password's Argon2 hash. The password itself isn't kept |
+| `is_active` | `boolean` | not null | `true` | False stops the account from logging in, and its tokens from working |
+| `created_at` | `timestamptz` | not null | `now()` | |
+| `updated_at` | `timestamptz` | not null | `now()` | Set by the app on each change |
+
+### `instruments`
+
+One row per symbol, with the currency its prices, fees and P&L are in. A symbol is
+registered with a guessed currency the first time a trade, an import or a backtest uses it,
+and that never changes a currency already there. See
+[Instruments and currencies](guide.md#instruments-and-currencies).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `symbol` | `varchar(20)` | not null | | As written on trades, bars and backtests: `BTCUSDT`, `BTC/USDT` |
+| `quote_currency` | `varchar(10)` | | | 2 to 10 capital letters or digits (`ck_instruments_quote_currency_format`). Empty until set when the name doesn't tell, as with `AAPL` |
+| `created_at` | `timestamptz` | not null | `now()` | |
+| `updated_at` | `timestamptz` | not null | `now()` | |
+
+Trades and backtests point here by `symbol` (`ON DELETE RESTRICT`).
+
+### `market_data`
+
+One price bar: open, high, low, close and volume over one timeframe. Bars of every size are
+stored side by side; the app builds bigger ones from them when asked
+([Stored bars, and bigger bars on demand](guide.md#stored-bars-and-bigger-bars-on-demand)).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `symbol` | `varchar(20)` | not null | | |
+| `timeframe` | `varchar(3)` | not null | | `1m`, `5m`, `15m`, `30m`, `1h`, `4h` or `1d` (`ck_market_data_timeframe`) |
+| `ts` | `timestamptz` | not null | | When the bar starts |
+| `open` | `numeric(28,12)` | not null | | |
+| `high` | `numeric(28,12)` | not null | | |
+| `low` | `numeric(28,12)` | not null | | |
+| `close` | `numeric(28,12)` | not null | | |
+| `volume` | `numeric(28,8)` | not null | | |
+| `source` | `varchar(50)` | not null | | The file format it came from: `generic_ohlcv` or `binance_klines` |
+| `imported_at` | `timestamptz` | not null | `now()` | |
+
+- **Key:** `(symbol, timeframe, ts)`, so a bar is stored once. Importing it again counts it
+  as a duplicate and keeps the first.
+- **Rules:**
+  - Prices are positive (`ck_market_data_prices_positive`), and volume isn't negative
+    (`ck_market_data_volume_non_negative`).
+  - The low is at or under the open and close, and the high at or over them
+    (`ck_market_data_ohlc_consistent`).
+  - The import also checks that each bar starts on its timeframe's boundary.
+- **No key to `instruments`:** an import registers its symbol there itself.
+- **A hypertable,** below: [Market data in TimescaleDB](#market-data-in-timescaledb).
+
+### `trades`
+
+A trade you logged: one entry, and once closed, one exit. See [Trades](guide.md#trades).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `user_id` | `uuid` | not null | | Whose trade it is (`ON DELETE CASCADE`) |
+| `strategy_id` | `uuid` | | | The strategy it followed, if any |
+| `symbol` | `varchar(20)` | not null | | A registered instrument |
+| `direction` | `varchar(5)` | not null | | `long` or `short` |
+| `status` | `varchar(9)` | not null | `'open'` | `open`, `closed` or `cancelled` |
+| `entry_price` | `numeric(28,12)` | not null | | Positive |
+| `entry_time` | `timestamptz` | not null | | |
+| `entry_size` | `numeric(28,12)` | not null | | Positive: units of the symbol bought or sold short |
+| `entry_fee` | `numeric(28,12)` | not null | `0` | Not negative, in the quote currency |
+| `exit_price` | `numeric(28,12)` | | | Positive. Set when closed |
+| `exit_time` | `timestamptz` | | | Not before the entry. Set when closed |
+| `exit_size` | `numeric(28,12)` | | | Above 0 and at most the entry size. Empty means the whole position |
+| `exit_fee` | `numeric(28,12)` | not null | `0` | Not negative |
+| `stop_loss` | `numeric(28,12)` | | | The stop you planned, for the record. Positive |
+| `take_profit` | `numeric(28,12)` | | | The target you planned, for the record. Positive |
+| `leverage` | `numeric(10,2)` | not null | `1` | At least 1 |
+| `pnl` | `numeric(28,12)` | | | Profit or loss on the exited size, net of both fees. Set when closed |
+| `pnl_pct` | `numeric(12,4)` | | | `pnl` as a percentage of the margin put in: entry price × exited size ÷ leverage |
+| `created_at` | `timestamptz` | not null | `now()` | |
+| `updated_at` | `timestamptz` | not null | `now()` | |
+| `strategy_version` | `integer` | | | The version of the strategy it followed |
+
+- **Rules:**
+  - `ck_trades_exit_fields_only_when_closed`: an open or cancelled trade has no exit price,
+    time or size, and no P&L.
+  - `ck_trades_closed_trade_has_exit`: a closed trade has an exit price and time, and its
+    P&L.
+  - `ck_trades_strategy_version_with_strategy`: the strategy and its version are set
+    together, or not at all.
+  - One rule for each limit in the table above, such as `ck_trades_exit_size_in_range` and
+    `ck_trades_exit_not_before_entry`, plus `ck_trades_direction` and `ck_trades_status`.
+- **Keys:** `(strategy_id, strategy_version)` must be a version in `strategy_versions`, and
+  `strategy_id` a strategy. Both use `ON DELETE RESTRICT`, as does `symbol`'s key to
+  `instruments`.
+- **Index:** `ix_trades_user_id_entry_time` serves the trades list, latest entry first.
+
+### `trade_audit_log`
+
+Every change to a trade, in order: logging it, editing it while open, closing, cancelling
+and correcting. Append-only. See [A trade's history](guide.md#a-trades-history).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `bigint` | not null | generated always as identity | A number that grows with each event, so events keep their order |
+| `trade_id` | `uuid` | not null | | Indexed (`ix_trade_audit_log_trade_id`) |
+| `event_type` | `varchar(10)` | not null | | `entry`, `update`, `exit`, `cancel` or `correction` |
+| `old_values` | `jsonb` | | | The changed fields before the change. Empty for `entry` |
+| `new_values` | `jsonb` | | | The changed fields after it. For `entry`, the trade as logged |
+| `changed_by` | `uuid` | not null | | The user who made the change |
+| `change_reason` | `varchar(500)` | | | The reason given: required for a correction, optional for a cancel |
+| `created_at` | `timestamptz` | not null | `clock_timestamp()` | |
+
+### `strategies`
+
+A named strategy. Its rules aren't here: they are in `strategy_versions`, and
+`current_version` says which one is in force. See [Strategies](guide.md#strategies).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `user_id` | `uuid` | not null | | Whose strategy it is (`ON DELETE CASCADE`) |
+| `name` | `varchar(100)` | not null | | Unique among the user's strategies (`uq_strategies_user_id`) |
+| `description` | `text` | | | |
+| `current_version` | `integer` | not null | `1` | |
+| `created_at` | `timestamptz` | not null | `now()` | |
+| `updated_at` | `timestamptz` | not null | `now()` | Changed by a new version, or a new name or description |
+
+### `strategy_versions`
+
+One saved set of rules. Append-only, so a backtest that names a version can always be run
+again on the same rules.
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `strategy_id` | `uuid` | not null | | |
+| `version` | `integer` | not null | | 1, 2, 3… Unique within the strategy (`uq_strategy_versions_strategy_id`) |
+| `definition` | `jsonb` | not null | | The rules, as described in [the rule language](rules.md), checked before saving |
+| `changed_fields` | `varchar(50)[]` | | | The rules' top-level parts that differ from the version before, such as `{take_profit_r}`. Empty for version 1 |
+| `created_at` | `timestamptz` | not null | `clock_timestamp()` | |
+
+### `backtests`
+
+One run of a strategy version over one symbol's bars. Its settings are fixed when it is
+created; the run fills in the rest. See [Backtests](guide.md#backtests).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `user_id` | `uuid` | not null | | Whose run it is (`ON DELETE CASCADE`) |
+| `strategy_id` | `uuid` | not null | | With `strategy_version`, the exact rules it ran |
+| `strategy_version` | `integer` | not null | | |
+| `symbol` | `varchar(20)` | not null | | A registered instrument |
+| `timeframe` | `varchar(3)` | not null | | The bars it ran on, `1m` to `1d` |
+| `start_ts` | `timestamptz` | | | The first bar asked for. Empty means from the first stored bar |
+| `end_ts` | `timestamptz` | | | Bars starting before this. Empty means to the last stored bar |
+| `initial_capital` | `numeric(28,12)` | not null | | Positive, in the quote currency |
+| `position_size_pct` | `numeric(8,4)` | not null | | Above 0 and at most 1,000: over 100 borrows the rest |
+| `fee_pct` | `numeric(7,4)` | not null | | 0 to 10, charged on each fill |
+| `slippage_pct` | `numeric(7,4)` | not null | | 0 to 10, against you on market and stop fills |
+| `periods_per_year` | `integer` | not null | | 1 to 366: 365 for crypto, 252 for stock exchanges |
+| `status` | `varchar(9)` | not null | `'pending'` | `pending`, `running`, `completed` or `failed` |
+| `error_message` | `text` | | | Why it failed. Required when it did |
+| `bars_count` | `integer` | | | How many bars it read |
+| `first_bar_ts` | `timestamptz` | | | The first bar it read |
+| `last_bar_ts` | `timestamptz` | | | The last bar it read |
+| `data_hash` | `varchar(64)` | | | The data fingerprint: a SHA-256 of every bar it read, finer bars included |
+| `metrics` | `jsonb` | | | The results, as `GET /api/backtests/{id}` returns them. Required when completed |
+| `equity_curve` | `jsonb` | | | Points `{ts, equity, benchmark}` for the chart, thinned out but keeping each stretch's low and high. Required when completed |
+| `created_at` | `timestamptz` | not null | `clock_timestamp()` | |
+| `started_at` | `timestamptz` | | | |
+| `completed_at` | `timestamptz` | | | When it completed or failed |
+| `detail_timeframe` | `varchar(3)` | | | The finer bars that settled fills inside a bar. Empty means none |
+| `out_of_sample_from` | `timestamptz` | | | Where the out-of-sample part starts. Inside the asked-for range (`ck_backtests_out_of_sample_inside_range`) |
+| `split_metrics` | `jsonb` | | | With a split: `{"in_sample": …, "out_of_sample": …}`, each side's results |
+
+- **Rules:** one for each limit above, such as `ck_backtests_position_size_in_range`. Also
+  `ck_backtests_range_not_empty`: the start comes before the end.
+- **Keys:** `(strategy_id, strategy_version)` must be a version in `strategy_versions`, and
+  `symbol` an instrument. Both use `ON DELETE RESTRICT`.
+- **Index:** `ix_backtests_user_id_created_at` serves the backtests list, newest first.
+- **Restarts:** runs work in the API's process. When it starts, runs left `pending` or
+  `running` by a restart are marked `failed`.
+
+### `backtest_trades`
+
+One simulated round trip, numbered in the order the backtest made them. Its money is in the
+backtest's quote currency.
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `backtest_id` | `uuid` | not null | | `ON DELETE CASCADE`: the trades go with their backtest |
+| `number` | `integer` | not null | | 1, 2, 3… The key is `(backtest_id, number)` |
+| `direction` | `varchar(5)` | not null | | `long` or `short` |
+| `entry_time` | `timestamptz` | not null | | The start of the bar it filled in |
+| `entry_price` | `numeric(28,12)` | not null | | The fill, after slippage |
+| `exit_time` | `timestamptz` | not null | | Not before the entry |
+| `exit_price` | `numeric(28,12)` | not null | | The fill, after slippage |
+| `size` | `numeric(28,12)` | not null | | Units of the symbol |
+| `entry_fee` | `numeric(28,12)` | not null | | |
+| `exit_fee` | `numeric(28,12)` | not null | | |
+| `slippage` | `numeric(28,12)` | not null | | What slippage cost on both fills, in money |
+| `pnl` | `numeric(28,12)` | not null | | Net of both fees |
+| `pnl_pct` | `numeric(12,4)` | not null | | `pnl` as a percentage of the entry's value (price × size) |
+| `exit_reason` | `varchar(13)` | not null | | `signal`, `stop_loss`, `take_profit`, `trailing_stop`, `time_exit`, `end_of_day`, `margin_call` or `end_of_data` |
+
+### `journal_entries`
+
+A journal entry, optionally about one of your trades. A draft changes in place; once
+published, each edit is kept in `journal_entry_versions`. See [Journal](guide.md#journal).
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `user_id` | `uuid` | not null | | Whose entry it is (`ON DELETE CASCADE`) |
+| `trade_id` | `uuid` | | | The trade it is about (`ON DELETE RESTRICT`) |
+| `entry_type` | `varchar(10)` | not null | | `pre_trade`, `post_trade` or `note` |
+| `title` | `varchar(200)` | not null | | |
+| `thesis` | `text` | | | |
+| `market_context` | `text` | | | |
+| `risk_assessment` | `text` | | | |
+| `lessons` | `text` | | | |
+| `emotion` | `varchar(10)` | | | `calm`, `confident`, `excited`, `greedy`, `fomo`, `fearful`, `frustrated`, `impatient` or `uncertain` |
+| `tags` | `varchar(50)[]` | not null | `'{}'` | Lowercase words, at most 20, checked by the app |
+| `status` | `varchar(9)` | not null | `'draft'` | `draft` or `published` |
+| `current_version` | `integer` | not null | `0` | 0 for a draft, then the latest version |
+| `published_at` | `timestamptz` | | | Set exactly when published (`ck_journal_entries_published_at_when_published`) |
+| `created_at` | `timestamptz` | not null | `clock_timestamp()` | |
+| `updated_at` | `timestamptz` | not null | `now()` | |
+
+- **Rules:** a published entry has version 1 or later, and a draft version 0
+  (`ck_journal_entries_versions_when_published`).
+- **Index:** `ix_journal_entries_user_id_created_at` serves the journal list, newest first.
+
+### `journal_entry_versions`
+
+A published state of an entry: version 1 is the publication, and each later one an edit.
+Append-only, so what you first wrote can always be read again.
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `id` | `uuid` | not null | `gen_random_uuid()` | |
+| `entry_id` | `uuid` | not null | | |
+| `version` | `integer` | not null | | 1, 2, 3… Unique within the entry (`uq_journal_entry_versions_entry_id`) |
+| `content` | `jsonb` | not null | | The entry at that version: its type, trade, title, the four texts, emotion and tags |
+| `changed_fields` | `varchar(50)[]` | | | The fields that differ from the version before. Empty for version 1 |
+| `edit_reason` | `varchar(500)` | | | Why it was edited. Empty exactly for version 1 (`ck_journal_entry_versions_edits_have_a_reason`) |
+| `created_at` | `timestamptz` | not null | `clock_timestamp()` | |
+
+### `alembic_version`
+
+Alembic's own table: one row holding the latest migration applied.
+
+| Column | Type | Nullable | Default | Holds |
+|---|---|---|---|---|
+| `version_num` | `varchar(32)` | not null | | The revision, such as `fe71d3af3451` |
+
+## Market data in TimescaleDB
+
+`market_data` is a TimescaleDB hypertable. It reads and writes like a table, while
+TimescaleDB keeps it in pieces:
+
+- **Chunks.** It is split by `ts` into chunks of 30 days each.
+- **Compression.** Chunks whose bars all started more than 30 days ago are compressed into
+  columns, grouped by symbol and timeframe and sorted by time. A background job looks for
+  them every 12 hours. Compressed bars are read, and imported into, like any others.
+- **Indexes.** The primary key's index serves lookups by symbol, timeframe and time range,
+  so TimescaleDB's own index on `ts` isn't made.
+
+To see them in `make db-shell`:
+
 ```sql
-CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_users_email ON users(email);
+SELECT * FROM timescaledb_information.hypertables;
+SELECT * FROM timescaledb_information.compression_settings;
+SELECT job_id, schedule_interval, config FROM timescaledb_information.jobs
+WHERE hypertable_name = 'market_data';
+SELECT chunk_name, range_start, range_end, is_compressed FROM timescaledb_information.chunks;
 ```
 
-### Trades Table (Core Trading Record)
-```sql
-CREATE TABLE trades (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    strategy_id UUID REFERENCES strategies(id) ON DELETE SET NULL,
-    
-    symbol VARCHAR(20) NOT NULL,
-    direction VARCHAR(10) NOT NULL CHECK (direction IN ('long', 'short')),
-    status VARCHAR(20) NOT NULL CHECK (status IN ('open', 'closed', 'cancelled')),
-    
-    -- Entry
-    entry_price NUMERIC(19, 8) NOT NULL,
-    entry_time TIMESTAMP NOT NULL,
-    entry_size NUMERIC(19, 8) NOT NULL,
-    entry_fee NUMERIC(19, 8) DEFAULT 0,
-    
-    -- Exit
-    exit_price NUMERIC(19, 8),
-    exit_time TIMESTAMP,
-    exit_size NUMERIC(19, 8),
-    exit_fee NUMERIC(19, 8) DEFAULT 0,
-    
-    -- Risk Management
-    stop_loss NUMERIC(19, 8),
-    take_profit NUMERIC(19, 8),
-    
-    -- Leverage (Futures)
-    leverage NUMERIC(10, 2) DEFAULT 1.0,
-    margin_used NUMERIC(19, 8),
-    liquidation_price NUMERIC(19, 8),
-    
-    -- Calculated Fields
-    pnl NUMERIC(19, 8),
-    pnl_pct NUMERIC(10, 6),
-    
-    -- Metadata
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_by UUID REFERENCES users(id),
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE SET NULL
-);
+## The migrations
 
-CREATE INDEX idx_trades_user_id ON trades(user_id);
-CREATE INDEX idx_trades_symbol ON trades(symbol);
-CREATE INDEX idx_trades_entry_time ON trades(entry_time DESC);
-CREATE INDEX idx_trades_status ON trades(user_id, status);
-```
+The migrations build all of the above, in this order. `make migrate` applies any that are
+missing, and so does the API's container each time it starts.
 
-### Trade Audit Log (Immutable)
-```sql
-CREATE TABLE trade_audit_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    trade_id UUID NOT NULL REFERENCES trades(id) ON DELETE CASCADE,
-    
-    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('entry', 'exit', 'cancel', 'update')),
-    old_values JSONB,
-    new_values JSONB,
-    
-    changed_by UUID NOT NULL REFERENCES users(id),
-    change_reason VARCHAR(500),
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_trade_audit_trade_id ON trade_audit_log(trade_id);
-CREATE INDEX idx_trade_audit_created_at ON trade_audit_log(created_at DESC);
-```
-
-### Strategies Table (Versioned)
-```sql
-CREATE TABLE strategies (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    
-    entry_rules JSONB NOT NULL,
-    exit_rules JSONB NOT NULL,
-    parameters JSONB,
-    
-    version INT DEFAULT 1,
-    is_active BOOLEAN DEFAULT TRUE,
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_strategies_user_id ON strategies(user_id, is_active);
-CREATE INDEX idx_strategies_updated_at ON strategies(updated_at DESC);
-```
-
-### Strategy Versions Table (Full History)
-```sql
-CREATE TABLE strategy_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    strategy_id UUID NOT NULL REFERENCES strategies(id) ON DELETE CASCADE,
-    
-    version_number INT NOT NULL,
-    
-    entry_rules JSONB NOT NULL,
-    exit_rules JSONB NOT NULL,
-    parameters JSONB,
-    
-    changed_fields VARCHAR[],
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE (strategy_id, version_number),
-    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_strategy_versions_strategy_id ON strategy_versions(strategy_id, version_number DESC);
-```
-
-### Journal Entries Table (Versioned, Immutable When Published)
-```sql
-CREATE TABLE journal_entries (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    trade_id UUID REFERENCES trades(id) ON DELETE SET NULL,
-    
-    status VARCHAR(20) NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'published')),
-    entry_type VARCHAR(50) NOT NULL CHECK (entry_type IN ('pre_trade', 'post_trade', 'note')),
-    
-    thesis TEXT,
-    market_context TEXT,
-    emotion_state VARCHAR(50) CHECK (emotion_state IN ('calm', 'greedy', 'scared', 'confused')),
-    risk_assessment TEXT,
-    
-    actual_pnl NUMERIC(19, 8),
-    lessons TEXT,
-    
-    current_version INT DEFAULT 1,
-    published_at TIMESTAMP,
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE (id, current_version),
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (trade_id) REFERENCES trades(id) ON DELETE SET NULL
-);
-
-CREATE INDEX idx_journal_entries_user_id ON journal_entries(user_id);
-CREATE INDEX idx_journal_entries_trade_id ON journal_entries(trade_id);
-CREATE INDEX idx_journal_entries_published_at ON journal_entries(published_at DESC);
-CREATE INDEX idx_journal_entries_status ON journal_entries(user_id, status);
-```
-
-### Journal Entry Versions Table (Full History + Audit)
-```sql
-CREATE TABLE journal_entry_versions (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    journal_entry_id UUID NOT NULL REFERENCES journal_entries(id) ON DELETE CASCADE,
-    
-    version_number INT NOT NULL,
-    
-    thesis TEXT,
-    market_context TEXT,
-    emotion_state VARCHAR(50),
-    risk_assessment TEXT,
-    lessons TEXT,
-    
-    edited_by UUID REFERENCES users(id),
-    edit_reason VARCHAR(500),
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE (journal_entry_id, version_number),
-    FOREIGN KEY (journal_entry_id) REFERENCES journal_entries(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_journal_entry_versions_entry_id ON journal_entry_versions(journal_entry_id, version_number DESC);
-```
-
-### Market Data Table (TimescaleDB Hypertable)
-```sql
-CREATE TABLE market_data (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    symbol VARCHAR(20) NOT NULL,
-    timestamp TIMESTAMP NOT NULL,
-    
-    open NUMERIC(19, 8) NOT NULL,
-    high NUMERIC(19, 8) NOT NULL,
-    low NUMERIC(19, 8) NOT NULL,
-    close NUMERIC(19, 8) NOT NULL,
-    volume BIGINT NOT NULL,
-    
-    source VARCHAR(50) DEFAULT 'csv_import',
-    import_batch_id UUID,
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    UNIQUE (symbol, timestamp, source)
-);
-
-CREATE INDEX idx_market_data_symbol_timestamp ON market_data(symbol, timestamp DESC);
-
--- TimescaleDB conversion (run after table creation)
-SELECT create_hypertable('market_data', 'timestamp', if_not_exists => TRUE);
-```
-
-### Backtests Table (Job Status + Results)
-```sql
-CREATE TABLE backtests (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    strategy_id UUID NOT NULL REFERENCES strategies(id) ON DELETE CASCADE,
-    strategy_version INT NOT NULL,
-    
-    symbol VARCHAR(20) NOT NULL,
-    date_start DATE NOT NULL,
-    date_end DATE NOT NULL,
-    
-    -- Simulation Parameters
-    initial_capital NUMERIC(19, 8) NOT NULL,
-    position_size_pct NUMERIC(5, 2),
-    slippage_pct NUMERIC(5, 4),
-    commission_pct NUMERIC(5, 4),
-    max_leverage NUMERIC(10, 2) DEFAULT 1.0,
-    
-    -- Results
-    status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
-    
-    total_pnl NUMERIC(19, 8),
-    total_return_pct NUMERIC(10, 6),
-    sharpe_ratio NUMERIC(10, 6),
-    max_drawdown_pct NUMERIC(10, 6),
-    win_rate NUMERIC(5, 2),
-    num_trades INT,
-    
-    error_message TEXT,
-    
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (strategy_id) REFERENCES strategies(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_backtests_user_id ON backtests(user_id, completed_at DESC);
-CREATE INDEX idx_backtests_strategy_id ON backtests(strategy_id);
-CREATE INDEX idx_backtests_status ON backtests(user_id, status);
-```
-
-### Backtest Trades Table (Per-Trade Results)
-```sql
-CREATE TABLE backtest_trades (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    backtest_id UUID NOT NULL REFERENCES backtests(id) ON DELETE CASCADE,
-    
-    trade_num INT NOT NULL,
-    
-    entry_time TIMESTAMP NOT NULL,
-    exit_time TIMESTAMP,
-    
-    entry_price NUMERIC(19, 8) NOT NULL,
-    exit_price NUMERIC(19, 8),
-    size NUMERIC(19, 8) NOT NULL,
-    
-    pnl NUMERIC(19, 8),
-    pnl_pct NUMERIC(10, 6),
-    
-    slippage NUMERIC(19, 8),
-    fees NUMERIC(19, 8),
-    
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    
-    FOREIGN KEY (backtest_id) REFERENCES backtests(id) ON DELETE CASCADE
-);
-
-CREATE INDEX idx_backtest_trades_backtest_id ON backtest_trades(backtest_id, trade_num);
-```
-
----
-
-## Index Strategy (Performance Tuning)
-
-| Table | Index | Columns | Purpose |
-|-------|-------|---------|---------|
-| users | email | email | Fast login lookups |
-| trades | by_user_status | user_id, status | Filter open/closed trades |
-| trades | by_symbol_time | symbol, entry_time DESC | Time-series queries |
-| trades | by_entry_time | entry_time DESC | Recent trades first |
-| trade_audit_log | by_trade | trade_id, created_at DESC | Fetch audit history |
-| strategies | by_user | user_id, is_active | List user strategies |
-| strategy_versions | by_strategy | strategy_id, version_number DESC | Fetch versions |
-| journal_entries | by_user_status | user_id, status | Draft vs published |
-| journal_entries | by_trade | trade_id | Find entries by trade |
-| journal_entries | by_date | published_at DESC | Recent entries |
-| market_data | by_symbol_ts | symbol, timestamp DESC | Range queries (TimescaleDB) |
-| backtests | by_user_status | user_id, status | Filter backtest jobs |
-| backtest_trades | by_backtest | backtest_id, trade_num | Results per backtest |
-
----
-
-## Storage Estimation
-
-### 1-Year Single Trader (5 trades/day, BTC + ETH)
-
-```
-trades              1,825 rows ×  0.5 KB =     0.9 MB
-trade_audit_log     3,650 rows ×  0.3 KB =     1.1 MB
-strategies             20 rows ×  0.2 KB =     4.0 KB
-strategy_versions      50 rows ×  0.2 KB =    10.0 KB
-journal_entries     1,825 rows ×  0.5 KB =     0.9 MB
-journal_entry_v     2,000 rows ×  0.5 KB =     1.0 MB
-market_data      ~630M rows × 0.05 KB =    31.0 GB (!!!)
-backtests          100 rows ×  0.5 KB =    50.0 KB
-backtest_trades   5,000 rows ×  0.2 KB =     1.0 MB
-
-TOTAL (raw):                              ~32 GB
-WITH TimescaleDB compression:             ~3 GB ✓
-```
-
-**Recommendation:** 50GB SSD for 5+ years of data
-
----
-
-## Schema Conventions
-
-### Data Types
-- **UUID** — Primary keys (no central sequencing needed)
-- **NUMERIC(19, 8)** — Prices & P&L (arbitrary precision, no floating-point errors)
-- **TIMESTAMP** — All times in UTC (application handles TZ conversion)
-- **JSONB** — Flexible rule definitions (queryable, indexable)
-
-### Immutability Patterns
-- **trade_audit_log** — Never modified (pure append)
-- **journal_entry_versions** — New version created on edit, published entries locked
-- **strategy_versions** — New version on update, old versions archived
-
-### Key Design Decisions
-1. **Calculated fields stored** (pnl, pnl_pct) for query performance, recomputed on save
-2. **JSONB for rules** allows UI flexibility without schema changes
-3. **TimescaleDB hypertable** for market_data (compression + range queries)
-4. **Immutability enforced at application layer** (DB allows updates, business logic prevents them for published entries)
-
----
-
-## Growth Path (Phase 2+)
-
-### Near-term (6 months)
-- Add `market_data_sources` table (track API imports: IB, Binance, etc.)
-- Add `risk_controls` table (per-strategy risk limits)
-- Add portfolio-level aggregations (daily equity curve snapshots)
-
-### Medium-term (1 year)
-- Enable TimescaleDB compression on market_data (90% reduction)
-- Partition backtests by user + date for sharding
-- Archive old backtests → cold storage
-
-### Long-term (2+ years)
-- Tick-level data table (separate from OHLCV)
-- Options data (Greeks, IV surfaces)
-- Multi-user accounts + team collaboration tables
+| Revision | Date | What it does |
+|---|---|---|
+| `25eec0b13704` | 2026-10-13 | Creates `users` |
+| `95e6ad5d9740` | 2026-10-13 | Creates `trades` |
+| `2cfdf1878853` | 2026-10-13 | Creates `trade_audit_log`, with its append-only triggers |
+| `2af3f1c8f54f` | 2026-10-13 | Adds the `correction` audit event |
+| `4d1d1fedb94b` | 2026-10-13 | Creates `market_data` as a hypertable |
+| `e8fb1ee5e765` | 2026-10-13 | Compresses market data older than 30 days |
+| `b23f1b9c0b78` | 2026-10-13 | Widens prices, sizes, fees and P&L to 12 decimal places |
+| `fb2ebc0d96b2` | 2026-10-13 | Creates `strategies` and `strategy_versions`, with `append_only()`, and links trades to strategies |
+| `48c51447ee82` | 2026-10-13 | Creates `backtests` and `backtest_trades` |
+| `1a12daf7045f` | 2026-10-13 | Creates `journal_entries` and `journal_entry_versions` |
+| `5bbf6863d795` | 2026-10-14 | Records the strategy version a trade followed |
+| `0650b782e329` | 2026-10-14 | Creates `instruments`, registering the symbols already in use |
+| `0eb35eac0f73` | 2026-10-14 | Links trades and backtests to `instruments` |
+| `21520878d22b` | 2026-10-15 | Adds the `trailing_stop` and `time_exit` exit reasons |
+| `8d8eb2e16128` | 2026-10-15 | Adds `detail_timeframe` to backtests |
+| `d7b921158f73` | 2026-10-15 | Adds the out-of-sample split to backtests |
+| `c956f8721a3e` | 2026-10-16 | Adds the `end_of_day` and `margin_call` exit reasons |
+| `fe71d3af3451` | 2026-10-16 | Allows positions up to 1,000% of equity |

@@ -1,6 +1,7 @@
 """The docs are checked like code: every relative link and image leads to a file (and heading)
-that exists, every example strategy (a ```json strategy block) is a valid definition, and
-every endpoint they name ("GET /api/trades") is one the API has."""
+that exists, every example strategy (a ```json strategy block) is a valid definition, every
+endpoint they name ("GET /api/trades") is one the API has, and the data model page lists the
+columns the migrations build."""
 
 import json
 import re
@@ -8,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 import pytest
+from sqlalchemy import text
 
 from app.main import app
 from app.strategies.definition import StrategyDefinition
@@ -112,6 +114,58 @@ def endpoints() -> list[tuple[Path, str, str]]:
 )
 def test_a_named_endpoint_exists(page, method, path):
     assert (method, _route(path)) in ROUTES, f"{name(page)} names {method} {path}"
+
+
+SCHEMA = ROOT / "docs" / "schema.md"
+TABLE = re.compile(r"^### `(\w+)`\n(.*?)(?=^#{1,3} |\Z)", re.M | re.S)
+COLUMN = re.compile(r"^\| `(\w+)` \| `([^`]+)` \|([^|]*)\|([^|]*)\|", re.M)
+# What `\d+` shows: each column's type, whether it is "not null", and its default.
+BUILT = text(
+    """
+    SELECT c.table_name, c.column_name, format_type(a.atttypid, a.atttypmod),
+           c.is_nullable, c.column_default, c.identity_generation
+    FROM information_schema.columns c
+    JOIN pg_attribute a
+      ON a.attrelid = format('%I.%I', c.table_schema, c.table_name)::regclass
+     AND a.attname = c.column_name
+    WHERE c.table_schema = 'public'
+    ORDER BY c.table_name, c.ordinal_position
+    """
+)
+
+
+def _short(type_: str) -> str:
+    return type_.replace("character varying", "varchar").replace(
+        "timestamp with time zone", "timestamptz"
+    )
+
+
+def _default(default: str | None, identity: str | None) -> str:
+    """The default as the page writes it: `'open'` for `'open'::character varying`."""
+    if identity:
+        return f"generated {identity.lower()} as identity"
+    return re.sub(r"::[a-z ]+(\[\])?", "", default or "")
+
+
+def test_the_data_model_page_lists_the_columns_the_migrations_build(engine):
+    with engine.connect() as connection:
+        rows = connection.execute(BUILT).all()
+    built: dict[str, list[tuple[str, ...]]] = {}
+    for table, column, type_, nullable, default, identity in rows:
+        null = "not null" if nullable == "NO" else ""
+        built.setdefault(table, []).append(
+            (column, _short(type_), null, _default(default, identity))
+        )
+    documented = {
+        table: [
+            (column, type_, null.strip(), default.strip().strip("`"))
+            for column, type_, null, default in COLUMN.findall(section)
+        ]
+        for table, section in TABLE.findall(SCHEMA.read_text())
+    }
+    assert sorted(documented) == sorted(built)
+    for table, columns in built.items():
+        assert documented[table] == columns, f"docs/schema.md's {table} isn't the database's"
 
 
 def test_the_docs_are_found():
