@@ -91,6 +91,53 @@ def vwap(
     return (traded / so_far.where(so_far > 0)).where(in_session)
 
 
+def trading_day(
+    open_: pd.Series,
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    day: np.ndarray,
+    in_session: np.ndarray,
+    days_ago: int,
+) -> pd.DataFrame:
+    """Each bar's trading day `day` as `open/high/low/close` columns, from bars `in_session`.
+    With `days_ago` 0, today so far: the open of its first bar, its high and low until this
+    bar, and this bar's close; unknown outside the session. Otherwise, the whole of the trading
+    day that many days before (days without bars in the session don't count), on every bar of
+    the day."""
+    prices = pd.DataFrame({"open": open_, "high": high, "low": low, "close": close})
+    if days_ago == 0:
+        session = prices.copy()
+        session.loc[~in_session] = np.nan
+        by_day = session.groupby(day)
+        today = pd.DataFrame(
+            {
+                "open": by_day["open"].transform("first"),
+                "high": by_day["high"].cummax(),
+                "low": by_day["low"].cummin(),
+                "close": session["close"],
+            }
+        )
+        today.loc[~in_session] = np.nan
+        return today
+    whole = (
+        prices[in_session]
+        .groupby(day[in_session])
+        .agg(
+            open=("open", "first"),
+            high=("high", "max"),
+            low=("low", "min"),
+            close=("close", "last"),
+        )
+    )
+    # A bar's own day sits at its position in `whole`, or would if it had bars in the session.
+    earlier = np.searchsorted(whole.index.to_numpy(), day) - days_ago
+    known = earlier >= 0
+    values = np.full((len(day), 4), np.nan)
+    values[known] = whole.to_numpy()[earlier[known]]
+    return pd.DataFrame(values, index=prices.index, columns=whole.columns)
+
+
 def swing_low(values: pd.Series, strength: int, occurrence: int = 0) -> pd.DataFrame:
     """The swing lows known on each bar. A swing low is a bar lower than each of the `strength`
     bars before it and no higher than each of the `strength` bars after it, so the first bar of

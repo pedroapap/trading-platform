@@ -465,3 +465,51 @@ def test_vwap_matches_the_naive_formula():
     rows = list(zip(high, low, close, volume, strict=True))
 
     assert_series(vwap_of(rows, day), naive_vwap(rows, day))
+
+
+def day_of(rows, day, days_ago, in_session=None) -> pd.DataFrame:
+    """The trading day of (open, high, low, close) rows on the given days."""
+    columns = (pd.Series(column, dtype=float) for column in zip(*rows, strict=True))
+    session = np.ones(len(rows), dtype=bool) if in_session is None else np.array(in_session)
+    return indicators.trading_day(*columns, np.array(day), session, days_ago)
+
+
+# fmt: off
+TWO_DAYS = [
+    # open, high, low, close
+    (10, 12,  9, 11),  # day 1
+    (11, 14, 10, 13),
+    (13, 13,  8,  9),
+    (20, 21, 19, 20),  # day 2
+    (20, 25, 20, 24),
+]
+# fmt: on
+
+
+def test_today_so_far_by_hand():
+    today = day_of(TWO_DAYS, [1, 1, 1, 2, 2], days_ago=0)
+
+    assert_series(today["open"], [10, 10, 10, 20, 20])
+    assert_series(today["high"], [12, 14, 14, 21, 25])
+    assert_series(today["low"], [9, 9, 8, 19, 19])
+    assert_series(today["close"], [11, 13, 9, 20, 24])
+
+
+def test_an_earlier_day_is_whole_and_known_all_day():
+    yesterday = day_of(TWO_DAYS, [1, 1, 1, 2, 2], days_ago=1)
+
+    assert yesterday.iloc[:3].isna().all().all()
+    assert yesterday.iloc[3:].to_numpy().tolist() == [[10, 14, 8, 9]] * 2
+    assert day_of(TWO_DAYS, [1, 1, 1, 2, 2], days_ago=2).isna().all().all()
+
+
+def test_days_without_bars_in_the_session_dont_count():
+    # Bar 2 is alone on day 2, outside the session: day 3's day before is day 1.
+    rows = [(10, 12, 9, 11), (11, 14, 10, 13), (50, 60, 40, 55), (20, 21, 19, 20), (20, 25, 20, 24)]
+    in_session = [True, True, False, True, True]
+
+    today = day_of(rows, [1, 1, 2, 3, 3], days_ago=0, in_session=in_session)
+    yesterday = day_of(rows, [1, 1, 2, 3, 3], days_ago=1, in_session=in_session)
+
+    assert_series(today["high"], [12, 14, NAN, 21, 25])
+    assert yesterday.iloc[2:].to_numpy().tolist() == [[10, 14, 9, 13]] * 3

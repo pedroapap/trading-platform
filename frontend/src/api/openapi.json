@@ -2255,6 +2255,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -2262,6 +2265,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -2346,6 +2350,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -2353,6 +2360,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -3622,6 +3630,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -3629,6 +3640,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -3710,6 +3722,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -3717,6 +3732,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -3799,6 +3815,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -3806,6 +3825,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -3887,6 +3907,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -3894,6 +3917,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -4055,6 +4079,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -4062,6 +4089,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -4147,6 +4175,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -4154,6 +4185,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -5630,6 +5662,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -5637,6 +5672,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -5721,6 +5757,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -5728,6 +5767,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -6035,6 +6075,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -6042,6 +6085,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -6138,6 +6182,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
                   }
                 ],
                 "discriminator": {
@@ -6145,6 +6192,7 @@
                   "mapping": {
                     "atr": "#/components/schemas/Atr",
                     "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
                     "ema": "#/components/schemas/Ema",
                     "highest": "#/components/schemas/Highest",
                     "lowest": "#/components/schemas/Lowest",
@@ -6641,6 +6689,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -6648,6 +6699,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -6724,6 +6776,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -6731,6 +6786,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -6859,6 +6915,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -6866,6 +6925,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -7105,6 +7165,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -7112,6 +7175,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -7188,6 +7252,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -7195,6 +7262,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -7323,6 +7391,9 @@
                       },
                       {
                         "$ref": "#/components/schemas/Vwap"
+                      },
+                      {
+                        "$ref": "#/components/schemas/TradingDay"
                       }
                     ],
                     "discriminator": {
@@ -7330,6 +7401,7 @@
                       "mapping": {
                         "atr": "#/components/schemas/Atr",
                         "bbands": "#/components/schemas/Bbands",
+                        "day": "#/components/schemas/TradingDay",
                         "ema": "#/components/schemas/Ema",
                         "highest": "#/components/schemas/Highest",
                         "lowest": "#/components/schemas/Lowest",
@@ -7575,6 +7647,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -7582,6 +7657,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -7667,6 +7743,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/Vwap"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TradingDay"
                     }
                   ],
                   "discriminator": {
@@ -7674,6 +7753,7 @@
                     "mapping": {
                       "atr": "#/components/schemas/Atr",
                       "bbands": "#/components/schemas/Bbands",
+                      "day": "#/components/schemas/TradingDay",
                       "ema": "#/components/schemas/Ema",
                       "highest": "#/components/schemas/Highest",
                       "lowest": "#/components/schemas/Lowest",
@@ -8714,6 +8794,47 @@
         "type": "object",
         "title": "TradeUpdate",
         "description": "Corrections to an open trade: omitted fields are unchanged; exits go through /close."
+      },
+      "TradingDay": {
+        "properties": {
+          "indicator": {
+            "type": "string",
+            "const": "day",
+            "title": "Indicator"
+          },
+          "output": {
+            "type": "string",
+            "enum": [
+              "open",
+              "high",
+              "low",
+              "close"
+            ],
+            "title": "Output"
+          },
+          "days_ago": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 0.0,
+            "title": "Days Ago",
+            "default": 0
+          },
+          "bars_ago": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 0.0,
+            "title": "Bars Ago",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "indicator",
+          "output"
+        ],
+        "title": "TradingDay",
+        "description": "A trading day's open, high, low or close. With `days_ago` 0, today so far: the open of\nits first bar in the session, its high and low until now, and this bar's close, unknown\noutside the session. With `days_ago` 1 or more, the whole of that many trading days\nbefore, known all day; days without bars in the session don't count."
       },
       "UserRead": {
         "properties": {

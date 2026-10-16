@@ -544,3 +544,18 @@ def test_vwap_follows_the_sessions_trading_days():
     first = bars.iloc[1]
     assert vwap[1] == pytest.approx((first["high"] + first["low"] + first["close"]) / 3)
     assert vwap[11] == pytest.approx(bars.iloc[11][["high", "low", "close"]].mean())
+
+
+def test_yesterdays_high_is_known_all_day_and_todays_high_so_far_grows():
+    bars = HALF_HOURS.copy()
+    bars["high"] = [101, 103, 102, 104, 101, 110, 108, 109, 107, 106]
+    resolver = OperandResolver(bars, NEW_YORK)
+
+    yesterday = resolver.resolve(
+        parse_operand({"indicator": "day", "output": "high", "days_ago": 1})
+    )
+    today = resolver.resolve(parse_operand({"indicator": "day", "output": "high"}))
+
+    assert np.isnan(yesterday[:5]).all()
+    assert yesterday[5:].tolist() == [104] * 5
+    assert today.tolist() == [101, 103, 103, 104, 104, 110, 110, 110, 110, 110]

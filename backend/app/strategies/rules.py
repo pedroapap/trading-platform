@@ -173,8 +173,31 @@ class Vwap(_Rule):
     bars_ago: BarsAgo = 0
 
 
+class TradingDay(_Rule):
+    """A trading day's open, high, low or close. With `days_ago` 0, today so far: the open of
+    its first bar in the session, its high and low until now, and this bar's close, unknown
+    outside the session. With `days_ago` 1 or more, the whole of that many trading days
+    before, known all day; days without bars in the session don't count."""
+
+    indicator: Literal["day"]
+    output: Literal["open", "high", "low", "close"]
+    days_ago: Annotated[int, Field(ge=0, le=10)] = 0
+    bars_ago: BarsAgo = 0
+
+
 Indicator = Annotated[
-    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest | SwingLow | SwingHigh | Vwap,
+    Sma
+    | Ema
+    | Rsi
+    | Macd
+    | Bbands
+    | Atr
+    | Lowest
+    | Highest
+    | SwingLow
+    | SwingHigh
+    | Vwap
+    | TradingDay,
     Field(discriminator="indicator"),
 ]
 

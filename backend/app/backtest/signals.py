@@ -37,6 +37,7 @@ from app.strategies.rules import (
     SwingHigh,
     SwingLow,
     TimeOfDay,
+    TradingDay,
     Value,
     Vwap,
     minutes,
@@ -105,6 +106,17 @@ class OperandResolver:
                 bars["volume"],
                 calendar.day,
                 calendar.in_session,
+            )
+        if isinstance(operand, TradingDay):
+            calendar = self.calendar
+            return indicators.trading_day(
+                bars["open"],
+                bars["high"],
+                bars["low"],
+                bars["close"],
+                calendar.day,
+                calendar.in_session,
+                operand.days_ago,
             )
         return _compute(operand, bars)
 

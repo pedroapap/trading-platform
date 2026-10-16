@@ -114,6 +114,13 @@ def nested_arithmetic(levels: int) -> dict:
         ({"indicator": "swing_low", "strength": 3, "output": "time"}, "'price' or 'bars_since'"),
         ({"indicator": "sma", "period": 5, "lenght": 3}, "Extra inputs are not permitted"),
         ({"price": "vwap"}, "Input should be 'open', 'high', 'low', 'close' or 'volume'"),
+        ({"indicator": "day"}, "Field required"),
+        (
+            {"indicator": "day", "output": "volume"},
+            "Input should be 'open', 'high', 'low' or 'close'",
+        ),
+        ({"indicator": "day", "output": "high", "days_ago": 11}, "less than or equal to 10"),
+        ({"indicator": "vwap", "period": 20}, "Extra inputs are not permitted"),
         ({"value": float("nan")}, "finite number"),
         ({"price": "low", "bars_ago": -1}, "greater than or equal to 0"),
         ({"indicator": "rsi", "bars_ago": 1001}, "less than or equal to 1000"),
