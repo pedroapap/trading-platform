@@ -573,3 +573,39 @@ def test_the_opening_range_of_a_new_york_session():
     assert np.isnan(high[[0, 5]]).all()
     assert high[[1, 2, 3, 4]].tolist() == [103] * 4
     assert high[[6, 7, 8, 9]].tolist() == [110] * 4
+
+
+def test_a_daily_operand_counts_each_day_from_the_close_of_its_last_bar():
+    # Three days of hourly bars; the daily closes are each day's 23:00 close.
+    bars = random_bars(72)
+    bars.index = pd.date_range("2026-03-02", periods=72, freq="h", tz="UTC")
+    daily_closes = bars["close"].iloc[23::24].to_numpy()
+    daily_sma = (daily_closes[:-1] + daily_closes[1:]) / 2  # SMA(2) of days 1 and 2
+
+    resolver = OperandResolver(bars)
+    sma = resolver.resolve(
+        parse_operand({"timeframe": "1d", "of": {"indicator": "sma", "period": 2}})
+    )
+    close = resolver.resolve(parse_operand({"timeframe": "1d", "of": {"price": "close"}}))
+
+    # Day 0's close is known from its 23:00 bar; day 1's from its own.
+    assert np.isnan(close[:23]).all()
+    assert close[23:47].tolist() == [daily_closes[0]] * 24
+    assert close[47:71].tolist() == [daily_closes[1]] * 24
+    assert close[71] == daily_closes[2]
+    # The SMA of two days is known from the close of day 1, and changes at day 2's close.
+    assert np.isnan(sma[:47]).all()
+    np.testing.assert_allclose(sma[47:71], daily_sma[0])
+    np.testing.assert_allclose(sma[71], daily_sma[1])
+
+
+def test_a_higher_timeframes_bars_are_built_as_the_app_builds_them():
+    bars = random_bars(120)  # two hours of minutes from 14:30 UTC
+    resolver = OperandResolver(bars)
+
+    high = resolver.resolve(parse_operand({"timeframe": "1h", "of": {"price": "high"}}))
+
+    # The 14:00 hour (14:30 to 14:59 here) is complete at the 14:59 bar's close.
+    assert np.isnan(high[:29]).all()
+    assert high[29] == bars["high"].iloc[:30].max()
+    assert high[89] == bars["high"].iloc[30:90].max()

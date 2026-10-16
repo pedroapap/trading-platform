@@ -7,7 +7,8 @@ from zoneinfo import available_timezones
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.enums import Direction
-from app.strategies.rules import ClockTime, Node, Operand, check_limits, minutes
+from app.market_data.timeframes import Timeframe
+from app.strategies.rules import ClockTime, Node, OnTimeframe, Operand, check_limits, minutes
 
 
 def _unset(value: object) -> bool:
@@ -151,6 +152,23 @@ class StrategyDefinition(BaseModel):
             if pct is not None and pct >= 100:
                 raise ValueError(f"a {self.direction} {which} must be below 100%")
         return self
+
+    def timeframes(self) -> set[Timeframe]:
+        """The timeframes its operands are computed on, besides the backtest's own."""
+        found: set[Timeframe] = set()
+
+        def visit(value: object) -> None:
+            if isinstance(value, OnTimeframe):
+                found.add(value.timeframe)
+            if isinstance(value, BaseModel):
+                for _, field in value:
+                    visit(field)
+            elif isinstance(value, tuple):
+                for each in value:
+                    visit(each)
+
+        visit(self)
+        return found
 
 
 _STOP_LOSSES = ("stop_loss_pct", "stop_loss_at")

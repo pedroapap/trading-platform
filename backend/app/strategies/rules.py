@@ -19,6 +19,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.market_data.timeframes import Timeframe
+
 PriceField = Literal["open", "high", "low", "close", "volume"]
 Period = Annotated[int, Field(ge=1, le=1000)]
 # The value this many bars earlier (1 is the previous bar). Left out of a dumped definition
@@ -277,10 +279,55 @@ class Divide(Arithmetic):
 def _arithmetic_depth(operand: "Operand") -> int:
     if isinstance(operand, Arithmetic):
         return 1 + max(_arithmetic_depth(each) for each in operand.operands)
+    if isinstance(operand, OnTimeframe):
+        return _arithmetic_depth(operand.of)
     return 0
 
 
-_OPERAND_KEYS = ("indicator", "price", "value", "add", "subtract", "multiply", "divide")
+# Indicators of a trading day, which have no meaning on bars of another timeframe.
+_SESSION_INDICATORS = ("vwap", "day", "opening_range")
+
+
+def _inside(operand: "Operand") -> list[BaseModel]:
+    """The operand and every operand within it."""
+    if isinstance(operand, Arithmetic):
+        return [operand, *(inner for each in operand.operands for inner in _inside(each))]
+    if isinstance(operand, OnTimeframe):
+        return [operand, *_inside(operand.of)]
+    return [operand]
+
+
+class OnTimeframe(_Rule):
+    """An operand computed on bars of a higher `timeframe`, built from the backtest's own bars
+    in the app's bar sizes (days start at 00:00 UTC). Only completed bars count: a higher bar
+    counts from the first bar that closes at or after its end, so on a 10:00 bar a daily
+    SMA(20) is yesterday's."""
+
+    timeframe: Timeframe
+    of: "Operand"
+
+    @model_validator(mode="after")
+    def _computable(self) -> Self:
+        for inner in _inside(self.of):
+            if isinstance(inner, OnTimeframe):
+                raise ValueError("a timeframe can't hold another timeframe")
+            if getattr(inner, "indicator", None) in _SESSION_INDICATORS:
+                raise ValueError(
+                    f"a timeframe can't hold {inner.indicator}: it is of a trading day"
+                )
+        return self
+
+
+_OPERAND_KEYS = (
+    "indicator",
+    "price",
+    "value",
+    "add",
+    "subtract",
+    "multiply",
+    "divide",
+    "timeframe",
+)
 
 
 def _operand_kind(data: object) -> str | None:
@@ -292,6 +339,8 @@ def _operand_kind(data: object) -> str | None:
         return "price"
     if isinstance(data, Arithmetic):
         return data.key
+    if isinstance(data, OnTimeframe):
+        return "timeframe"
     return "indicator" if isinstance(data, _Rule) else None
 
 
@@ -302,18 +351,19 @@ Operand = Annotated[
     | Annotated[Add, Tag("add")]
     | Annotated[Subtract, Tag("subtract")]
     | Annotated[Multiply, Tag("multiply")]
-    | Annotated[Divide, Tag("divide")],
+    | Annotated[Divide, Tag("divide")]
+    | Annotated[OnTimeframe, Tag("timeframe")],
     Discriminator(
         _operand_kind,
         custom_error_type="invalid_operand",
         custom_error_message=(
-            "An operand needs a 'value', 'price', 'indicator', 'add', 'subtract', 'multiply'"
-            " or 'divide' key"
+            "An operand needs a 'value', 'price', 'indicator', 'add', 'subtract', 'multiply',"
+            " 'divide' or 'timeframe' key"
         ),
     ),
 ]
 
-for _model in (Add, Subtract, Multiply, Divide):
+for _model in (Add, Subtract, Multiply, Divide, OnTimeframe):
     _model.model_rebuild()
 
 
@@ -321,6 +371,8 @@ def is_constant(operand: Operand) -> bool:
     """Whether the operand is the same on every bar: a value, or arithmetic on values."""
     if isinstance(operand, Arithmetic):
         return all(is_constant(each) for each in operand.operands)
+    if isinstance(operand, OnTimeframe):
+        return is_constant(operand.of)
     return isinstance(operand, Value)
 
 

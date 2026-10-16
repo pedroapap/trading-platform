@@ -2293,6 +2293,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Input"
                 }
               ]
             },
@@ -2392,6 +2395,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Output"
                 }
               ]
             },
@@ -3676,6 +3682,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Input"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Input"
               }
             ],
             "title": "Left"
@@ -3772,6 +3781,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Input"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Input"
               }
             ],
             "title": "Right"
@@ -3869,6 +3881,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Output"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Output"
               }
             ],
             "title": "Left"
@@ -3965,6 +3980,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Output"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Output"
               }
             ],
             "title": "Right"
@@ -4141,6 +4159,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Input"
                 }
               ]
             },
@@ -4241,6 +4262,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Output"
                 }
               ]
             },
@@ -5732,6 +5756,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Input"
                 }
               ]
             },
@@ -5831,6 +5858,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Output"
                 }
               ]
             },
@@ -5948,6 +5978,210 @@
         ],
         "title": "Not",
         "description": "True when the rule is false and every value it uses is known, so never while an\nindicator in it is still warming up."
+      },
+      "OnTimeframe-Input": {
+        "properties": {
+          "timeframe": {
+            "$ref": "#/components/schemas/Timeframe"
+          },
+          "of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Value"
+              },
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Sma"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Ema"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Rsi"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Macd"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OpeningRange"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "indicator",
+                  "mapping": {
+                    "atr": "#/components/schemas/Atr",
+                    "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
+                    "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
+                    "macd": "#/components/schemas/Macd",
+                    "opening_range": "#/components/schemas/OpeningRange",
+                    "rsi": "#/components/schemas/Rsi",
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow",
+                    "vwap": "#/components/schemas/Vwap"
+                  }
+                }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Input"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Input"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Input"
+              }
+            ],
+            "title": "Of"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "timeframe",
+          "of"
+        ],
+        "title": "OnTimeframe",
+        "description": "An operand computed on bars of a higher `timeframe`, built from the backtest's own bars\nin the app's bar sizes (days start at 00:00 UTC). Only completed bars count: a higher bar\ncounts from the first bar that closes at or after its end, so on a 10:00 bar a daily\nSMA(20) is yesterday's."
+      },
+      "OnTimeframe-Output": {
+        "properties": {
+          "timeframe": {
+            "$ref": "#/components/schemas/Timeframe"
+          },
+          "of": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Value"
+              },
+              {
+                "$ref": "#/components/schemas/Price"
+              },
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/Sma"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Ema"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Rsi"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Macd"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Bbands"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Atr"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Lowest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Highest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingLow"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwingHigh"
+                  },
+                  {
+                    "$ref": "#/components/schemas/Vwap"
+                  },
+                  {
+                    "$ref": "#/components/schemas/TradingDay"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OpeningRange"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "indicator",
+                  "mapping": {
+                    "atr": "#/components/schemas/Atr",
+                    "bbands": "#/components/schemas/Bbands",
+                    "day": "#/components/schemas/TradingDay",
+                    "ema": "#/components/schemas/Ema",
+                    "highest": "#/components/schemas/Highest",
+                    "lowest": "#/components/schemas/Lowest",
+                    "macd": "#/components/schemas/Macd",
+                    "opening_range": "#/components/schemas/OpeningRange",
+                    "rsi": "#/components/schemas/Rsi",
+                    "sma": "#/components/schemas/Sma",
+                    "swing_high": "#/components/schemas/SwingHigh",
+                    "swing_low": "#/components/schemas/SwingLow",
+                    "vwap": "#/components/schemas/Vwap"
+                  }
+                }
+              },
+              {
+                "$ref": "#/components/schemas/Add-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Subtract-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Multiply-Output"
+              },
+              {
+                "$ref": "#/components/schemas/Divide-Output"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Output"
+              }
+            ],
+            "title": "Of"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "timeframe",
+          "of"
+        ],
+        "title": "OnTimeframe",
+        "description": "An operand computed on bars of a higher `timeframe`, built from the backtest's own bars\nin the app's bar sizes (days start at 00:00 UTC). Only completed bars count: a higher bar\ncounts from the first bar that closes at or after its end, so on a 10:00 bar a daily\nSMA(20) is yesterday's."
       },
       "OpeningRange": {
         "properties": {
@@ -6192,6 +6426,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Input"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Input"
               }
             ],
             "title": "Price"
@@ -6303,6 +6540,9 @@
               },
               {
                 "$ref": "#/components/schemas/Divide-Output"
+              },
+              {
+                "$ref": "#/components/schemas/OnTimeframe-Output"
               }
             ],
             "title": "Price"
@@ -6814,6 +7054,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Input"
                   }
                 ]
               },
@@ -6905,6 +7148,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Input"
                   }
                 ]
               },
@@ -7048,6 +7294,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Input"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Input"
                   }
                 ]
               },
@@ -7302,6 +7551,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Output"
                   }
                 ]
               },
@@ -7393,6 +7645,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Output"
                   }
                 ]
               },
@@ -7536,6 +7791,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/Divide-Output"
+                  },
+                  {
+                    "$ref": "#/components/schemas/OnTimeframe-Output"
                   }
                 ]
               },
@@ -7796,6 +8054,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Input"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Input"
                 }
               ]
             },
@@ -7896,6 +8157,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/Divide-Output"
+                },
+                {
+                  "$ref": "#/components/schemas/OnTimeframe-Output"
                 }
               ]
             },

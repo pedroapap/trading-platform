@@ -35,6 +35,7 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     version = data.strategy_version or strategy.current_version
     if version > strategy.current_version:
         raise InvalidOperationError(f"The strategy has no version {version}")
+    _require_buildable_timeframes(db, strategy, version, data)
     market_data.require_bars(db, data.symbol, data.timeframe, data.start, data.end)
     if data.detail_timeframe is not None:
         market_data.require_bars(db, data.symbol, data.detail_timeframe, data.start, data.end)
@@ -62,6 +63,26 @@ def create_backtest(db: Session, user: User, data: BacktestCreate) -> Backtest:
     db.commit()
     db.refresh(backtest)
     return backtest
+
+
+def _require_buildable_timeframes(
+    db: Session, strategy: Strategy, version: int, data: BacktestCreate
+) -> None:
+    """The strategy's higher timeframes must be buildable from the backtest's bars."""
+    stored = db.scalar(
+        select(StrategyVersion.definition).where(
+            StrategyVersion.strategy_id == strategy.id, StrategyVersion.version == version
+        )
+    )
+    timeframes = StrategyDefinition.model_validate(stored).timeframes()
+    too_fine = sorted(
+        (tf for tf in timeframes if not data.timeframe.divides(tf)), key=lambda tf: tf.seconds
+    )
+    if too_fine:
+        raise InvalidOperationError(
+            f"The strategy uses {', '.join(too_fine)} bars, which can't be built from"
+            f" {data.timeframe} bars"
+        )
 
 
 def _require_both_sides(db: Session, data: BacktestCreate) -> None:

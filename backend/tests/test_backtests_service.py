@@ -141,3 +141,29 @@ def test_coarser_bars_cannot_be_split(db_session, user, strategy):
 def test_invalid_requests_are_rejected(overrides):
     with pytest.raises(ValidationError):
         request(uuid.uuid4(), **overrides)
+
+
+DAILY_TREND = MINIMAL_DEFINITION | {
+    "entry": {
+        "left": {"price": "close"},
+        "op": ">",
+        "right": {"timeframe": "1h", "of": {"indicator": "sma", "period": 2}},
+    }
+}
+
+
+def test_a_strategys_timeframes_can_be_built_from_the_backtests_bars(db_session, user, minute_bars):
+    hourly_trend = make_strategy(db_session, user, "Hourly trend", DAILY_TREND)
+
+    backtest = backtests.create_backtest(db_session, user, request(hourly_trend.id))
+
+    assert backtest.timeframe == Timeframe.M1
+
+
+def test_a_strategys_timeframes_cannot_be_finer_than_the_backtests_bars(
+    db_session, user, minute_bars
+):
+    hourly_trend = make_strategy(db_session, user, "Hourly trend", DAILY_TREND)
+
+    with pytest.raises(InvalidOperationError, match="uses 1h bars, which can't be built from 4h"):
+        backtests.create_backtest(db_session, user, request(hourly_trend.id, timeframe="4h"))

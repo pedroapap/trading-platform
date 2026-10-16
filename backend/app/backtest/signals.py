@@ -12,6 +12,7 @@ import pandas as pd
 from app.backtest import indicators, patterns
 from app.backtest.orders import Entry, Flat, Level, Orders
 from app.backtest.sessions import Calendar, calendar
+from app.market_data.timeframes import Timeframe
 from app.strategies.definition import PriceEntry, Session, StrategyDefinition
 from app.strategies.rules import (
     AllOf,
@@ -30,6 +31,7 @@ from app.strategies.rules import (
     Macd,
     Node,
     Not,
+    OnTimeframe,
     OpeningRange,
     Operand,
     Price,
@@ -54,6 +56,8 @@ class OperandResolver:
         self._session = session
         self._indicators: dict[tuple, pd.Series | pd.DataFrame] = {}
         self._patterns: dict[EqualLows | EqualHighs, np.ndarray] = {}
+        # A resolver for each higher timeframe's bars, with when each of those bars ends.
+        self._higher: dict[Timeframe, tuple[OperandResolver, pd.DatetimeIndex]] = {}
 
     def resolve(self, operand: Operand) -> np.ndarray:
         if isinstance(operand, Value):
@@ -61,7 +65,22 @@ class OperandResolver:
         if isinstance(operand, Arithmetic):
             left, right = (self.resolve(each) for each in operand.operands)
             return _ARITHMETIC[operand.key](left, right)
+        if isinstance(operand, OnTimeframe):
+            return self._on_timeframe(operand)
         return _shifted(self._current(operand), operand.bars_ago)
+
+    def _on_timeframe(self, operand: OnTimeframe) -> np.ndarray:
+        """The operand on bars of a higher timeframe, built from these bars. Each of those bars
+        counts from the first of these that closes at or after its end."""
+        timeframe = operand.timeframe
+        if timeframe not in self._higher:
+            higher = _resample(self._bars, timeframe)
+            self._higher[timeframe] = (OperandResolver(higher), higher.index + timeframe.delta)
+        resolver, ends = self._higher[timeframe]
+        values = resolver.resolve(operand.of)
+        closes = self._bars.index + pd.Timedelta(minutes=self.calendar.width)
+        latest = ends.searchsorted(closes, side="right") - 1
+        return np.where(latest >= 0, values[np.maximum(latest, 0)], np.nan)
 
     @cached_property
     def calendar(self) -> Calendar:
@@ -266,6 +285,21 @@ def _compute(operand: Indicator, bars: pd.DataFrame) -> pd.Series | pd.DataFrame
             return indicators.swing_high(bars[source], strength, occurrence)
         case _:
             raise TypeError(f"not an indicator: {operand!r}")
+
+
+def _resample(bars: pd.DataFrame, timeframe: Timeframe) -> pd.DataFrame:
+    """Bars of `timeframe` built from `bars` as the app builds them: in buckets aligned to the
+    Unix epoch, the first open, highest high, lowest low, last close and total volume."""
+    grouped = bars.groupby(bars.index.floor(pd.Timedelta(timeframe.delta)))
+    return pd.DataFrame(
+        {
+            "open": grouped["open"].first(),
+            "high": grouped["high"].max(),
+            "low": grouped["low"].min(),
+            "close": grouped["close"].last(),
+            "volume": grouped["volume"].sum(),
+        }
+    )
 
 
 def _divide(left: np.ndarray, right: np.ndarray) -> np.ndarray:

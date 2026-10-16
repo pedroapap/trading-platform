@@ -1,6 +1,8 @@
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from app.market_data.timeframes import Timeframe
+from app.strategies.definition import StrategyDefinition
 from app.strategies.rules import (
     Atr,
     Bbands,
@@ -9,6 +11,7 @@ from app.strategies.rules import (
     Lowest,
     Macd,
     Multiply,
+    OnTimeframe,
     Operand,
     Price,
     Rsi,
@@ -17,6 +20,7 @@ from app.strategies.rules import (
     SwingHigh,
     SwingLow,
     Value,
+    is_constant,
 )
 
 operand = TypeAdapter(Operand)
@@ -131,12 +135,22 @@ def nested_arithmetic(levels: int) -> dict:
             "less than or equal to 240",
         ),
         ({"indicator": "opening_range", "minutes": 30, "output": "close"}, "'high' or 'low'"),
+        ({"timeframe": "1d"}, "Field required"),
+        ({"timeframe": "2h", "of": {"price": "close"}}, "Input should be '1m', '5m'"),
+        (
+            {"timeframe": "1d", "of": {"timeframe": "4h", "of": {"price": "close"}}},
+            "a timeframe can't hold another timeframe",
+        ),
+        (
+            {"timeframe": "1d", "of": {"subtract": [{"indicator": "vwap"}, {"value": 1}]}},
+            "a timeframe can't hold vwap: it is of a trading day",
+        ),
         ({"value": float("nan")}, "finite number"),
         ({"price": "low", "bars_ago": -1}, "greater than or equal to 0"),
         ({"indicator": "rsi", "bars_ago": 1001}, "less than or equal to 1000"),
         ({"value": 30, "bars_ago": 1}, "Extra inputs are not permitted"),
         ({"threshold": 30}, "An operand needs a 'value', 'price', 'indicator', 'add',"),
-        ({"power": [{"value": 2}, {"price": "close"}]}, "or 'divide' key"),
+        ({"power": [{"value": 2}, {"price": "close"}]}, "'divide' or 'timeframe' key"),
         ({"add": [{"price": "close"}]}, "arithmetic takes exactly two operands"),
         ({"add": [{"value": 1}] * 3}, "arithmetic takes exactly two operands"),
         ({"add": [{"price": "close"}, {"value": 1}], "bars_ago": 1}, "Extra inputs"),
@@ -167,3 +181,30 @@ def test_an_invalid_operand_inside_arithmetic_is_the_only_error():
 
     [error] = caught.value.errors()
     assert error["loc"] == ("multiply", "multiply", 0, "indicator", "sma", "period")
+
+
+def test_an_operand_can_be_on_a_higher_timeframe():
+    daily = operand.validate_python(
+        {"timeframe": "1d", "of": {"subtract": [{"price": "close"}, {"value": 1}]}}
+    )
+
+    assert isinstance(daily, OnTimeframe)
+    assert (daily.timeframe, daily.of.operands[0]) == (Timeframe.D1, Price(price="close"))
+    assert not is_constant(daily)
+    assert is_constant(operand.validate_python({"timeframe": "1d", "of": {"value": 5}}))
+
+
+def test_a_definition_lists_its_timeframes():
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "entry": {
+                "left": {"timeframe": "1d", "of": {"indicator": "sma", "period": 20}},
+                "op": "<",
+                "right": {"price": "close"},
+            },
+            "stop_loss_at": {"timeframe": "4h", "of": {"indicator": "lowest", "period": 3}},
+        }
+    )
+
+    assert definition.timeframes() == {Timeframe.D1, Timeframe.H4}
