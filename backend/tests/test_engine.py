@@ -1613,3 +1613,20 @@ def test_with_a_flat_time_no_position_is_held_overnight():
         )
         assert entered.date() == left.date()
         assert f"{left:%H:%M}" == "15:55"
+
+
+def test_a_position_over_100_percent_borrows_the_rest():
+    # 400% of 10,000 buys 400 at 100 with no fees; a rise to 110 gains 4,000 on 10,000.
+    # fmt: off
+    bars = bars_from([
+        (100, 101,  99, 100),  # 0 signal
+        (100, 106,  99, 105),  # 1 buy 400 at 100: equity 10,000 + 400 * 5 = 12,000
+        (110, 111, 109, 110),  # 2 sell at 110
+    ])
+    # fmt: on
+
+    result = simulate(bars, at(3, 0), at(3, 1), BacktestConfig(10_000, position_size_pct=400))
+
+    [trade] = result.trades
+    assert (trade.size, trade.pnl) == (400, 4_000)
+    assert result.equity.tolist() == [10_000, 12_000, 14_000]

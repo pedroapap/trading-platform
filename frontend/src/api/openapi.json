@@ -2881,7 +2881,7 @@
             "anyOf": [
               {
                 "type": "number",
-                "maximum": 100.0,
+                "maximum": 1000.0,
                 "exclusiveMinimum": 0.0
               },
               {

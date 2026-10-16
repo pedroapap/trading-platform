@@ -10,7 +10,8 @@ from app.enums import BacktestStatus, Direction, ExitReason
 from app.market_data.timeframes import Timeframe
 from app.schemas.common import DecimalOut, Price, Symbol
 
-PositionSize = Annotated[Decimal, Field(gt=0, le=100, max_digits=7, decimal_places=4)]
+# Over 100% borrows the rest: up to 10x leverage.
+PositionSize = Annotated[Decimal, Field(gt=0, le=1000, max_digits=8, decimal_places=4)]
 CostPct = Annotated[Decimal, Field(ge=0, le=10, max_digits=7, decimal_places=4)]
 
 

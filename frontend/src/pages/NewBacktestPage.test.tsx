@@ -181,6 +181,16 @@ test("a run the API refuses says why", async () => {
   );
 });
 
+test("the position size says that over 100% borrows", async () => {
+  backtestApi();
+
+  renderPage("/backtests/new");
+
+  expect(await screen.findByLabelText("Position size %")).toHaveAccessibleDescription(
+    "Over 100% borrows the rest, up to 1,000%.",
+  );
+});
+
 test("a setting the API rejects shows why under it", async () => {
   backtestApi(
     HttpResponse.json(

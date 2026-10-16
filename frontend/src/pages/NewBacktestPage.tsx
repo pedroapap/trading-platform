@@ -209,6 +209,7 @@ export default function NewBacktestPage() {
             name="position_size_pct"
             inputMode="decimal"
             defaultValue="100"
+            hint="Over 100% borrows the rest, up to 1,000%."
             error={errors.position_size_pct}
           />
           <Field

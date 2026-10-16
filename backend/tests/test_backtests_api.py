@@ -103,6 +103,16 @@ def test_finer_bars_must_be_finer(client, auth_headers, strategy_id):
     assert "detail_timeframe must be finer than timeframe" in response.json()["detail"][0]["msg"]
 
 
+def test_a_backtest_can_borrow_up_to_ten_times_its_equity(client, auth_headers, strategy_id):
+    response = start_backtest(client, auth_headers, strategy_id, position_size_pct="400")
+
+    backtest = wait_for_backtest(client, auth_headers, response.json()["id"])
+    assert (backtest["status"], backtest["position_size_pct"]) == ("completed", "400")
+    too_much = start_backtest(client, auth_headers, strategy_id, position_size_pct="1000.5")
+    assert too_much.status_code == 422
+    assert too_much.json()["detail"][0]["loc"] == ["body", "position_size_pct"]
+
+
 def test_invalid_parameters_are_rejected_with_their_field(client, auth_headers, strategy_id):
     response = start_backtest(client, auth_headers, strategy_id, fee_pct="11")
 

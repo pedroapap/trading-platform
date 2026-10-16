@@ -39,7 +39,7 @@ def test_a_backtest_needs_a_registered_symbol(db_session, user):
     [
         ({"initial_capital": Decimal(0)}, "initial_capital_positive"),
         ({"position_size_pct": Decimal(0)}, "position_size_in_range"),
-        ({"position_size_pct": Decimal("100.5")}, "position_size_in_range"),
+        ({"position_size_pct": Decimal("1000.5")}, "position_size_in_range"),
         ({"fee_pct": Decimal(-1)}, "fee_in_range"),
         ({"slippage_pct": Decimal(11)}, "slippage_in_range"),
         ({"periods_per_year": 0}, "periods_per_year_in_range"),

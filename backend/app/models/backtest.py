@@ -48,7 +48,7 @@ class Backtest(Base):
         ),
         CheckConstraint("initial_capital > 0", name="initial_capital_positive"),
         CheckConstraint(
-            "position_size_pct > 0 AND position_size_pct <= 100", name="position_size_in_range"
+            "position_size_pct > 0 AND position_size_pct <= 1000", name="position_size_in_range"
         ),
         CheckConstraint("fee_pct >= 0 AND fee_pct <= 10", name="fee_in_range"),
         CheckConstraint("slippage_pct >= 0 AND slippage_pct <= 10", name="slippage_in_range"),
@@ -83,7 +83,8 @@ class Backtest(Base):
     out_of_sample_from: Mapped[datetime | None]
 
     initial_capital: Mapped[Decimal] = mapped_column(Price)
-    position_size_pct: Mapped[Decimal] = mapped_column(PERCENT)
+    # Over 100% borrows the rest: up to 10x leverage.
+    position_size_pct: Mapped[Decimal] = mapped_column(Numeric(8, 4))
     fee_pct: Mapped[Decimal] = mapped_column(PERCENT)
     slippage_pct: Mapped[Decimal] = mapped_column(PERCENT)
     # Annualizes the Sharpe and Sortino ratios: 365 for crypto, 252 for stock exchanges.

@@ -128,7 +128,7 @@ def test_coarser_bars_cannot_be_split(db_session, user, strategy):
         {"start": "2026-01-01T00:00:00"},  # no time zone
         {"initial_capital": 0},
         {"position_size_pct": 0},
-        {"position_size_pct": "100.01"},
+        {"position_size_pct": "1000.01"},
         {"fee_pct": 11},
         {"slippage_pct": -1},
         {"periods_per_year": 0},
