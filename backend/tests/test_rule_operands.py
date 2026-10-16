@@ -183,6 +183,14 @@ def test_an_invalid_operand_inside_arithmetic_is_the_only_error():
     assert error["loc"] == ("multiply", "multiply", 0, "indicator", "sma", "period")
 
 
+def test_what_a_timeframe_cant_hold_is_reported_at_of():
+    with pytest.raises(ValidationError) as caught:
+        operand.validate_python({"timeframe": "1d", "of": {"indicator": "vwap"}})
+
+    [error] = caught.value.errors()
+    assert error["loc"] == ("timeframe", "of")
+
+
 def test_an_operand_can_be_on_a_higher_timeframe():
     daily = operand.validate_python(
         {"timeframe": "1d", "of": {"subtract": [{"price": "close"}, {"value": 1}]}}

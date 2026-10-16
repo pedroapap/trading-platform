@@ -16,6 +16,7 @@ from pydantic import (
     Discriminator,
     Field,
     Tag,
+    field_validator,
     model_validator,
 )
 
@@ -306,16 +307,18 @@ class OnTimeframe(_Rule):
     timeframe: Timeframe
     of: "Operand"
 
-    @model_validator(mode="after")
-    def _computable(self) -> Self:
-        for inner in _inside(self.of):
+    # A field validator, so the problem is reported at `of`.
+    @field_validator("of")
+    @classmethod
+    def _computable(cls, of: "Operand") -> "Operand":
+        for inner in _inside(of):
             if isinstance(inner, OnTimeframe):
                 raise ValueError("a timeframe can't hold another timeframe")
             if getattr(inner, "indicator", None) in _SESSION_INDICATORS:
                 raise ValueError(
                     f"a timeframe can't hold {inner.indicator}: it is of a trading day"
                 )
-        return self
+        return of
 
 
 _OPERAND_KEYS = (

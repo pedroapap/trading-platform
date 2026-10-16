@@ -94,5 +94,52 @@
       },
       "stop_loss_pct": 2
     }
+  },
+  {
+    "name": "Opening-range breakout (New York)",
+    "description": "In New York trading hours, from 10:00 to 12:00 while price is under the first 30 minutes' high: buy if it trades through that high, with the stop at the range's low, the target at twice the risk, and out by 15:55.",
+    "definition": {
+      "direction": "long",
+      "session": { "timezone": "America/New_York", "start": "09:30", "end": "16:00" },
+      "entry": {
+        "all": [
+          { "time": ["10:00", "12:00"] },
+          {
+            "left": { "price": "close" },
+            "op": "<",
+            "right": { "indicator": "opening_range", "minutes": 30, "output": "high" }
+          }
+        ]
+      },
+      "entry_order": {
+        "type": "stop",
+        "price": { "indicator": "opening_range", "minutes": 30, "output": "high" },
+        "expires_after": 1
+      },
+      "stop_loss_at": { "indicator": "opening_range", "minutes": 30, "output": "low" },
+      "take_profit_r": 2,
+      "flat_at": "15:55"
+    }
+  },
+  {
+    "name": "VWAP pullback in a daily uptrend",
+    "description": "On the UTC day, as crypto trades, when yesterday's close was above its 20-day SMA and price closes above VWAP: buy at VWAP with a limit order, with a 0.5% stop, a 1% target, and out by 23:55.",
+    "definition": {
+      "direction": "long",
+      "entry": {
+        "all": [
+          {
+            "left": { "timeframe": "1d", "of": { "price": "close" } },
+            "op": ">",
+            "right": { "timeframe": "1d", "of": { "indicator": "sma", "period": 20 } }
+          },
+          { "left": { "price": "close" }, "op": ">", "right": { "indicator": "vwap" } }
+        ]
+      },
+      "entry_order": { "type": "limit", "price": { "indicator": "vwap" }, "expires_after": 1 },
+      "stop_loss_pct": 0.5,
+      "take_profit_pct": 1,
+      "flat_at": "23:55"
+    }
   }
 ]

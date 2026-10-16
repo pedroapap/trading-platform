@@ -129,13 +129,16 @@ export default function StrategyForm({
       )}
       <small id={`${id}-help`}>
         Rules compare prices, values and indicators (sma, ema, rsi, macd, bbands, atr, lowest,
-        highest, swing_low, swing_high) with &lt;, &lt;=, &gt;, &gt;=, crosses_above or
-        crosses_below. A price or indicator can look back with bars_ago, and add, subtract, multiply
-        or divide combine two operands. Rules group in all, any and not; happened counts how often a
-        rule held within some bars; equal_lows and equal_highs find swing lows or highs at the same
-        level. An entry_order enters at a limit or stop price. Exits come from the exit rule,
-        stop_loss_pct or stop_loss_at, take_profit_pct, take_profit_at or take_profit_r,
-        trailing_stop_pct or trailing_stop_at, and exit_after_bars.
+        highest, swing_low, swing_high, vwap, day, opening_range) with &lt;, &lt;=, &gt;, &gt;=,
+        crosses_above or crosses_below. A price or indicator can look back with bars_ago; add,
+        subtract, multiply or divide combine two operands; timeframe computes one on bigger bars,
+        such as a daily SMA. Rules group in all, any and not; happened counts how often a rule held
+        within some bars; equal_lows and equal_highs find swing lows or highs at the same level;
+        time holds in a window of the day. A session gives the market&apos;s hours and time zone
+        (the UTC day without one). An entry_order enters at a limit or stop price. Exits come from
+        the exit rule, stop_loss_pct or stop_loss_at, take_profit_pct, take_profit_at or
+        take_profit_r, trailing_stop_pct or trailing_stop_at, exit_after_bars, and flat_at, the time
+        to be out by each day.
       </small>
       {children}
       {otherError && <p role="alert">{error.message}</p>}
