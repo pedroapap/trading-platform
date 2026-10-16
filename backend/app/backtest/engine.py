@@ -14,8 +14,12 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   100% never overdraws; more borrows the rest (leverage, up to 1000%), at no cost.
 - `fee_pct` is charged on each fill's notional, and `slippage_pct` moves each fill's price
   against the trade.
-- A short sells at entry and buys back at exit, so its loss has no limit; once equity is
-  at or below zero, no new position opens.
+- A short sells at entry and buys back at exit. A margin call closes a position where its
+  losses would use up the equity (the entry fee counted): it works like a stop-loss at that
+  price, so a gap past it fills at the open and leaves less than nothing, and a tighter
+  stop-loss counts first. A long of 100% of equity or less can't be called; a short of all of
+  it is called when the price doubles. Once equity is at or below zero, no new position
+  opens.
 - A stop-loss is a percentage of the entry fill price, or a price level read on the bar
   whose signal placed the order; a signal whose levels aren't known yet places no order. It
   is checked against each bar's low (long) or high (short) from the entry bar on, so a level
@@ -199,7 +203,12 @@ def simulate_orders(
             open_exit = None
         last = close_exit + 1 if open_exit is None else open_exit
         fixed = _stop_loss(orders.stop_loss, entry_price, signal, sign)
+        # A take-profit at a multiple of the risk measures it from the strategy's own stop.
         target = _take_profit(orders.take_profit, entry_price, fixed, signal, sign)
+        called = _margin_call(cash - entry_fee, size, entry_price, sign)
+        margin_call = called is not None and (fixed is None or sign * (called - fixed) > 0)
+        if margin_call:
+            fixed = called
 
         trail = orders.trailing_stop
         stops = None
@@ -257,7 +266,7 @@ def simulate_orders(
             exit_ = reached
             stopped, unslipped_exit = settled_exit
             if stopped:
-                reason = ExitReason.TRAILING_STOP if trailing else ExitReason.STOP_LOSS
+                reason = _stop_reason(trailing, margin_call)
                 exit_price = unslipped_exit * (1 - sign * slip)
             else:
                 reason, exit_price = ExitReason.TAKE_PROFIT, unslipped_exit
@@ -265,7 +274,7 @@ def simulate_orders(
             # Checked first: when a bar reaches both, the stop-loss counts. After an inside
             # fill, the rest of the bar starts at the fill price.
             exit_ = reached
-            reason = ExitReason.TRAILING_STOP if trailing else ExitReason.STOP_LOSS
+            reason = _stop_reason(trailing, margin_call)
             start = unslipped_entry if inside and reached == entry else opens[reached]
             unslipped_exit = _fill_price(start, stop, -sign)
             exit_price = unslipped_exit * (1 - sign * slip)
@@ -562,6 +571,21 @@ def _stop_loss(level: Level | None, entry_price: float, signal: int, sign: int) 
     if level.at is not None:
         return float(level.at[signal])
     return entry_price * (1 - sign * level.pct / 100)
+
+
+def _margin_call(equity: float, size: float, entry_price: float, sign: int) -> float | None:
+    """Where a position of `size` entered at `entry_price` loses all of `equity`; None for a
+    long that can't lose that much, its price having to fall to zero first."""
+    called = entry_price - sign * equity / size
+    return None if called <= entry_price * 1e-9 else called
+
+
+def _stop_reason(trailing: bool, margin_call: bool) -> ExitReason:
+    """Why a stop closed a trade: the trailing stop, the margin call or the stop-loss, whichever
+    was the tightest."""
+    if trailing:
+        return ExitReason.TRAILING_STOP
+    return ExitReason.MARGIN_CALL if margin_call else ExitReason.STOP_LOSS
 
 
 def _take_profit(

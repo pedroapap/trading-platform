@@ -287,15 +287,15 @@ RALLY_BARS = bars_from([
     # open, high, low, close
     (100, 101,  99, 100),  # 0  entry signal
     (100, 160,  99, 150),  # 1  sell 100 @ 100 with all 10,000
-    (150, 210, 149, 200),  # 2  exit signal
-    (250, 260, 240, 250),  # 3  buy back @ 250: -15,000; entry signal ignored: equity is gone
+    (150, 210, 149, 200),  # 2  exit signal; at 200 the loss is all 10,000: called, bought back
+    (250, 260, 240, 250),  # 3  entry signal ignored: equity is gone
     (250, 251, 249, 250),  # 4  entry signal ignored
     (250, 251, 249, 250),  # 5
 ])
 # fmt: on
 
 
-def test_no_new_position_once_equity_is_gone():
+def test_a_short_is_called_when_its_loss_uses_up_the_equity_and_trading_stops():
     result = simulate(
         RALLY_BARS,
         entries=at(6, 0, 3, 4),
@@ -304,8 +304,13 @@ def test_no_new_position_once_equity_is_gone():
         direction=Direction.SHORT,
     )
 
-    assert [trade.pnl for trade in result.trades] == [-15_000]
-    assert result.equity.tolist() == [10_000, 5_000, 0, -5_000, -5_000, -5_000]
+    [trade] = result.trades
+    assert (trade.exit_price, trade.pnl, trade.exit_reason) == (
+        200,
+        -10_000,
+        ExitReason.MARGIN_CALL,
+    )
+    assert result.equity.tolist() == [10_000, 5_000, 0, 0, 0, 0]
 
 
 def run_from_bar_0(rows, *, capital=10_100, direction=Direction.LONG, exits=None, **levels):
@@ -1630,3 +1635,69 @@ def test_a_position_over_100_percent_borrows_the_rest():
     [trade] = result.trades
     assert (trade.size, trade.pnl) == (400, 4_000)
     assert result.equity.tolist() == [10_000, 12_000, 14_000]
+
+
+def run_leveraged(rows, *, fee_pct=0.0, **levels) -> SimulatedTrade:
+    """A long at 400% of 10,000 from bar 0's signal: 400 units bought at bar 1's open of 100,
+    without fees (unless given) or slippage."""
+    bars = bars_from(rows)
+    config = BacktestConfig(10_000, position_size_pct=400, fee_pct=fee_pct)
+    [trade] = simulate(bars, at(len(bars), 0), None, config, **levels).trades
+    return trade
+
+
+# fmt: off
+SLIDE = [
+    (100, 101,  99, 100),  # 0 signal
+    (100, 101,  90,  92),  # 1 buy 400 at 100
+    ( 92,  93,  70,  72),  # 2 down 25% at 75: the 10,000 is gone
+]
+# fmt: on
+
+
+def test_a_4x_long_is_called_when_the_price_falls_25_percent():
+    trade = run_leveraged(SLIDE)
+
+    assert (trade.exit_price, trade.pnl, trade.exit_reason) == (75, -10_000, ExitReason.MARGIN_CALL)
+
+
+def test_the_entry_fee_counts_toward_the_margin_call():
+    # 4 x 10,000 / 1.001 buys 399.6004 units and pays a fee of 39.96: the rest of the equity,
+    # 9,960.04, is gone 24.925 below the entry.
+    trade = run_leveraged(SLIDE, fee_pct=0.1)
+
+    notional = 40_000 / 1.001
+    assert trade.exit_price == approx(100 - (10_000 - notional * 0.001) / (notional / 100))
+
+
+def test_a_gap_past_the_margin_call_fills_at_the_open():
+    trade = run_leveraged([(100, 101, 99, 100), (100, 101, 90, 92), (70, 71, 60, 65)])
+
+    assert (trade.exit_price, trade.pnl, trade.exit_reason) == (70, -12_000, ExitReason.MARGIN_CALL)
+
+
+def test_a_tighter_stop_loss_counts_before_the_margin_call():
+    trade = run_leveraged(SLIDE, stop_loss_pct=10)
+
+    assert (trade.exit_price, trade.exit_reason) == (90, ExitReason.STOP_LOSS)
+
+
+def test_a_long_of_all_the_equity_is_never_called():
+    bars = bars_from([(100, 101, 99, 100), (100, 101, 1, 2), (2, 3, 0.5, 1)])
+
+    [trade] = simulate(bars, at(3, 0), None, BacktestConfig(10_000)).trades
+
+    assert trade.exit_reason == ExitReason.END_OF_DATA
+
+
+def test_a_target_in_multiples_of_the_risk_measures_from_the_strategys_own_stop():
+    # At 4x the margin call (75) is tighter than the 30% stop (70), but the risk stays 30:
+    # one R up is 130, not 125.
+    bars = bars_from(
+        [(100, 101, 99, 100), (100, 101, 99, 100), (100, 128, 99, 127), (127, 131, 126, 130)]
+    )
+    orders = Orders(Direction.LONG, at(4, 0), stop_loss=Level(pct=30), take_profit=Level(r=1))
+
+    [trade] = simulate_orders(bars, orders, BacktestConfig(10_000, position_size_pct=400)).trades
+
+    assert (trade.exit_price, trade.exit_reason) == (130, ExitReason.TAKE_PROFIT)
