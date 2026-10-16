@@ -120,7 +120,7 @@ def test_valid_variations(overrides):
         ),
         ({"take_profit_pct": None, "take_profit_r": 0}, "greater than 0"),
         ({"take_profit_pct": None, "take_profit_r": 101}, "less than or equal to 100"),
-        ({"stop_loss_pct": None, "stop_loss_at": {"indicator": "vwap"}}, "expected tags"),
+        ({"stop_loss_pct": None, "stop_loss_at": {"indicator": "supertrend"}}, "expected tags"),
         ({"entry_order": {"type": "limit"}}, "Field required"),
         ({"entry_order": {"type": "market", "price": {"value": 95}}}, "Extra inputs"),
         (

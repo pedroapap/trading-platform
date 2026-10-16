@@ -38,6 +38,7 @@ from app.strategies.rules import (
     SwingLow,
     TimeOfDay,
     Value,
+    Vwap,
     minutes,
 )
 
@@ -86,11 +87,26 @@ class OperandResolver:
         # which line is wanted; every shift of an indicator shares its computation too.
         key = tuple(operand.model_dump(exclude={"output", "bars_ago"}).items())
         if key not in self._indicators:
-            self._indicators[key] = _compute(operand, self._bars)
+            self._indicators[key] = self._compute(operand)
         computed = self._indicators[key]
         if isinstance(computed, pd.DataFrame):
             computed = computed[operand.output]
         return computed.to_numpy(dtype=float)
+
+    def _compute(self, operand: Indicator) -> pd.Series | pd.DataFrame:
+        """An indicator's values; those of a trading day need the session's calendar."""
+        bars = self._bars
+        if isinstance(operand, Vwap):
+            calendar = self.calendar
+            return indicators.vwap(
+                bars["high"],
+                bars["low"],
+                bars["close"],
+                bars["volume"],
+                calendar.day,
+                calendar.in_session,
+            )
+        return _compute(operand, bars)
 
 
 def evaluate(node: Node, resolver: OperandResolver) -> np.ndarray:

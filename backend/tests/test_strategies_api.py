@@ -35,7 +35,7 @@ def test_create_returns_the_strategy_with_its_full_definition(api):
 
 def test_invalid_rules_report_where_they_fail(api):
     bad = MINIMAL_DEFINITION | {
-        "entry": {"all": [{"left": {"indicator": "vwap"}, "op": "<", "right": {"value": 1}}]}
+        "entry": {"all": [{"left": {"indicator": "supertrend"}, "op": "<", "right": {"value": 1}}]}
     }
 
     response = api.post("/api/strategies", json={"name": "Bad", "definition": bad})
@@ -43,7 +43,7 @@ def test_invalid_rules_report_where_they_fail(api):
     assert response.status_code == 422
     (error,) = response.json()["detail"]
     assert error["loc"][:5] == ["body", "definition", "entry", "all", "all"]
-    assert "vwap" in error["msg"]
+    assert "supertrend" in error["msg"]
 
 
 def test_list_and_get(api):

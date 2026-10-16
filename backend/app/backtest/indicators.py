@@ -74,6 +74,23 @@ def highest(values: pd.Series, period: int) -> pd.Series:
     return values.rolling(period, min_periods=period).max()
 
 
+def vwap(
+    high: pd.Series,
+    low: pd.Series,
+    close: pd.Series,
+    volume: pd.Series,
+    day: np.ndarray,
+    in_session: np.ndarray,
+) -> pd.Series:
+    """The volume-weighted average of each bar's typical price, (high + low + close) / 3, over
+    its trading day `day` so far, counting bars `in_session` only. Unknown outside the session,
+    and on a day's bars before any volume."""
+    weight = volume.where(in_session, 0.0)
+    traded = ((high + low + close) / 3 * weight).groupby(day).cumsum()
+    so_far = weight.groupby(day).cumsum()
+    return (traded / so_far.where(so_far > 0)).where(in_session)
+
+
 def swing_low(values: pd.Series, strength: int, occurrence: int = 0) -> pd.DataFrame:
     """The swing lows known on each bar. A swing low is a bar lower than each of the `strength`
     bars before it and no higher than each of the `strength` bars after it, so the first bar of

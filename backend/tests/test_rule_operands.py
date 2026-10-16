@@ -97,7 +97,10 @@ def nested_arithmetic(levels: int) -> dict:
 @pytest.mark.parametrize(
     ("data", "message"),
     [
-        ({"indicator": "vwap"}, "does not match any of the expected tags: 'sma', 'ema', 'rsi'"),
+        (
+            {"indicator": "supertrend"},
+            "does not match any of the expected tags: 'sma', 'ema', 'rsi'",
+        ),
         ({"indicator": "sma", "period": 0}, "greater than or equal to 1"),
         ({"indicator": "sma"}, "Field required"),
         ({"indicator": "rsi", "period": 1}, "greater than or equal to 2"),

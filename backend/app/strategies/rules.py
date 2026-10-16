@@ -164,8 +164,17 @@ class SwingHigh(_Rule):
     bars_ago: BarsAgo = 0
 
 
+class Vwap(_Rule):
+    """The trading day's volume-weighted average price so far, of each bar's (high + low +
+    close) / 3; it starts again each day. Unknown outside the session, and on a day's bars
+    before any volume."""
+
+    indicator: Literal["vwap"]
+    bars_ago: BarsAgo = 0
+
+
 Indicator = Annotated[
-    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest | SwingLow | SwingHigh,
+    Sma | Ema | Rsi | Macd | Bbands | Atr | Lowest | Highest | SwingLow | SwingHigh | Vwap,
     Field(discriminator="indicator"),
 ]
 

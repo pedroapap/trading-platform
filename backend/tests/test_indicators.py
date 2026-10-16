@@ -412,3 +412,56 @@ def test_swings_are_only_known_once_confirmed(swing):
     for t in range(len(prices)):
         early = swing(prices.iloc[: t + 1], 3, 1)
         pd.testing.assert_frame_equal(early, full.iloc[: t + 1])
+
+
+def vwap_of(rows, day, in_session=None) -> pd.Series:
+    """VWAP of (high, low, close, volume) rows on the given trading days."""
+    high, low, close, volume = (
+        pd.Series(column, dtype=float) for column in zip(*rows, strict=True)
+    )
+    session = np.ones(len(rows), dtype=bool) if in_session is None else np.array(in_session)
+    return indicators.vwap(high, low, close, volume, np.array(day), session)
+
+
+def test_vwap_by_hand():
+    rows = [
+        (11, 9, 10, 1),  # typical price 10: VWAP 10
+        (13, 11, 12, 3),  # 12: (10 * 1 + 12 * 3) / 4 = 11.5
+        (12, 10, 11, 0),  # no volume: still 11.5
+        (21, 19, 20, 2),  # the next day starts again: 20
+        (16, 14, 15, 2),  # (20 * 2 + 15 * 2) / 4 = 17.5
+    ]
+
+    assert_series(vwap_of(rows, [1, 1, 1, 2, 2]), [10, 11.5, 11.5, 20, 17.5])
+
+
+def test_vwap_is_unknown_before_the_days_first_volume_and_outside_the_session():
+    rows = [(11, 9, 10, 5), (13, 11, 12, 0), (16, 14, 15, 1), (31, 29, 30, 9), (21, 19, 20, 1)]
+
+    # Bar 0 is the day before; bar 3 is outside the session and left out of the average.
+    vwap = vwap_of(rows, [1, 2, 2, 2, 2], in_session=[True, True, True, False, True])
+
+    assert_series(vwap, [10, NAN, 15, NAN, 17.5])
+
+
+def naive_vwap(rows, day) -> list[float]:
+    values, traded, volume = [], 0.0, 0.0
+    for i, (high, low, close, size) in enumerate(rows):
+        if i == 0 or day[i] != day[i - 1]:
+            traded = volume = 0.0
+        traded += (high + low + close) / 3 * size
+        volume += size
+        values.append(traded / volume if volume else NAN)
+    return values
+
+
+def test_vwap_matches_the_naive_formula():
+    rng = np.random.default_rng(5)
+    close = random_walk(500)
+    high = close + rng.uniform(0, 1, 500)
+    low = close - rng.uniform(0, 1, 500)
+    volume = rng.uniform(0, 100, 500)
+    day = np.repeat(np.arange(10), 50)
+    rows = list(zip(high, low, close, volume, strict=True))
+
+    assert_series(vwap_of(rows, day), naive_vwap(rows, day))

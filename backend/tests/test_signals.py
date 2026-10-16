@@ -521,3 +521,26 @@ def test_without_a_session_a_time_window_is_in_utc():
     rule = TypeAdapter(Node).validate_python({"time": ["14:31", "14:33"]})
 
     assert evaluate(rule, OperandResolver(bars)).tolist() == [False, True, True, False]
+
+
+def test_vwap_follows_the_sessions_trading_days():
+    # Hourly bars from 08:00 to 17:00 New York time on two days: 09:00 to 15:00 overlap the
+    # session, and VWAP starts again each day.
+    times = pd.DatetimeIndex(
+        [f"{day} {hour:02}:00" for day in ("2026-03-05", "2026-03-06") for hour in range(8, 18)]
+    )
+    bars = random_bars(len(times))
+    bars.index = times.tz_localize("America/New_York").tz_convert("UTC")
+    in_session = np.array([8 < hour < 16 for _ in range(2) for hour in range(8, 18)])
+
+    vwap = OperandResolver(bars, NEW_YORK).resolve(parse_operand({"indicator": "vwap"}))
+
+    expected = indicators.vwap(
+        bars["high"], bars["low"], bars["close"], bars["volume"], np.repeat([0, 1], 10), in_session
+    )
+    np.testing.assert_allclose(vwap, expected, rtol=1e-12, equal_nan=True)
+    assert np.isnan(vwap[~in_session]).all()
+    # Each day's first bar in the session is its own typical price.
+    first = bars.iloc[1]
+    assert vwap[1] == pytest.approx((first["high"] + first["low"] + first["close"]) / 3)
+    assert vwap[11] == pytest.approx(bars.iloc[11][["high", "low", "close"]].mean())

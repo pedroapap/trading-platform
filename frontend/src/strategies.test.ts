@@ -25,7 +25,7 @@ test.each([
   },
   {
     loc: ["entry", "all", "all", 0, "op", "left", "indicator"],
-    sent: { entry: { all: [{ ...condition, left: { indicator: "vwap" } }] } },
+    sent: { entry: { all: [{ ...condition, left: { indicator: "supertrend" } }] } },
     path: "entry.all[0].left.indicator",
   },
   {
@@ -72,7 +72,7 @@ test.each([
   },
   {
     loc: ["entry", "not", "not", "op", "left", "indicator"],
-    sent: { entry: { not: { ...condition, left: { indicator: "vwap" } } } },
+    sent: { entry: { not: { ...condition, left: { indicator: "supertrend" } } } },
     path: "entry.not.left.indicator",
   },
   {
