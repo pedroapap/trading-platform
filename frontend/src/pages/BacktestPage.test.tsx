@@ -173,6 +173,72 @@ test.each([
   expect(tile("Expectancy")).toHaveTextContent(new RegExp(`^Expectancy${shown}$`));
 });
 
+/** Metrics of a run under 90 days, which leaves its annualized figures out. */
+const UNANNUALIZED: Schemas["Metrics"] = {
+  ...DONE.metrics!,
+  cagr_pct: null,
+  sharpe_ratio: null,
+  sortino_ratio: null,
+  buy_and_hold_cagr_pct: null,
+  annualized: false,
+};
+
+test("a run under 90 days isn't annualized, and says why", async () => {
+  const short = backtest({ metrics: UNANNUALIZED });
+  backtestApi([short]);
+
+  renderPage(`/backtests/${short.id}`);
+
+  await screen.findByRole("heading", { name: "Results" });
+  for (const label of ["CAGR", "Sharpe ratio", "Sortino ratio"]) {
+    expect(tile(label)).toHaveTextContent(
+      new RegExp(`^${label}—Not annualized: under 90 days of data$`),
+    );
+  }
+  // What isn't scaled to a year is still shown.
+  expect(tile("Total return")).toHaveTextContent(/^Total return12.35%Buy and hold 8.10%$/);
+});
+
+test.each([
+  { run: "a long run", annualized: true },
+  { run: "a run stored before short runs were left out", annualized: undefined },
+])("$run has no such note", async ({ annualized }) => {
+  const done = backtest({ metrics: { ...DONE.metrics!, annualized } });
+  backtestApi([done]);
+
+  renderPage(`/backtests/${done.id}`);
+
+  await screen.findByRole("heading", { name: "Results" });
+  expect(tile("CAGR")).toHaveTextContent(/^CAGR12.35%Buy and hold 8.10%$/);
+  expect(tile("Sharpe ratio")).toHaveTextContent(/^Sharpe ratio1.23$/);
+  expect(screen.queryByText(/Not annualized/)).not.toBeInTheDocument();
+});
+
+test("a side of the split under 90 days isn't annualized, and says why", async () => {
+  const split = backtest({
+    out_of_sample_from: "2025-10-01T00:00:00Z",
+    split_metrics: {
+      in_sample: { ...DONE.metrics!, annualized: true },
+      out_of_sample: UNANNUALIZED,
+    },
+  });
+  backtestApi([split]);
+
+  renderPage(`/backtests/${split.id}`);
+
+  await screen.findByRole("heading", { name: "In-sample and out-of-sample" });
+  expect(screen.getByRole("row", { name: /^CAGR/ })).toHaveTextContent(/^CAGR12.35%—$/);
+  expect(screen.getByRole("row", { name: /^Sharpe ratio/ })).toHaveTextContent(
+    /^Sharpe ratio1.23—$/,
+  );
+  expect(
+    screen.getByText(
+      "Not annualized: the out-of-sample side covers under 90 days of data, so CAGR and the " +
+        "Sharpe ratio are left out.",
+    ),
+  ).toBeInTheDocument();
+});
+
 test.each([
   { trades: 29, says: "With 29 trades, under 30," },
   { trades: 1, says: "With 1 trade, under 30," },

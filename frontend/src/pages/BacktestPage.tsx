@@ -141,11 +141,17 @@ function FewTrades({ trades }: { trades: number }) {
   );
 }
 
+/** Why a run's CAGR, Sharpe and Sortino are missing: scaled to a year, a few days' result
+ * says nothing. */
+const SHORT_RUN = "Not annualized: under 90 days of data";
+
 /** The headline numbers. The return, CAGR and drawdown each have buy and hold's, over the same
  * bars, under them (runs made before it was measured have none); the average trade has its
  * 95% range. */
 function MetricTiles({ backtest }: { backtest: Backtest }) {
   const metrics = backtest.metrics!;
+  // A run under 90 days isn't annualized: its CAGR, Sharpe and Sortino are left out.
+  const short = metrics.annualized === false ? SHORT_RUN : undefined;
   const amount = (value: number | null) => (
     <Amount value={value} currency={backtest.quote_currency} />
   );
@@ -162,15 +168,15 @@ function MetricTiles({ backtest }: { backtest: Backtest }) {
     {
       label: "CAGR",
       value: formatPercent(metrics.cagr_pct),
-      note: held(metrics.buy_and_hold_cagr_pct),
+      note: short ?? held(metrics.buy_and_hold_cagr_pct),
     },
     {
       label: "Max drawdown",
       value: formatPercent(metrics.max_drawdown_pct),
       note: held(metrics.buy_and_hold_max_drawdown_pct),
     },
-    { label: "Sharpe ratio", value: formatRatio(metrics.sharpe_ratio) },
-    { label: "Sortino ratio", value: formatRatio(metrics.sortino_ratio) },
+    { label: "Sharpe ratio", value: formatRatio(metrics.sharpe_ratio), note: short },
+    { label: "Sortino ratio", value: formatRatio(metrics.sortino_ratio), note: short },
     { label: "Trades", value: formatCount(metrics.num_trades) },
     { label: "Win rate", value: formatPercent(metrics.win_rate_pct) },
     { label: "Profit factor", value: formatRatio(metrics.profit_factor) },
@@ -203,6 +209,10 @@ function MetricTiles({ backtest }: { backtest: Backtest }) {
 function SplitResults({ backtest }: { backtest: Backtest }) {
   const { in_sample: before, out_of_sample: after } = backtest.split_metrics!;
   const sides = { "In-sample": before, "Out-of-sample": after };
+  // Each side is a run of its own: one under 90 days has no CAGR or Sharpe ratio.
+  const short = Object.entries(sides)
+    .filter(([, side]) => side.annualized === false)
+    .map(([name]) => name.toLowerCase());
   const amount = (value: number | null | undefined) => (
     <Amount value={value ?? null} currency={backtest.quote_currency} />
   );
@@ -267,6 +277,15 @@ function SplitResults({ backtest }: { backtest: Backtest }) {
           </tbody>
         </table>
       </div>
+      {short.length > 0 && (
+        <p>
+          <small>
+            Not annualized: the {short.join(" and ")}{" "}
+            {short.length > 1 ? "sides cover" : "side covers"} under 90 days of data, so CAGR and
+            the Sharpe ratio are left out.
+          </small>
+        </p>
+      )}
     </>
   );
 }

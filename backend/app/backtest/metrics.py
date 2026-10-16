@@ -187,7 +187,7 @@ class Metrics:
     average_trade_pct: float | None = None
     average_trade_margin_pct: float | None = None
     # False for a run spanning under 90 days, whose CAGR, Sharpe and Sortino (and buy and
-    # hold's CAGR) are left out; None for runs made before short runs were.
+    # hold's CAGR) are left out; None for runs stored before short runs were left out.
     annualized: bool | None = None
 
 
