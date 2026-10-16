@@ -1549,6 +1549,8 @@ export interface components {
             average_trade_pct?: number | null;
             /** Average Trade Margin Pct */
             average_trade_margin_pct?: number | null;
+            /** Annualized */
+            annualized?: boolean | null;
         };
         /** Multiply */
         "Multiply-Input": {

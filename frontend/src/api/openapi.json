@@ -5653,6 +5653,17 @@
               }
             ],
             "title": "Average Trade Margin Pct"
+          },
+          "annualized": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Annualized"
           }
         },
         "type": "object",

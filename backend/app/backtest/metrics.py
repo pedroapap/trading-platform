@@ -10,6 +10,8 @@ import pandas as pd
 from app.backtest.engine import BacktestConfig, BacktestResult, SimulatedTrade
 
 YEAR = pd.Timedelta(days=365.25)
+# A run shorter than this isn't annualized: a few days' result scaled up to a year says nothing.
+ANNUALIZED_FROM = pd.Timedelta(days=90)
 
 
 def total_return_pct(equity: pd.Series) -> float:
@@ -184,27 +186,34 @@ class Metrics:
     # See `TradeStats`; None for runs made before they were measured.
     average_trade_pct: float | None = None
     average_trade_margin_pct: float | None = None
+    # False for a run spanning under 90 days, whose CAGR, Sharpe and Sortino (and buy and
+    # hold's CAGR) are left out; None for runs made before short runs were.
+    annualized: bool | None = None
 
 
 def summarize(
     result: BacktestResult, periods_per_year: int = 365, benchmark: Benchmark | None = None
 ) -> Metrics:
+    """The metrics of a run. One whose equity curve spans under 90 days isn't annualized: its
+    CAGR, Sharpe and Sortino, and buy and hold's CAGR, are left out."""
     equity = result.equity
+    annualized = bool(equity.index[-1] - equity.index[0] >= ANNUALIZED_FROM)
     compared = {}
     if benchmark is not None:
         compared = {
             "buy_and_hold_return_pct": benchmark.return_pct,
-            "buy_and_hold_cagr_pct": benchmark.cagr_pct,
+            "buy_and_hold_cagr_pct": benchmark.cagr_pct if annualized else None,
             "buy_and_hold_max_drawdown_pct": benchmark.max_drawdown_pct,
         }
     return Metrics(
         total_return_pct=total_return_pct(equity),
-        cagr_pct=cagr_pct(equity),
+        cagr_pct=cagr_pct(equity) if annualized else None,
         max_drawdown_pct=max_drawdown_pct(equity),
-        sharpe_ratio=sharpe_ratio(equity, periods_per_year),
-        sortino_ratio=sortino_ratio(equity, periods_per_year),
+        sharpe_ratio=sharpe_ratio(equity, periods_per_year) if annualized else None,
+        sortino_ratio=sortino_ratio(equity, periods_per_year) if annualized else None,
         **asdict(trade_stats(result.trades, equity.index)),
         **compared,
+        annualized=annualized,
     )
 
 

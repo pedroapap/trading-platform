@@ -182,12 +182,17 @@ def test_sortino_ratio_without_a_losing_day_is_undefined():
     assert metrics.sortino_ratio(rising) is None
 
 
+def hundred_days() -> pd.DataFrame:
+    """A hundred days of four-hour bars: long enough to annualize."""
+    bars = random_bars(600)
+    bars.index = pd.date_range("2026-01-01", periods=600, freq="4h", tz="UTC")
+    return bars
+
+
 def test_summarize_collects_every_metric():
-    # Ten days of hourly bars, so that the daily ratios are defined.
-    bars = random_bars(240)
-    bars.index = pd.date_range("2026-01-01", periods=240, freq="h", tz="UTC")
+    bars = hundred_days()
     rng = np.random.default_rng(5)
-    result = simulate(bars, rng.random(240) < 0.1, rng.random(240) < 0.1, BacktestConfig(10_000))
+    result = simulate(bars, rng.random(600) < 0.1, rng.random(600) < 0.1, BacktestConfig(10_000))
 
     summary = metrics.summarize(result, periods_per_year=252)
 
@@ -199,6 +204,7 @@ def test_summarize_collects_every_metric():
         sharpe_ratio=metrics.sharpe_ratio(equity, 252),
         sortino_ratio=metrics.sortino_ratio(equity, 252),
         **asdict(metrics.trade_stats(result.trades, equity.index)),
+        annualized=True,
     )
     assert summary.num_trades > 5
     assert None not in (summary.cagr_pct, summary.sharpe_ratio, summary.sortino_ratio)
@@ -246,9 +252,8 @@ def test_buy_and_hold_counts_from_the_capital():
 
 
 def test_summarize_includes_buy_and_hold():
-    bars = random_bars(240)
-    bars.index = pd.date_range("2026-01-01", periods=240, freq="h", tz="UTC")
-    result = simulate(bars, np.zeros(240, dtype=bool), None, BacktestConfig(10_000))
+    bars = hundred_days()
+    result = simulate(bars, np.zeros(600, dtype=bool), None, BacktestConfig(10_000))
     benchmark = metrics.buy_and_hold(bars, BacktestConfig(10_000))
 
     summary = metrics.summarize(result, benchmark=benchmark)
@@ -276,6 +281,70 @@ def test_metrics_stored_before_buy_and_hold_still_read():
         del stored[field]
 
     assert TypeAdapter(metrics.Metrics).validate_python(stored).buy_and_hold_return_pct is None
+
+
+def test_metrics_stored_before_short_runs_were_left_unannualized_still_read():
+    stored = asdict(
+        metrics.summarize(
+            simulate(random_bars(10), np.zeros(10, bool), None, BacktestConfig(10_000))
+        )
+    )
+    del stored["annualized"]
+
+    assert TypeAdapter(metrics.Metrics).validate_python(stored).annualized is None
+
+
+def spanning(days: int) -> BacktestResult:
+    """No trades, and equity that rises one day and falls the next, over `days` days."""
+    index = pd.date_range("2026-01-01", periods=days + 1, freq="D", tz="UTC")
+    values = [10_000.0 + 10 * day + (100 if day % 2 else 0) for day in range(days + 1)]
+    return BacktestResult([], pd.Series(values, index=index))
+
+
+@pytest.mark.parametrize(("days", "annualized"), [(89, False), (90, True)])
+def test_a_run_under_90_days_is_not_annualized(days, annualized):
+    result = spanning(days)
+    bars = daily([(value, value) for value in result.equity])
+
+    summary = metrics.summarize(
+        result, benchmark=metrics.buy_and_hold(bars, BacktestConfig(10_000))
+    )
+
+    equity = result.equity
+    scaled = (summary.cagr_pct, summary.sharpe_ratio, summary.sortino_ratio)
+    assert summary.annualized is annualized
+    if annualized:
+        assert scaled == (
+            metrics.cagr_pct(equity),
+            metrics.sharpe_ratio(equity),
+            metrics.sortino_ratio(equity),
+        )
+        assert None not in (*scaled, summary.buy_and_hold_cagr_pct)
+    else:
+        assert scaled == (None, None, None)
+        assert summary.buy_and_hold_cagr_pct is None
+    # The figures that aren't scaled to a year are kept.
+    assert summary.total_return_pct == metrics.total_return_pct(equity)
+    assert summary.buy_and_hold_return_pct is not None
+
+
+def test_each_side_of_a_split_is_annualized_on_its_own():
+    # 120 days before the split and 30 after it.
+    result = spanning(150)
+    bars = daily([(value, value) for value in result.equity])
+
+    split = metrics.split_summaries(result, bars, BacktestConfig(10_000), result.equity.index[120])
+
+    assert split.in_sample.annualized
+    assert None not in (split.in_sample.cagr_pct, split.in_sample.buy_and_hold_cagr_pct)
+    assert split.out_of_sample.annualized is False
+    out = split.out_of_sample
+    assert (out.cagr_pct, out.sharpe_ratio, out.sortino_ratio, out.buy_and_hold_cagr_pct) == (
+        None,
+        None,
+        None,
+        None,
+    )
 
 
 def trade_between(entry: pd.Timestamp, exit_: pd.Timestamp, pnl: float) -> SimulatedTrade:

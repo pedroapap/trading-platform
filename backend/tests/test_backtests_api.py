@@ -37,6 +37,8 @@ def test_a_backtest_runs_in_the_background(client, auth_headers, strategy_id):
     assert backtest["bars_count"] == 300
     assert backtest["metrics"]["num_trades"] > 5
     assert set(backtest["metrics"]) >= {"total_return_pct", "max_drawdown_pct", "sharpe_ratio"}
+    # 300 minutes are too short to annualize.
+    assert (backtest["metrics"]["annualized"], backtest["metrics"]["cagr_pct"]) == (False, None)
 
 
 @pytest.mark.parametrize(
