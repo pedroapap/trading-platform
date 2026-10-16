@@ -9,7 +9,7 @@ from app.backtest import indicators
 from app.backtest.orders import Level
 from app.backtest.signals import OperandResolver, evaluate, strategy_orders, strategy_signals
 from app.enums import Direction
-from app.strategies.definition import StrategyDefinition
+from app.strategies.definition import Session, StrategyDefinition
 from app.strategies.rules import Node, Operand
 from tests.helpers import MINIMAL_DEFINITION, random_bars
 
@@ -481,3 +481,43 @@ def test_signals_never_look_ahead():
 
         np.testing.assert_array_equal(early_entries, entries[: t + 1])
         np.testing.assert_array_equal(early_exits, exits[: t + 1])
+
+
+def new_york_bars(*local_times: str) -> pd.DataFrame:
+    """Flat bars starting at the given New York times."""
+    times = pd.DatetimeIndex(local_times).tz_localize("America/New_York").tz_convert("UTC")
+    return pd.DataFrame(
+        {"open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0, "volume": 1.0}, index=times
+    )
+
+
+NEW_YORK = Session(timezone="America/New_York", start="09:30", end="16:00")
+# Half-hour bars on the Friday before and the Monday after clocks went forward.
+HALF_HOURS = new_york_bars(
+    *[
+        f"{day} {time}"
+        for day in ("2026-03-06", "2026-03-09")
+        for time in ("09:30", "10:00", "10:30", "11:00", "15:30")
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    ("window", "holds"),
+    [
+        (["10:00", "11:00"], [False, True, True, False, False]),
+        # Wrapping past midnight: from 15:00 until 10:00 the next morning.
+        (["15:00", "10:00"], [True, False, False, False, True]),
+    ],
+)
+def test_a_time_window_holds_on_bars_starting_in_it_in_the_sessions_zone(window, holds):
+    rule = TypeAdapter(Node).validate_python({"time": window})
+
+    assert evaluate(rule, OperandResolver(HALF_HOURS, NEW_YORK)).tolist() == holds * 2
+
+
+def test_without_a_session_a_time_window_is_in_utc():
+    bars = random_bars(4)  # from 14:30 UTC, a minute apart
+    rule = TypeAdapter(Node).validate_python({"time": ["14:31", "14:33"]})
+
+    assert evaluate(rule, OperandResolver(bars)).tolist() == [False, True, True, False]

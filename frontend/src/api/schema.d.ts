@@ -610,7 +610,7 @@ export interface components {
          */
         "AllOf-Input": {
             /** All */
-            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
+            all: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"])[];
         };
         /**
          * AllOf
@@ -618,7 +618,7 @@ export interface components {
          */
         "AllOf-Output": {
             /** All */
-            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
+            all: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"])[];
         };
         /**
          * AnyOf
@@ -626,7 +626,7 @@ export interface components {
          */
         "AnyOf-Input": {
             /** Any */
-            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
+            any: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"])[];
         };
         /**
          * AnyOf
@@ -634,7 +634,7 @@ export interface components {
          */
         "AnyOf-Output": {
             /** Any */
-            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]))[];
+            any: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"])[];
         };
         /**
          * Atr
@@ -1208,7 +1208,7 @@ export interface components {
          */
         "Happened-Input": {
             /** Happened */
-            happened: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            happened: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
             /** Within */
             within: number;
             /**
@@ -1225,7 +1225,7 @@ export interface components {
          */
         "Happened-Output": {
             /** Happened */
-            happened: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            happened: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
             /** Within */
             within: number;
             /**
@@ -1567,7 +1567,7 @@ export interface components {
          */
         "Not-Input": {
             /** Not */
-            not: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            not: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
         };
         /**
          * Not
@@ -1576,7 +1576,7 @@ export interface components {
          */
         "Not-Output": {
             /** Not */
-            not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            not: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
         };
         /** PerformanceGroup */
         PerformanceGroup: {
@@ -1811,9 +1811,9 @@ export interface components {
         "StrategyDefinition-Input": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            entry: components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
             /** Exit */
-            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
+            exit?: (components["schemas"]["Condition-Input"] | components["schemas"]["AllOf-Input"] | components["schemas"]["AnyOf-Input"] | components["schemas"]["Not-Input"] | components["schemas"]["Happened-Input"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"]) | null;
             session?: components["schemas"]["Session"] | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
@@ -1845,9 +1845,9 @@ export interface components {
         "StrategyDefinition-Output": {
             direction: components["schemas"]["Direction"];
             /** Entry */
-            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]);
+            entry: components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"];
             /** Exit */
-            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"])) | null;
+            exit?: (components["schemas"]["Condition-Output"] | components["schemas"]["AllOf-Output"] | components["schemas"]["AnyOf-Output"] | components["schemas"]["Not-Output"] | components["schemas"]["Happened-Output"] | (components["schemas"]["EqualLows"] | components["schemas"]["EqualHighs"]) | components["schemas"]["TimeOfDay"]) | null;
             session?: components["schemas"]["Session"] | null;
             /** Stop Loss Pct */
             stop_loss_pct?: number | null;
@@ -2005,6 +2005,16 @@ export interface components {
              * @default 0
              */
             bars_ago?: number;
+        };
+        /**
+         * TimeOfDay
+         * @description True on bars that start at or after the first time and before the second, in the
+         *     session's time zone (UTC without a session). A first time later than the second wraps past
+         *     midnight: ["22:00", "02:00"].
+         */
+        TimeOfDay: {
+            /** Time */
+            time: string[];
         };
         /**
          * Timeframe

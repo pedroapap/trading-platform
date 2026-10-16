@@ -4,12 +4,15 @@ Bars are a float DataFrame (`open/high/low/close/volume`) in time order. Every a
 aligned with them, and element `t` depends on bars `0..t` only.
 """
 
+from functools import cached_property
+
 import numpy as np
 import pandas as pd
 
 from app.backtest import indicators, patterns
 from app.backtest.orders import Entry, Level, Orders
-from app.strategies.definition import PriceEntry, StrategyDefinition
+from app.backtest.sessions import Calendar, calendar
+from app.strategies.definition import PriceEntry, Session, StrategyDefinition
 from app.strategies.rules import (
     AllOf,
     AnyOf,
@@ -33,15 +36,19 @@ from app.strategies.rules import (
     Sma,
     SwingHigh,
     SwingLow,
+    TimeOfDay,
     Value,
+    minutes,
 )
 
 
 class OperandResolver:
-    """Turns operands into float arrays, computing each indicator once per set of bars."""
+    """Turns operands into float arrays, computing each indicator once per set of bars. The
+    session (the UTC day without one) says when each trading day runs."""
 
-    def __init__(self, bars: pd.DataFrame) -> None:
+    def __init__(self, bars: pd.DataFrame, session: Session | None = None) -> None:
         self._bars = bars
+        self._session = session
         self._indicators: dict[tuple, pd.Series | pd.DataFrame] = {}
         self._patterns: dict[EqualLows | EqualHighs, np.ndarray] = {}
 
@@ -52,6 +59,11 @@ class OperandResolver:
             left, right = (self.resolve(each) for each in operand.operands)
             return _ARITHMETIC[operand.key](left, right)
         return _shifted(self._current(operand), operand.bars_ago)
+
+    @cached_property
+    def calendar(self) -> Calendar:
+        """Each bar's trading day, local start time and whether it is in the session."""
+        return calendar(self._bars.index, self._session)
 
     def detect(self, pattern: EqualLows | EqualHighs) -> np.ndarray:
         """Where the pattern is confirmed, as a boolean array."""
@@ -111,6 +123,11 @@ def _evaluate(node: Node, resolver: OperandResolver) -> tuple[np.ndarray, np.nda
             # A pattern is either confirmed on a bar or not: there is nothing unknown in it.
             holds = resolver.detect(node)
             return holds, np.ones_like(holds)
+        case TimeOfDay(time=(start, end)):
+            minute = resolver.calendar.minute
+            after, before = minute >= minutes(start), minute < minutes(end)
+            holds = after & before if minutes(start) < minutes(end) else after | before
+            return holds, np.ones_like(holds)
     raise TypeError(f"not a rule: {node!r}")
 
 
@@ -119,15 +136,16 @@ def strategy_signals(
 ) -> tuple[np.ndarray, np.ndarray | None]:
     """Entry and exit signals (None without an exit rule). Indicators that both use are
     computed once."""
-    resolver = OperandResolver(bars)
+    resolver = OperandResolver(bars, definition.session)
     entries = evaluate(definition.entry, resolver)
     exits = None if definition.exit is None else evaluate(definition.exit, resolver)
     return entries, exits
 
 
 def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Orders:
-    """What the definition asks of the engine on `bars`."""
-    resolver = OperandResolver(bars)
+    """What the definition asks of the engine on `bars`. With a session, entries fill only on
+    bars in it."""
+    resolver = OperandResolver(bars, definition.session)
     entries = evaluate(definition.entry, resolver)
     exits = None if definition.exit is None else evaluate(definition.exit, resolver)
     take_profit = (
@@ -150,6 +168,7 @@ def strategy_orders(definition: StrategyDefinition, bars: pd.DataFrame) -> Order
         entry=entry,
         trailing_stop=_level(definition.trailing_stop_pct, definition.trailing_stop_at, resolver),
         exit_after_bars=definition.exit_after_bars,
+        can_fill=None if definition.session is None else resolver.calendar.in_session,
     )
 
 

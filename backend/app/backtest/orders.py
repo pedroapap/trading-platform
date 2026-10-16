@@ -50,3 +50,5 @@ class Orders:
     trailing_stop: Level | None = None
     # Exit at the open this many bars after the entry bar, unless something exits first.
     exit_after_bars: int | None = None
+    # The bars an entry may fill on; every bar when None.
+    can_fill: np.ndarray | None = None

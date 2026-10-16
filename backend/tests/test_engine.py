@@ -1427,3 +1427,64 @@ def test_the_engine_never_looks_ahead(direction):
         assert changed_result.equity.iloc[: t + 1].equals(result.equity.iloc[: t + 1])
         finished = [trade for trade in result.trades if trade.exit_time <= bars.index[t]]
         assert changed_result.trades[: len(finished)] == finished
+
+
+def test_a_market_order_whose_next_bar_may_not_fill_is_dropped():
+    bars = bars_from([(100, 101, 99, 100)] * 5)
+    orders = Orders(
+        Direction.LONG,
+        entries=at(5, 1, 3),
+        exits=at(5, 4),
+        can_fill=np.array([True, True, False, True, True]),
+    )
+
+    result = simulate_orders(bars, orders, BacktestConfig(10_000))
+
+    # Bar 1's signal would fill on bar 2, which may not; bar 3's fills on bar 4.
+    [trade] = result.trades
+    assert trade.entry_time == bars.index[4]
+
+
+def test_a_limit_order_does_not_fill_on_a_bar_that_may_not():
+    # fmt: off
+    bars = bars_from([
+        (100, 101,  99, 100),  # 0 signal: buy at 98 or better, for 3 bars
+        (100, 101,  99, 100),  # 1
+        (100, 101,  97, 100),  # 2 reaches 98, but may not fill
+        (100, 101,  97, 100),  # 3 fills at 98
+    ])
+    # fmt: on
+    orders = Orders(
+        Direction.LONG,
+        entries=at(4, 0),
+        entry=Entry("limit", np.full(4, 98.0), expires_after=3),
+        can_fill=np.array([True, True, False, True]),
+    )
+
+    [trade] = simulate_orders(bars, orders, BacktestConfig(10_000)).trades
+
+    assert (trade.entry_time, trade.entry_price) == (bars.index[3], 98)
+
+
+def test_with_a_session_entries_fill_only_in_it():
+    # Half-hour bars from 08:30 to 17:00 New York time, with an entry signal on every one.
+    times = pd.date_range(
+        "2026-03-06 08:30", "2026-03-06 17:00", freq="30min", tz="America/New_York"
+    )
+    bars = bars_from([(100, 101, 99, 100)] * len(times))
+    bars.index = times.tz_convert("UTC")
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"},
+            "entry": {"left": {"price": "close"}, "op": ">", "right": {"value": 0}},
+            "exit_after_bars": 1,
+        }
+    )
+
+    result = run(bars, definition, BacktestConfig(10_000))
+
+    entered = [trade.entry_time.tz_convert("America/New_York") for trade in result.trades]
+    assert [f"{time:%H:%M}" for time in entered] == [
+        "09:30", "10:30", "11:30", "12:30", "13:30", "14:30", "15:30",
+    ]  # fmt: skip

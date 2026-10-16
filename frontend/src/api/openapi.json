@@ -2420,6 +2420,9 @@
                       "equal_lows": "#/components/schemas/EqualLows"
                     }
                   }
+                },
+                {
+                  "$ref": "#/components/schemas/TimeOfDay"
                 }
               ]
             },
@@ -2471,6 +2474,9 @@
                       "equal_lows": "#/components/schemas/EqualLows"
                     }
                   }
+                },
+                {
+                  "$ref": "#/components/schemas/TimeOfDay"
                 }
               ]
             },
@@ -2522,6 +2528,9 @@
                       "equal_lows": "#/components/schemas/EqualLows"
                     }
                   }
+                },
+                {
+                  "$ref": "#/components/schemas/TimeOfDay"
                 }
               ]
             },
@@ -2573,6 +2582,9 @@
                       "equal_lows": "#/components/schemas/EqualLows"
                     }
                   }
+                },
+                {
+                  "$ref": "#/components/schemas/TimeOfDay"
                 }
               ]
             },
@@ -4429,6 +4441,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Happened"
@@ -4491,6 +4506,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Happened"
@@ -5742,6 +5760,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Not"
@@ -5790,6 +5811,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Not"
@@ -6433,6 +6457,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Entry"
@@ -6472,6 +6499,9 @@
                         "equal_lows": "#/components/schemas/EqualLows"
                       }
                     }
+                  },
+                  {
+                    "$ref": "#/components/schemas/TimeOfDay"
                   }
                 ]
               },
@@ -6867,6 +6897,9 @@
                     "equal_lows": "#/components/schemas/EqualLows"
                   }
                 }
+              },
+              {
+                "$ref": "#/components/schemas/TimeOfDay"
               }
             ],
             "title": "Entry"
@@ -6906,6 +6939,9 @@
                         "equal_lows": "#/components/schemas/EqualLows"
                       }
                     }
+                  },
+                  {
+                    "$ref": "#/components/schemas/TimeOfDay"
                   }
                 ]
               },
@@ -7687,6 +7723,27 @@
         ],
         "title": "SwingLow",
         "description": "A recent swing low: a bar lower than the `strength` bars on each side of it, known only\n`strength` bars after it. `occurrence` 0 is the latest; `output` is its `price` or the\nnumber of bars since it."
+      },
+      "TimeOfDay": {
+        "properties": {
+          "time": {
+            "items": {
+              "type": "string",
+              "pattern": "^(([01]\\d|2[0-3]):[0-5]\\d|24:00)$"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Time"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "time"
+        ],
+        "title": "TimeOfDay",
+        "description": "True on bars that start at or after the first time and before the second, in the\nsession's time zone (UTC without a session). A first time later than the second wraps past\nmidnight: [\"22:00\", \"02:00\"]."
       },
       "Timeframe": {
         "type": "string",

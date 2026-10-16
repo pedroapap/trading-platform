@@ -8,6 +8,8 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   the last bar never fills.
 - One position at a time: entry signals are ignored while a position is open. After an exit,
   an entry signal from the exit bar's close onward can re-enter.
+- With a trading session, entries fill only on bars in it: a market order whose next bar is
+  outside it is dropped, and a limit or stop order doesn't fill outside it.
 - Each entry commits `position_size_pct` of the current equity, entry fee included, so
   100% never overdraws.
 - `fee_pct` is charged on each fill's notional, and `slippage_pct` moves each fill's price
@@ -143,7 +145,9 @@ def simulate_orders(
     # A signal whose levels aren't known yet (an indicator warming up) places no order.
     signals = orders.entries & _known(orders.stop_loss) & _known(orders.take_profit)
     signals &= _known(orders.trailing_stop)
-    entering = _Entering(orders.entry, signals & _known(orders.entry), opens, adverse, favorable)
+    entering = _Entering(
+        orders.entry, signals & _known(orders.entry), opens, adverse, favorable, orders.can_fill
+    )
     exits = orders.exits
     exit_fills = (np.flatnonzero(exits[:-1]) + 1).tolist() if exits is not None else []
     inside_bars = None if detail is None else _Inside(detail, bars.index, sign)
@@ -478,18 +482,21 @@ class _Entering:
         opens: np.ndarray,
         adverse: np.ndarray,
         favorable: np.ndarray,
+        can_fill: np.ndarray | None,
     ) -> None:
         self._order, self._opens = order, opens
         bars = np.arange(len(signals))
+        if can_fill is None:
+            can_fill = np.ones(len(signals), dtype=bool)
         if order.kind == "market":
-            # The bars where market orders fill: the one after each signal.
-            self._fills = (np.flatnonzero(signals[:-1]) + 1).tolist()
+            # The bars where market orders fill: the one after each signal, if it may.
+            self._fills = (np.flatnonzero(signals[:-1] & can_fill[1:]) + 1).tolist()
             return
         # The order working on each bar is the latest signal's, while it hasn't expired: a
         # newer signal replaces an older order.
         latest = np.maximum.accumulate(np.where(signals, bars, -1))
         self._placed = np.concatenate([[-1], latest[:-1]])
-        working = (self._placed >= 0) & (bars - self._placed <= order.expires_after)
+        working = (self._placed >= 0) & (bars - self._placed <= order.expires_after) & can_fill
         self._prices = np.where(working, order.at[np.maximum(self._placed, 0)], np.nan)
         # A limit order is reached as price moves against the position (a long buys lower); a
         # stop order as it moves with it (a long buys higher).

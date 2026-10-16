@@ -10,10 +10,12 @@ from app.strategies.rules import (
     Node,
     Not,
     Price,
+    TimeOfDay,
     Value,
     check_limits,
     conditions,
     depth,
+    leaves,
 )
 
 node = TypeAdapter(Node)
@@ -69,6 +71,20 @@ def test_a_pattern_is_a_rule():
     assert conditions(tree) == [tree.all[0]]
 
 
+def test_a_time_window_is_a_rule():
+    tree = node.validate_python({"all": [{"time": ["09:30", "11:00"]}, RSI_BELOW_30]})
+
+    assert tree.all[0] == TimeOfDay(time=("09:30", "11:00"))
+    assert leaves(tree) == list(tree.all)
+    assert conditions(tree) == [tree.all[1]]
+    assert node.dump_python(tree.all[0], mode="json") == {"time": ["09:30", "11:00"]}
+
+
+@pytest.mark.parametrize("window", [["22:00", "02:00"], ["00:00", "24:00"], ["15:55", "24:00"]])
+def test_time_windows_may_wrap_midnight_or_end_at_it(window):
+    node.validate_python({"time": window})
+
+
 def test_not_is_written_not():
     tree = node.validate_python({"not": RSI_BELOW_30})
 
@@ -111,6 +127,13 @@ def test_trees_round_trip_through_json():
         ({**DOUBLE_BOTTOM, "tolerance_pct": 0}, "greater than 0"),
         ({**DOUBLE_BOTTOM, "within": 1}, "greater than or equal to 2"),
         ({"pattern": "equal_highs", "strength": 2, "within": 10}, "Field required"),
+        ({"time": ["09:30"]}, "a time window takes two times"),
+        ({"time": ["09:30", "11:00", "12:00"]}, "a time window takes two times"),
+        ({"time": ["09:30", "09:30"]}, "two different times"),
+        ({"time": ["24:00", "02:00"]}, "starts before 24:00"),
+        ({"time": ["00:00", "24:00"], "within": 5}, "Extra inputs are not permitted"),
+        ({"time": ["9:30", "11:00"]}, "HH:MM on a 24-hour clock"),
+        ({"time": "09:30"}, "valid tuple"),
     ],
 )
 def test_invalid_trees_are_rejected(data, message):
@@ -136,7 +159,10 @@ def test_limits_allow_six_levels_and_twenty_conditions():
         (nested(6), "at most 6 levels deep"),
         ({"not": {"happened": nested(4), "within": 5}}, "at most 6 levels deep"),
         ({"happened": {"any": [RSI_BELOW_30] * 21}, "within": 5}, "at most 20 conditions"),
-        ({"any": [RSI_BELOW_30] * 10 + [DOUBLE_BOTTOM] * 11}, "at most 20 conditions and patterns"),
+        (
+            {"any": [RSI_BELOW_30] * 10 + [DOUBLE_BOTTOM] * 10 + [{"time": ["09:30", "10:00"]}]},
+            "at most 20 conditions, patterns and time windows",
+        ),
         ({"any": [RSI_BELOW_30] * 21}, "at most 20 conditions"),
     ],
 )

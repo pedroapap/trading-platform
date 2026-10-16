@@ -366,7 +366,31 @@ class EqualHighs(_Rule):
 
 Pattern = Annotated[EqualLows | EqualHighs, Field(discriminator="pattern")]
 
-_NODE_KEYS = ("all", "any", "op", "not", "happened", "pattern")
+
+def _window(times: tuple) -> tuple:
+    # An after-validator, as for arithmetic, so an invalid time isn't joined by a length error.
+    if len(times) != 2:
+        raise ValueError('a time window takes two times, such as ["09:30", "11:00"]')
+    if times[0] == "24:00":
+        raise ValueError("a time window starts before 24:00")
+    if times[0] == times[1]:
+        raise ValueError("a time window needs two different times")
+    return times
+
+
+class TimeOfDay(_Rule):
+    """True on bars that start at or after the first time and before the second, in the
+    session's time zone (UTC without a session). A first time later than the second wraps past
+    midnight: ["22:00", "02:00"]."""
+
+    time: Annotated[
+        tuple[ClockTime, ...],
+        AfterValidator(_window),
+        Field(json_schema_extra={"minItems": 2, "maxItems": 2}),
+    ]
+
+
+_NODE_KEYS = ("all", "any", "op", "not", "happened", "pattern", "time")
 _NODE_KINDS = {
     Condition: "op",
     AllOf: "all",
@@ -375,6 +399,7 @@ _NODE_KINDS = {
     Happened: "happened",
     EqualLows: "pattern",
     EqualHighs: "pattern",
+    TimeOfDay: "time",
 }
 
 
@@ -390,13 +415,14 @@ Node = Annotated[
     | Annotated[AnyOf, Tag("any")]
     | Annotated[Not, Tag("not")]
     | Annotated[Happened, Tag("happened")]
-    | Annotated[Pattern, Tag("pattern")],
+    | Annotated[Pattern, Tag("pattern")]
+    | Annotated[TimeOfDay, Tag("time")],
     Discriminator(
         _node_kind,
         custom_error_type="invalid_rule",
         custom_error_message=(
-            "A rule is a condition (left/op/right), an 'all'/'any' group, 'not', 'happened'"
-            " or a 'pattern'"
+            "A rule is a condition (left/op/right), an 'all'/'any' group, 'not', 'happened',"
+            " a 'pattern' or a 'time' window"
         ),
     ),
 ]
@@ -416,8 +442,8 @@ def children(node: Node) -> tuple[Node, ...]:
             return ()
 
 
-def leaves(node: Node) -> list[Condition | EqualLows | EqualHighs]:
-    """Every condition and pattern in the tree, depth first."""
+def leaves(node: Node) -> list[Condition | EqualLows | EqualHighs | TimeOfDay]:
+    """Every condition, pattern and time window in the tree, depth first."""
     inside = children(node)
     if not inside:
         return [node]
@@ -439,4 +465,6 @@ def check_limits(node: Node) -> None:
     if depth(node) > MAX_DEPTH:
         raise ValueError(f"rules may be nested at most {MAX_DEPTH} levels deep")
     if len(leaves(node)) > MAX_CONDITIONS:
-        raise ValueError(f"rules may contain at most {MAX_CONDITIONS} conditions and patterns")
+        raise ValueError(
+            f"rules may contain at most {MAX_CONDITIONS} conditions, patterns and time windows"
+        )
