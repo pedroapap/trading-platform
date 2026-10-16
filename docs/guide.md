@@ -120,7 +120,7 @@ links the trade and makes the entry a post-trade review.
 - **Publish:** the entry becomes version 1, a snapshot that can't be changed.
 - **Editing it later:** a published entry can still be edited, but each edit needs a
   **reason** and is saved as the next version (**Save as version 2**). An edit that changes
-  nothing is refused.
+  nothing makes no version, and the page says *Nothing changed*.
 - **History:** the entry's page lists every version with the fields it changed and its reason.
   Open one to read what you wrote then.
 
