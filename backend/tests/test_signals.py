@@ -609,3 +609,52 @@ def test_a_higher_timeframes_bars_are_built_as_the_app_builds_them():
     assert np.isnan(high[:29]).all()
     assert high[29] == bars["high"].iloc[:30].max()
     assert high[89] == bars["high"].iloc[30:90].max()
+
+
+# Every day-trading block, each on its own, on a New York session.
+DAY_TRADING_RULES = [
+    {"time": ["10:00", "15:00"]},
+    {"time": ["15:00", "10:00"]},
+    {"left": {"price": "close"}, "op": ">", "right": {"indicator": "vwap"}},
+    {
+        "left": {"price": "high"},
+        "op": ">=",
+        "right": {"indicator": "opening_range", "minutes": 60, "output": "high"},
+    },
+    {
+        "left": {"indicator": "day", "output": "low"},
+        "op": ">",
+        "right": {"indicator": "day", "output": "low", "days_ago": 1},
+    },
+    {
+        "left": {"price": "close"},
+        "op": ">",
+        "right": {"indicator": "day", "output": "open", "bars_ago": 2},
+    },
+    {
+        "left": {"price": "close"},
+        "op": "crosses_above",
+        "right": {"timeframe": "1d", "of": {"indicator": "sma", "period": 2}},
+    },
+    {
+        "left": {"timeframe": "4h", "of": {"price": "high", "bars_ago": 1}},
+        "op": "<",
+        "right": {"price": "close"},
+    },
+]
+
+
+@pytest.mark.parametrize("rule", DAY_TRADING_RULES, ids=lambda rule: str(rule)[:60])
+def test_day_trading_rules_never_look_ahead(rule):
+    # Half-hour bars around the clock for six days, so sessions, days and nights.
+    bars = random_bars(288)
+    bars.index = pd.date_range("2026-03-02", periods=288, freq="30min", tz="UTC")
+    node = TypeAdapter(Node).validate_python(rule)
+    holds = evaluate(node, OperandResolver(bars, NEW_YORK))
+    assert 0 < holds.sum() < len(bars)
+
+    # From the second bar: a lone bar's width can't be told from the data.
+    for t in range(1, len(bars)):
+        early = evaluate(node, OperandResolver(bars.iloc[: t + 1], NEW_YORK))
+
+        np.testing.assert_array_equal(early, holds[: t + 1], err_msg=f"bar {t}")

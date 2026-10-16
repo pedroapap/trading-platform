@@ -127,3 +127,40 @@ def test_every_new_block_backtests_a_year_in_under_five_seconds():
 
     assert summary.num_trades > 1_000
     assert elapsed < 5, f"took {elapsed:.1f} s"
+
+
+@pytest.mark.slow
+def test_the_day_trading_blocks_backtest_a_year_in_under_five_seconds():
+    # An opening-range breakout on a New York session, in a morning window above VWAP and the
+    # daily trend, out by 15:55: sessions, VWAP, the opening range, a daily wrapper and flat_at.
+    bars = random_bars(MINUTES_IN_A_YEAR)
+    opening_range = {"indicator": "opening_range", "minutes": 30}
+    definition = StrategyDefinition.model_validate(
+        {
+            "direction": "long",
+            "session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"},
+            "entry": {
+                "all": [
+                    {"time": ["10:00", "12:00"]},
+                    {"left": {"price": "close"}, "op": ">", "right": {"indicator": "vwap"}},
+                    {
+                        "left": {"price": "close"},
+                        "op": ">",
+                        "right": {"timeframe": "1d", "of": {"indicator": "sma", "period": 20}},
+                    },
+                ]
+            },
+            "entry_order": {"type": "stop", "price": opening_range | {"output": "high"}},
+            "stop_loss_at": opening_range | {"output": "low"},
+            "take_profit_r": 2,
+            "flat_at": "15:55",
+        }
+    )
+    config = BacktestConfig(10_000, fee_pct=0.1, slippage_pct=0.05)
+
+    start = time.perf_counter()
+    summary = summarize(run(bars, definition, config))
+    elapsed = time.perf_counter() - start
+
+    assert summary.num_trades > 100
+    assert elapsed < 5, f"took {elapsed:.1f} s"

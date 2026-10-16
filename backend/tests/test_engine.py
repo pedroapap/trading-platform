@@ -1701,3 +1701,83 @@ def test_a_target_in_multiples_of_the_risk_measures_from_the_strategys_own_stop(
     [trade] = simulate_orders(bars, orders, BacktestConfig(10_000, position_size_pct=400)).trades
 
     assert (trade.exit_price, trade.exit_reason) == (130, ExitReason.TAKE_PROFIT)
+
+
+def every_day_trade(direction: Direction) -> StrategyDefinition:
+    """A day trade using every day-trading block: a New York session and a morning window;
+    a stop entry at the opening range, a stop at the other end of it, a 2R target, a daily
+    trend filter, VWAP, yesterday's and today's levels; out by 15:30. Mirrored for shorts."""
+    long = direction == Direction.LONG
+    near, far = ("high", "low") if long else ("low", "high")
+    return StrategyDefinition.model_validate(
+        {
+            "direction": direction,
+            "session": NEW_YORK,
+            "entry": {
+                "all": [
+                    {"time": ["10:00", "13:00"]},
+                    {
+                        "left": {"price": "close"},
+                        "op": ">" if long else "<",
+                        "right": {"indicator": "vwap"},
+                    },
+                    {
+                        "any": [
+                            {
+                                "left": {"price": "close"},
+                                "op": ">" if long else "<",
+                                "right": {
+                                    "timeframe": "1d",
+                                    "of": {"indicator": "sma", "period": 2},
+                                },
+                            },
+                            {
+                                "left": {"price": "close"},
+                                "op": ">" if long else "<",
+                                "right": {"indicator": "day", "output": near, "days_ago": 1},
+                            },
+                            {
+                                "left": {"price": "close"},
+                                "op": ">" if long else "<",
+                                "right": {"indicator": "day", "output": "open"},
+                            },
+                        ]
+                    },
+                ]
+            },
+            "entry_order": {
+                "type": "stop",
+                "price": {"indicator": "opening_range", "minutes": 30, "output": near},
+                "expires_after": 4,
+            },
+            "stop_loss_at": {"indicator": "opening_range", "minutes": 30, "output": far},
+            "take_profit_r": 2,
+            "flat_at": "15:30",
+        }
+    )
+
+
+@pytest.mark.parametrize("direction", list(Direction))
+def test_no_day_trade_looks_ahead(direction):
+    # Fifteen-minute bars of New York sessions over twenty days, at 4x leverage.
+    times = pd.DatetimeIndex([])
+    for day in pd.bdate_range("2026-03-02", periods=20):
+        session = pd.date_range(
+            f"{day:%Y-%m-%d} 09:30", periods=26, freq="15min", tz="America/New_York"
+        )
+        times = times.append(session.tz_convert("UTC"))
+    bars, other = random_bars(len(times)), random_bars(len(times), seed=8)
+    bars.index = other.index = times
+    config = BacktestConfig(10_000, position_size_pct=400, fee_pct=0.1, slippage_pct=0.05)
+    definition = every_day_trade(direction)
+    result = run(bars, definition, config)
+    reasons = {trade.exit_reason for trade in result.trades}
+    assert len(result.trades) > 5
+    assert {ExitReason.STOP_LOSS, ExitReason.TAKE_PROFIT, ExitReason.END_OF_DAY} <= reasons
+
+    for t in range(len(bars)):
+        changed = run(pd.concat([bars.iloc[: t + 1], other.iloc[t + 1 :]]), definition, config)
+
+        assert changed.equity.iloc[: t + 1].equals(result.equity.iloc[: t + 1])
+        finished = [trade for trade in result.trades if trade.exit_time <= bars.index[t]]
+        assert changed.trades[: len(finished)] == finished
