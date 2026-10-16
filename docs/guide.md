@@ -217,3 +217,177 @@ For files over 200 MB, or many files, use the command line:
 ```sh
 make import-csv file=prices.csv symbol=BTCUSDT [timeframe=1m]
 ```
+
+## Strategies
+
+A strategy is a set of rules for when to enter and how to get out, written in the
+[rule language](rules.md). The **Strategies** page lists yours.
+
+### Creating one
+
+Select **New strategy** and give it:
+
+- **Name:** up to 100 characters, and different from your other strategies' names.
+- **Description (optional):** up to 2,000 characters.
+- **Definition:** the rules, as JSON.
+
+The definition box starts with a simple RSI strategy. **Start from an example** offers six
+more, each with what it does in words. The help under the box sums up the language.
+
+When you select **Create strategy**, the definition is checked. Each problem is listed with
+its place in the definition, such as `entry.left.period`. A definition that isn't valid JSON
+is caught before it is sent.
+
+### Versions
+
+A strategy's page shows its current definition, **Backtest it**, **Edit strategy** and its
+**History**.
+
+- **Changing the definition** makes a new version, recording which parts changed, such as
+  *changed take_profit_r*. Earlier versions can't be changed, so their backtests stay
+  reproducible. Open a version in the history to read it.
+- **Changing the name or description** changes the strategy in place, without a version.
+- **Saving an identical definition** changes nothing (*Nothing changed.*).
+
+Trades and backtests record the version they followed.
+
+## Backtests
+
+A backtest runs one version of a strategy over one symbol's stored bars, and reports what it
+would have done.
+
+### Running one
+
+Select **Backtest it** on a strategy, or **New backtest**:
+
+| Field | Meaning and rules |
+|---|---|
+| **Strategy**, **Version** | The strategy, and its version: the current one if left empty |
+| **Symbol** | A symbol with stored bars; the stored ones are suggested |
+| **Timeframe** | The bar size to test on: stored, or [built from smaller stored bars](#stored-bars-and-bigger-bars-on-demand) |
+| **From**, **To** (optional) | The first bar to use, and the bar to stop before. Empty means from the first or to the last stored bar |
+| **Out-of-sample from** (optional) | Bars from this time on are reported apart: see [out-of-sample](#in-sample-and-out-of-sample). It must fall inside the range, with bars on both sides |
+| **Finer bars for fills** | Smaller stored bars that settle what happened first inside a bar. Only stored sizes that divide the timeframe are offered, and the finest is picked. *None: assume the worst case* turns it off |
+| **Initial capital** | The money to start with, in the symbol's quote currency, 10,000 by default |
+| **Position size %** | The share of current equity put into each trade, the entry fee included: up to 1,000%. Over 100% borrows the rest, at no cost |
+| **Fee %** | Charged on each fill's value, 0 to 10% |
+| **Slippage %** | How far each market or stop fill lands against you, 0 to 10% |
+| **Periods per year** | 365 for markets that trade every day (crypto), 252 for stock exchanges: it scales the Sharpe and Sortino ratios |
+
+Select **Run backtest**. Most runs take a few seconds, and the results page shows *Pending*
+and *Running* until it is done. A backtest is refused, with the reason, when:
+
+- **there are no bars** for the symbol and timeframe in the range;
+- **the version doesn't exist**;
+- **the bars can't build** a timeframe the strategy uses;
+- **the finer bars aren't finer** than the timeframe, or don't divide into it.
+
+If a run fails, its page says why; if the app restarts mid-run, the run is marked failed
+(*Interrupted*).
+
+### How it fills orders
+
+The simulation reads signals at each bar's close and fills them as described in
+[the rule language](rules.md#how-orders-fill).
+
+- **Prices:** orders fill at the next bar's open or at their price.
+- **Costs:** every fill pays the fee, and market and stop fills pay slippage.
+- **In doubt:** inside a bar, the worst case counts, unless finer bars settle it.
+- **Positions:** one is open at a time, and one still open at the end closes at the last close.
+
+### The results page
+
+From the top:
+
+- **The settings it ran with**:
+  - the strategy version, market and range asked for;
+  - the **bars used** (count, first and last);
+  - capital, position size, costs and periods per year;
+  - finer bars, the out-of-sample start;
+  - the **data fingerprint**, a SHA-256 of every bar it read, finer bars included. Two runs
+    with the same fingerprint saw exactly the same data.
+- **Too few trades to judge**, a warning when a run has under 30 trades.
+- **Results:** the [headline numbers](#what-the-numbers-mean), with buy and hold's return,
+  CAGR and drawdown under the strategy's.
+- **In-sample and out-of-sample**, when the run has a split: each side's numbers next to each
+  other.
+- **Backtest and live**: your logged trades of the same strategy version on the same symbol,
+  entered while the backtest's bars ran, next to the backtest's. It shows trades, win rate,
+  average return on notional and total P&L.
+- **Equity**: the account's value at each bar's close next to buy and hold's, from the initial
+  capital. Long runs are thinned to 1,000 points, keeping each stretch's highest and lowest
+  values so no drawdown is hidden. Point at the chart for a value, or open **Equity as a
+  table**.
+- **Trades**, every simulated trade, 50 to a page:
+  - entry and exit time and price, and size;
+  - **Costs**, the fees plus slippage;
+  - **P&L**, net of costs, and **P&L %** on the entry's value;
+  - **Exit by**, why it ended.
+
+### Buy and hold
+
+Buy and hold is what a strategy has to beat. It buys at the first bar's open with all of the
+initial capital, whatever the position size, and sells at the last bar's close. It pays the
+same fee and slippage, and its return, CAGR and drawdown count from the initial capital.
+
+### In-sample and out-of-sample
+
+A rule shaped by looking at some bars will look good on them. Holding out the latest bars, the
+*out-of-sample* ones, shows how it does on bars it wasn't shaped on.
+
+- **Trades:** each counts on the side it was entered.
+- **Equity:** the out-of-sample side's counts from its value on the last bar before the split.
+- **Buy and hold:** each side has its own.
+
+## Analytics
+
+**Analytics** looks at your closed trades only, since open and cancelled trades have no P&L.
+**Closed from** and **Closed to (inclusive)** limit it to trades closed in that time.
+
+### Performance
+
+**Group by** strategy, symbol, emotion or tag:
+
+- **Trades**, **Wins** (P&L above 0) and **Losses** (below 0). A breakeven trade is neither.
+- **Win rate**: wins as a share of the trades.
+- **Average return**: the mean return per trade on the trade's full value, its *notional*. It
+  is the return on margin divided by the leverage, so leverage doesn't make a trade look better
+  or worse.
+- **P&L**: the total in each quote currency, with the number of trades and the average.
+
+Groups come best average return first. Trades without a strategy, emotion or tag are grouped
+as *No strategy*, *No emotion recorded* or *No tag*.
+
+By emotion or tag, a trade counts once in each emotion or tag that its journal entries
+record, and **Journal entries** can keep, for example, only pre-trade feelings.
+
+### Realized P&L
+
+One chart per quote currency adds up the P&L of closed trades in the order they closed, one
+point per trade, with the total and the deepest drawdown in money. The points are evenly
+spaced rather than to scale in time. Point at one to see its date, or open the table.
+
+**Symbol** and **Strategy** narrow it down. Trades of symbols without a set currency get a
+chart of their own, flagged because it may mix currencies.
+
+## What the numbers mean
+
+| Number | How it is worked out |
+|---|---|
+| **Total return** | The change from the first to the last value of the equity curve |
+| **CAGR** | The steady yearly growth that would turn the first value into the last over the run's length: (last ÷ first)^(1 ÷ years) − 1, with years of 365.25 days. −100% once the money is gone |
+| **Max drawdown** | The largest fall from a high point of the equity curve, as a percentage of that high point |
+| **Sharpe ratio** | The average daily return divided by how much daily returns vary (their standard deviation), times the square root of the periods per year. Days are UTC days, and the risk-free rate is taken as zero. Higher is steadier |
+| **Sortino ratio** | Like Sharpe, but it only counts losing days as risk: the average daily return over the root mean square of the losing days' returns, counted over all days |
+| **Trades** | Trades entered, including one closed at the end of the data |
+| **Win rate** | The share of trades with a P&L above zero |
+| **Profit factor** | The money made by winners divided by the money lost by losers. Above 1 makes money. Blank without a losing trade |
+| **Expectancy** | The average P&L per trade, in money |
+| **Average trade** | The average return per trade on its value, with its 95% range: ±1.96 standard errors, from 2 trades. A range that spans zero means the run can't tell a gain from luck |
+| **Average win**, **Average loss** | The average P&L of winning and losing trades. The average loss is negative |
+| **Exposure** | The share of bars on which a position was open at some point, its entry and exit bars included |
+
+A run whose equity curve spans under 90 days shows CAGR, Sharpe and Sortino as "—", with
+*Not annualized: under 90 days of data*. Scaled to a year, a few days' result says nothing:
+a 2.4% gain in four days would show as a 630% CAGR. Buy and hold's CAGR is left out too, and
+each side of a split follows the same rule.
