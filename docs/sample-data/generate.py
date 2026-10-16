@@ -8,7 +8,7 @@ and plain arithmetic, so it writes the same bytes on every machine:
     python docs/sample-data/generate.py            # writes demousdt-1h.csv
     python docs/sample-data/generate.py --minutes  # also demousdt-1m.csv, inside those hours
 
-The 1-minute file (about 35 MB) isn't kept in the repository.
+The 1-minute file (about 29 MB) isn't kept in the repository.
 """
 
 import argparse
