@@ -37,6 +37,8 @@ const EXIT_REASONS: Record<Schemas["ExitReason"], string> = {
   end_of_data: "end of data",
   trailing_stop: "trailing stop",
   time_exit: "time exit",
+  end_of_day: "end of day",
+  margin_call: "margin call",
 };
 
 /** A computed amount in the backtest's currency. */

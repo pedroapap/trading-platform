@@ -4378,7 +4378,9 @@
           "take_profit",
           "end_of_data",
           "trailing_stop",
-          "time_exit"
+          "time_exit",
+          "end_of_day",
+          "margin_call"
         ],
         "title": "ExitReason",
         "description": "Why a backtest closed a position."

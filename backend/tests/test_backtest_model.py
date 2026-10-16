@@ -115,7 +115,7 @@ def test_an_unknown_exit_reason_is_rejected(db_session, user):
     db_session.flush()
 
     with pytest.raises(IntegrityError, match="ck_backtest_trades_exit_reason"):
-        db_session.execute(text("UPDATE backtest_trades SET exit_reason = 'margin_call'"))
+        db_session.execute(text("UPDATE backtest_trades SET exit_reason = 'expired'"))
 
 
 def test_trade_numbers_are_unique_per_backtest(db_session, user):

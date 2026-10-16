@@ -219,16 +219,14 @@ test("finer bars and an out-of-sample start are shown, with each side's results"
   ]);
 });
 
-test("trailing stops and time exits are named", async () => {
+test("trailing stops, time exits, the end of the day and margin calls are named", async () => {
   backtestApi([DONE]);
+  const reasons = ["trailing_stop", "time_exit", "end_of_day", "margin_call"] as const;
   server.use(
     http.get("/api/backtests/:id/trades", () =>
       HttpResponse.json({
-        items: [
-          { ...trade(1), exit_reason: "trailing_stop" },
-          { ...trade(2), exit_reason: "time_exit" },
-        ],
-        total: 2,
+        items: reasons.map((reason, i) => ({ ...trade(i + 1), exit_reason: reason })),
+        total: reasons.length,
         limit: 50,
         offset: 0,
       }),
@@ -239,6 +237,8 @@ test("trailing stops and time exits are named", async () => {
 
   expect(await screen.findByRole("row", { name: /^1 long/ })).toHaveTextContent(/trailing stop$/);
   expect(screen.getByRole("row", { name: /^2 long/ })).toHaveTextContent(/time exit$/);
+  expect(screen.getByRole("row", { name: /^3 long/ })).toHaveTextContent(/end of day$/);
+  expect(screen.getByRole("row", { name: /^4 long/ })).toHaveTextContent(/margin call$/);
 });
 
 test("a backtest run before buy and hold was measured shows its results without it", async () => {
