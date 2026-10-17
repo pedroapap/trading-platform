@@ -83,6 +83,22 @@ export function formatMoney(value: number | string, currency: string | null): st
   return Math.abs(number) >= 1 ? cents.format(number) : significant.format(number);
 }
 
+const grouped = new Intl.NumberFormat();
+const decimalSign =
+  grouped.formatToParts(0.5).find((part) => part.type === "decimal")?.value ?? ".";
+
+/** An exact amount from the API in `currency`, such as a trade's P&L: grouped, and padded to
+ * the currency's smallest unit, but never rounded. 1215.09 USDT shows 1,215.09, 6200 JPY 6,200,
+ * 87 USD 87.00, and 0.00126458 BTC keeps every digit. */
+export function formatExactMoney(amount: string, currency: string | null): string {
+  const parts = /^(-?)(\d+)(?:\.(\d+))?$/.exec(amount);
+  if (!parts) return amount;
+  const [, sign, whole, fraction = ""] = parts;
+  const smallestUnit = fixedFormat(currency)?.resolvedOptions().minimumFractionDigits ?? 0;
+  const decimals = fraction.padEnd(smallestUnit, "0");
+  return `${sign}${grouped.format(BigInt(whole))}${decimals && decimalSign + decimals}`;
+}
+
 /** A computed price or size, to 8 significant digits. */
 export function formatDecimal(value: number | string): string {
   return significant.format(Number(value));

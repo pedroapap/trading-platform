@@ -119,7 +119,7 @@ test("a completed backtest shows what ran, its results, equity and trades", asyn
     "8,760, Jan 1, 2025, 12:00 AM – Dec 31, 2025, 11:00 PM",
   );
   expect(setting("Asked for")).toHaveTextContent("All stored bars");
-  expect(setting("Initial capital")).toHaveTextContent("10000 USDT");
+  expect(setting("Initial capital")).toHaveTextContent("10,000.00 USDT");
   expect(setting("Costs")).toHaveTextContent("0.1% fee and 0.05% slippage per fill");
   expect(setting("Data fingerprint")).toHaveTextContent("9f2c4e0a7b1d");
   expect(setting("Finer bars")).toHaveTextContent("None: inside a bar, the worst case counts");

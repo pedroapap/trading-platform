@@ -69,7 +69,7 @@ test("an open trade can be closed", async () => {
   fireEvent.change(screen.getByLabelText("Exit time"), { target: { value: "2026-01-05T16:00" } });
   await user.click(screen.getByRole("button", { name: "Save exit" }));
 
-  expect(await screen.findByText("120 USDT")).toBeInTheDocument();
+  expect(await screen.findByText("120.00 USDT")).toBeInTheDocument();
   expect(detailRow(/^Status/)).toHaveTextContent("closed");
   expect(screen.queryByText("Close trade")).not.toBeInTheDocument();
   expect(sent.close).toEqual({
@@ -115,7 +115,7 @@ test("a correction sends only what changed, with its reason, and is kept in the 
   await user.type(screen.getByLabelText("Reason for the correction"), "Typed the exit price wrong");
   await user.click(screen.getByRole("button", { name: "Save correction" }));
 
-  expect(await screen.findByText("100 USDT")).toBeInTheDocument();
+  expect(await screen.findByText("100.00 USDT")).toBeInTheDocument();
   expect(sent.correct).toEqual({
     exit_price: "50100",
     stop_loss: null,
@@ -154,7 +154,7 @@ test("a closed trade can't be closed or cancelled again", async () => {
 
   renderPage(`/trades/${closed.id}`);
 
-  expect(await screen.findByText("120 USDT")).toBeInTheDocument();
+  expect(await screen.findByText("120.00 USDT")).toBeInTheDocument();
   expect(screen.queryByText("Close trade")).not.toBeInTheDocument();
   expect(screen.queryByText("Cancel trade")).not.toBeInTheDocument();
 });

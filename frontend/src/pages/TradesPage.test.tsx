@@ -43,7 +43,7 @@ test("trades show their P&L in their quote currency", async () => {
 
   expect(await screen.findByText("RSI dip v2")).toBeInTheDocument();
   const [btc, aapl, eth] = rows();
-  expect(btc).toHaveTextContent("BTCUSDTlongclosed1 @ 500001 @ 50120120 USDT0.24%RSI dip v2");
+  expect(btc).toHaveTextContent("BTCUSDTlongclosed1 @ 500001 @ 50120120.00 USDT0.24%RSI dip v2");
   expect(within(aapl).getByRole("link", { name: "currency not set" })).toHaveAttribute(
     "href",
     "/instruments",
@@ -56,13 +56,13 @@ test("trades show their P&L in their quote currency", async () => {
 test("filters go to the API and into the URL", async () => {
   const queries = tradesEndpoint([trade()]);
   const { router, user } = renderPage("/trades?page=3");
-  await screen.findByText("120 USDT");
+  await screen.findByText("120.00 USDT");
 
   await user.type(screen.getByLabelText("Symbol"), "btcusdt");
   await user.selectOptions(screen.getByLabelText("Status"), "closed");
   await user.click(screen.getByRole("button", { name: "Filter" }));
 
-  await screen.findByText("120 USDT");
+  await screen.findByText("120.00 USDT");
   expect(router.state.location.search).toBe("?symbol=btcusdt&status=closed");
   expect(Object.fromEntries(queries.at(-1)!)).toEqual({
     symbol: "btcusdt",

@@ -118,7 +118,7 @@ test("performance is grouped by strategy, with money per currency", async () => 
   expect(dip).toHaveTextContent(
     "RSI dip43175.00%1.50%" +
       "0.01 BTC (1 trade, average 0.01)" +
-      "120 USDT (2 trades, average 60.00)" +
+      "120.00 USDT (2 trades, average 60.00)" +
       "-25 currency not set (1 trade, average -25.00)",
   );
   expect(within(dip).getByRole("link", { name: "RSI dip" })).toHaveAttribute(
@@ -129,7 +129,7 @@ test("performance is grouped by strategy, with money per currency", async () => 
     "href",
     "/instruments",
   );
-  expect(none).toHaveTextContent("No strategy31233.33%-0.40%-10.5 USDT (3 trades, average -3.50)");
+  expect(none).toHaveTextContent("No strategy31233.33%-0.40%-10.50 USDT (3 trades, average -3.50)");
 });
 
 test("the grouping, journal entry type and closing dates go to the API and the URL", async () => {
@@ -215,7 +215,7 @@ test("realized P&L is drawn per currency, with its total and drawdown", async ()
   renderPage("/analytics");
 
   const usdt = await screen.findByRole("article", { name: "Realized P&L in USDT" });
-  expect(usdt).toHaveTextContent("Total 120 USDT over 2 trades; max drawdown 30 USDT.");
+  expect(usdt).toHaveTextContent("Total 120.00 USDT over 2 trades; max drawdown 30.00 USDT.");
   expect(within(usdt).getByRole("figure")).toHaveTextContent(
     "Realized P&L: 150.00 USDT, 120.00 USDT; Break-even at 0; one point per trade",
   );

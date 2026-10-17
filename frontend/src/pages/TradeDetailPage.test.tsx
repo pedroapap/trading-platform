@@ -48,7 +48,7 @@ test("a trade shows its details", async () => {
 
   expect(await screen.findByRole("heading", { name: "BTCUSDT long" })).toBeInTheDocument();
   const details = screen.getAllByRole("table")[0];
-  expect(within(details).getByRole("row", { name: /^P&L/ })).toHaveTextContent("120 USDT");
+  expect(within(details).getByRole("row", { name: /^P&L/ })).toHaveTextContent("120.00 USDT");
   expect(within(details).getByRole("row", { name: /^Stop-loss/ })).toHaveTextContent("49000");
   expect(await within(details).findByText("RSI dip v2")).toBeInTheDocument();
 });
