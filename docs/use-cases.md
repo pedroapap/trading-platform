@@ -772,12 +772,13 @@ The RSI dip without its stop, at three position sizes, on 1h bars:
 |---|---|---|---|
 | 100% | 32 | +63.57% | 16.87% |
 | 400% | 32 | +401.03% | 63.04% |
-| 1,000% | 6 | −103.78% | 101.09% |
+| 1,000% | 6 | −100.00% | 100.00% |
 
-At 10×, a 10% fall uses up the equity. The sixth trade bought at 110.55 on 22 February and
-was closed by a margin call at 99.54 on 25 February, losing 28,401.37 USDT of the 28,023.18
-the account held. Like a stop, the call filled with slippage and paid the exit fee, so the
-account ended 378.19 USDT below zero, and no trade followed. Borrowing costs aren't modelled.
+At 10×, a fall of about 10% uses up the equity. The sixth trade bought at 110.55 on 22
+February and was closed by a margin call at 99.69 on 25 February. Its loss, both fees and the
+exit's slippage took all 28,023.19 USDT the account held, and no trade followed. Only a price
+gapping past the call level would have left less than nothing. Borrowing costs aren't
+modelled.
 
 ### 59. Day trade Bitcoin on real prices
 

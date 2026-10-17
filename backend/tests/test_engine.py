@@ -1637,11 +1637,13 @@ def test_a_position_over_100_percent_borrows_the_rest():
     assert result.equity.tolist() == [10_000, 12_000, 14_000]
 
 
-def run_leveraged(rows, *, fee_pct=0.0, **levels) -> SimulatedTrade:
+def run_leveraged(rows, *, fee_pct=0.0, slippage_pct=0.0, **levels) -> SimulatedTrade:
     """A long at 400% of 10,000 from bar 0's signal: 400 units bought at bar 1's open of 100,
-    without fees (unless given) or slippage."""
+    without fees or slippage unless given."""
     bars = bars_from(rows)
-    config = BacktestConfig(10_000, position_size_pct=400, fee_pct=fee_pct)
+    config = BacktestConfig(
+        10_000, position_size_pct=400, fee_pct=fee_pct, slippage_pct=slippage_pct
+    )
     [trade] = simulate(bars, at(len(bars), 0), None, config, **levels).trades
     return trade
 
@@ -1661,13 +1663,24 @@ def test_a_4x_long_is_called_when_the_price_falls_25_percent():
     assert (trade.exit_price, trade.pnl, trade.exit_reason) == (75, -10_000, ExitReason.MARGIN_CALL)
 
 
-def test_the_entry_fee_counts_toward_the_margin_call():
-    # 4 x 10,000 / 1.001 buys 399.6004 units and pays a fee of 39.96: the rest of the equity,
-    # 9,960.04, is gone 24.925 below the entry.
-    trade = run_leveraged(SLIDE, fee_pct=0.1)
+@pytest.mark.parametrize(("fee_pct", "slippage_pct"), [(0.1, 0), (0, 0.05), (0.1, 0.05)])
+def test_a_margin_call_leaves_nothing_once_its_fees_and_slippage_are_paid(fee_pct, slippage_pct):
+    # The call is where the loss, both fees and the exit's slippage use up the 10,000.
+    trade = run_leveraged(SLIDE, fee_pct=fee_pct, slippage_pct=slippage_pct)
 
-    notional = 40_000 / 1.001
-    assert trade.exit_price == approx(100 - (10_000 - notional * 0.001) / (notional / 100))
+    assert trade.exit_reason == ExitReason.MARGIN_CALL
+    assert trade.pnl == approx(-10_000)
+
+
+def test_nothing_trades_after_a_margin_call_that_paid_its_costs():
+    bars = bars_from([*SLIDE, (72, 73, 71, 72), (72, 73, 71, 72), (72, 73, 71, 72)])
+    config = BacktestConfig(10_000, position_size_pct=400, fee_pct=0.1, slippage_pct=0.05)
+
+    result = simulate(bars, at(len(bars), 0, 3, 4), None, config)
+
+    [trade] = result.trades
+    assert trade.exit_reason == ExitReason.MARGIN_CALL
+    assert result.equity.tolist()[-3:] == pytest.approx([0, 0, 0], abs=1e-6)
 
 
 def test_a_gap_past_the_margin_call_fills_at_the_open():

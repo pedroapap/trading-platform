@@ -266,9 +266,11 @@ A bar's high and low don't say which came first.
 - **`exit_after_bars`:** the position leaves at the open that many bars after the entry bar,
   unless something exits first.
 - **The end of the data:** a position still open on the last bar closes at its close.
-- **Margin call:** a position is closed where its losses would use up all of the equity. It
-  works like a stop at that price, and a tighter stop-loss counts first. It can't happen to a
-  long of 100% of equity or less; for a short of all of it, it happens when the price doubles.
+- **Margin call:** a position is closed where it would leave nothing: its loss, both fees and
+  the exit's slippage use up all of the equity. It fills like a stop at that price, so only a
+  gap past it leaves less than nothing, and a tighter stop-loss counts first. It can't happen
+  to a long of 100% of equity or less; a short of all of it is called as the price nears
+  double.
 
 Each trade records why it ended: `signal`, `stop_loss`, `take_profit`, `trailing_stop`,
 `time_exit`, `end_of_day`, `margin_call` or `end_of_data`.

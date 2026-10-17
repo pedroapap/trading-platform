@@ -14,12 +14,11 @@ Execution model (it follows TradingView's strategy tester where they overlap):
   100% never overdraws; more borrows the rest (leverage, up to 1000%), at no cost.
 - `fee_pct` is charged on each fill's notional, and `slippage_pct` moves each fill's price
   against the trade.
-- A short sells at entry and buys back at exit. A margin call closes a position where its
-  losses would use up the equity (the entry fee counted): it works like a stop-loss at that
-  price, so a gap past it fills at the open and leaves less than nothing, and a tighter
+- A short sells at entry and buys back at exit. A margin call closes a position where it
+  would leave nothing: its loss, both fees and the exit's slippage use up the equity. It fills
+  like a stop-loss at that price, so only a gap past it leaves less than nothing, and a tighter
   stop-loss counts first. A long of 100% of equity or less can't be called; a short of all of
-  it is called when the price doubles. Once equity is at or below zero, no new position
-  opens.
+  it is called as the price nears double. Once equity is gone, no new position opens.
 - A stop-loss is a percentage of the entry fill price, or a price level read on the bar
   whose signal placed the order; a signal whose levels aren't known yet places no order. It
   is checked against each bar's low (long) or high (short) from the entry bar on, so a level
@@ -161,11 +160,13 @@ def simulate_orders(
     inside_bars = None if detail is None else _Inside(detail, bars.index, sign)
 
     cash = config.initial_capital
+    # Equity this close to zero is gone: a margin call leaves zero, give or take float rounding.
+    gone = config.initial_capital * 1e-9
     equity = np.full(len(bars), np.nan)
     # Each trade's fields, with its entry and exit bars where it has times.
     made: list[tuple] = []
     earliest_signal = 0
-    while cash > 0 and (fill := entering.next(earliest_signal, sign)) is not None:
+    while cash > gone and (fill := entering.next(earliest_signal, sign)) is not None:
         entry, signal, unslipped_entry, inside = fill
         # Where an order filled inside its bar, by the finer bars: (finer bar, price, whether
         # at its open). A finer bar that gapped past the order fills it at its open.
@@ -205,7 +206,7 @@ def simulate_orders(
         fixed = _stop_loss(orders.stop_loss, entry_price, signal, sign)
         # A take-profit at a multiple of the risk measures it from the strategy's own stop.
         target = _take_profit(orders.take_profit, entry_price, fixed, signal, sign)
-        called = _margin_call(cash - entry_fee, size, entry_price, sign)
+        called = _margin_call(cash - entry_fee, size, entry_price, sign, fee, slip)
         margin_call = called is not None and (fixed is None or sign * (called - fixed) > 0)
         if margin_call:
             fixed = called
@@ -573,10 +574,16 @@ def _stop_loss(level: Level | None, entry_price: float, signal: int, sign: int) 
     return entry_price * (1 - sign * level.pct / 100)
 
 
-def _margin_call(equity: float, size: float, entry_price: float, sign: int) -> float | None:
-    """Where a position of `size` entered at `entry_price` loses all of `equity`; None for a
-    long that can't lose that much, its price having to fall to zero first."""
-    called = entry_price - sign * equity / size
+def _margin_call(
+    equity: float, size: float, entry_price: float, sign: int, fee: float, slip: float
+) -> float | None:
+    """Where a position of `size` entered at `entry_price` loses all of `equity`, the exit's
+    slippage and fee included; None for a long that can't lose that much, its price having to
+    fall to zero first."""
+    # The exit fill where the loss plus the exit fee is the equity, and the level whose fill,
+    # after slippage against the position, it is.
+    fill = (sign * size * entry_price - equity) / (size * (sign - fee))
+    called = fill / (1 - sign * slip)
     return None if called <= entry_price * 1e-9 else called
 
 
