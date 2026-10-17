@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw/http";
 import { expect, test, vi } from "vitest";
 
@@ -169,6 +169,22 @@ test("the grouping, journal entry type and closing dates go to the API and the U
       closed_to: "2026-02-01T00:00:00.000Z",
     }),
   );
+});
+
+test("closing dates set at the same instant are both kept", async () => {
+  performanceEndpoint();
+  const { router } = renderPage("/analytics");
+  await screen.findByText("RSI dip");
+
+  // As a browser's autofill can: both changes land before the page re-renders.
+  act(() => {
+    fireEvent.change(screen.getByLabelText("Closed from"), { target: { value: "2026-01-01" } });
+    fireEvent.change(screen.getByLabelText("Closed to (inclusive)"), {
+      target: { value: "2026-01-31" },
+    });
+  });
+
+  await waitFor(() => expect(router.state.location.search).toBe("?from=2026-01-01&to=2026-01-31"));
 });
 
 test("the entry type only narrows groupings that come from the journal", async () => {

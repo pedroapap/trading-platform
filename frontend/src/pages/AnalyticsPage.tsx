@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Link, useSearchParams } from "react-router";
 
 import { usePerformance, useRealizedEquity, type Period } from "../api/analytics";
@@ -26,6 +27,13 @@ const FROM_JOURNAL = new Set<string>(["emotion", "tag"]);
 /** The page's choices, kept in the URL: the closing dates (inclusive) scope everything. */
 function useAnalyticsParams() {
   const [params, setParams] = useSearchParams();
+  // The parameters last asked for, until the URL shows them. React Router's setter only knows
+  // the parameters of the last render, so a second change made before the page re-renders (as
+  // autofill can do) would otherwise drop the first.
+  const asked = useRef<URLSearchParams | null>(null);
+  useEffect(() => {
+    if (asked.current?.toString() === params.toString()) asked.current = null;
+  }, [params]);
   const by = (Object.keys(GROUPINGS).find((key) => key === params.get("by")) ??
     "strategy") as GroupBy;
   const from = params.get("from") ?? "";
@@ -41,10 +49,11 @@ function useAnalyticsParams() {
   };
 
   function choose(name: string, value: string) {
-    const next = new URLSearchParams(params);
+    const next = new URLSearchParams(asked.current ?? params);
     if (value) next.set(name, value);
     else next.delete(name);
     if (name === "by" && !FROM_JOURNAL.has(value)) next.delete("entry_type");
+    asked.current = next;
     setParams(next);
   }
 
