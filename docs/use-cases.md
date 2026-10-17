@@ -299,7 +299,7 @@ curl -s -X PUT -H "$AUTH" -H 'Content-Type: application/json' \
 
 **You get:** trades in JPY from the first one. Bought 100 at 2,650 and sold at 2,712: a P&L
 of **6,200 JPY** (2.34%). Under *No strategy*, the analytics now show four totals side by
-side: 0.00126458 BTC, 6,200 JPY, 87 USD and 1,215.09 USDT, from 5 trades with an average
+side: 0.00126458 BTC, 6,200 JPY, 87.00 USD and 1,215.09 USDT, from 5 trades with an average
 return of 2.46%.
 
 ## Market data
@@ -806,7 +806,7 @@ only, and ranks groups by their average return, best first.
 
 | Strategy | Trades | Wins | Losses | Win rate | Average return | P&L |
 |---|---|---|---|---|---|---|
-| No strategy | 5 | 5 | 0 | 100.00% | 2.46% | 0.00126458 BTC, 6,200 JPY, 87 USD, 1,215.09 USDT |
+| No strategy | 5 | 5 | 0 | 100.00% | 2.46% | 0.00126458 BTC, 6,200 JPY, 87.00 USD, 1,215.09 USDT |
 | Double bottom after a dip | 5 | 4 | 1 | 80.00% | 1.48% | 712.02 USDT |
 
 ### 61. See which symbol pays
@@ -845,10 +845,10 @@ and the reviews of use cases 11 to 15.
 Set **Closed from** to 1 April 2025 and **Closed to (inclusive)** to 30 June:
 
 - **Double bottom after a dip:** 3 trades, 2 wins, +311.24 USDT.
-- **No strategy:** 3 trades, all wins: 87 USD from AAPL, 6,200 JPY from 7203.T and
+- **No strategy:** 3 trades, all wins: 87.00 USD from AAPL, 6,200 JPY from 7203.T and
   1,046.37 USDT from the 5× trade.
-- **Realized P&L:** 1,357.61 USDT over 4 trades with a deepest fall of 144.67, then 87 USD and
-  6,200 JPY.
+- **Realized P&L:** 1,357.61 USDT over 4 trades with a deepest fall of 144.67, then 87.00 USD
+  and 6,200 JPY.
 
 Both dates are kept in the page's address, so a bookmark brings the same quarter back.
 
@@ -858,7 +858,7 @@ Both dates are kept in the page's address, so a bookmark brings the same quarter
 trades closed.
 
 - **All trades:** 1,927.11 USDT over 7 trades, with a deepest fall of 144.67 (the 1 June
-  loss), plus 0.00126458 BTC, 87 USD and 6,200 JPY.
+  loss), plus 0.00126458 BTC, 87.00 USD and 6,200 JPY.
 - **Filtered** by the symbol DEMOUSDT and the double-bottom strategy: 712.02 USDT over 5
   trades.
 - **The points** are evenly spaced, one per trade, not to scale in time. Point at one, or open

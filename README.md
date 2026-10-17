@@ -75,7 +75,7 @@ continues with a 15-minute tour using the sample prices that come with the app.
 | [The rule language](docs/rules.md) | Writing strategies, with a cookbook of 12 |
 | [Automating](docs/api.md) | The REST API and the command line, with curl and Python examples |
 | [The data model](docs/schema.md) | The database's tables, checked against the migrations |
-| [Roadmap](docs/roadmap.md) | Current limits, known issues and what could come next |
+| [Roadmap](docs/roadmap.md) | Current limits and what could come next |
 | [Sample data](docs/sample-data/README.md) | The made-up prices used in the docs, and how they are made |
 
 ## Development

@@ -1,7 +1,7 @@
 # Roadmap
 
-What the app can't do yet, a few known issues, and what could come next. Nothing here is
-promised: it is a list to choose from.
+What the app can't do yet, and what could come next. Nothing here is promised: it is a list
+to choose from.
 
 ## Limits today
 
@@ -47,18 +47,6 @@ promised: it is a list to choose from.
   computer.
 - **Currencies are guessed offline,** from the symbol's name. Stocks and other names without a
   currency need theirs set by hand.
-
-## Known issues
-
-Found while writing these docs. Each is small.
-
-- **Analytics dates set at the same instant.** When both closing dates change at once, as a
-  browser's autofill can do, only the second is kept. Typing them one after the other works.
-- **Totals and averages look different.** The analytics show money totals exactly as stored,
-  such as *6200 JPY*, next to formatted averages such as *6,200*.
-- **A margin call can leave a little less than nothing.** The call level counts the entry fee,
-  but not the exit's slippage and fee, so a called account ends slightly below zero:
-  −378.19 USDT on 28,023.18 at 10× in [use case 58](use-cases.md#58-leverage-and-margin-calls).
 
 ## What could come next
 

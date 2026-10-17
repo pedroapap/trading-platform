@@ -146,7 +146,7 @@ no strategy:
 |---|---|---|
 | BTC | 1 | 0.00126458 |
 | JPY | 1 | 6,200 |
-| USD | 1 | 87 |
+| USD | 1 | 87.00 |
 | USDT | 2 | 1,215.09 |
 
 Adding these up would give 7,502.09 of nothing in particular, most of it yen. The app never
