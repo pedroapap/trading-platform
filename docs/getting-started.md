@@ -164,7 +164,7 @@ sits beside the backtest's:
 | | Backtest | Live |
 |---|---|---|
 | Trades | 14 | 1 |
-| Win rate | 64.29% | 100% |
+| Win rate | 64.29% | 100.00% |
 | Average return | 0.99% | 2.35% |
 | Total P&L | 1,448.42 USDT | 230.17 USDT |
 
