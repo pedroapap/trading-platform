@@ -789,6 +789,9 @@ account ended 378.19 USDT below zero, and no trade followed. Borrowing costs are
 3. **Test** a day-trading rule on 5-minute bars, with **Finer bars for fills** set to 1m and
    an out-of-sample start, such as 1 January 2024.
 
+[Story 6](stories.md#6-day-trading-bitcoin-on-real-prices) tells how four rules fixed in advance
+did on it.
+
 ## Analytics
 
 These use the trades and journal entries of use cases 1–21. **Analytics** counts closed trades
