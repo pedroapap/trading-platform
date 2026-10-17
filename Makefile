@@ -1,5 +1,5 @@
 .DEFAULT_GOAL := help
-.PHONY: help setup dev web down test lint fmt openapi db-shell migrate revision user import-csv
+.PHONY: help setup dev web down test lint fmt openapi db-shell migrate revision user import-csv backup restore
 
 BACKEND := backend
 FRONTEND := frontend
@@ -57,3 +57,23 @@ import-csv: ## Import prices: make import-csv file=prices.csv symbol=BTCUSDT [ti
 
 db-shell: ## Open psql in the db container
 	$(COMPOSE) exec db sh -c 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"'
+
+# A backup is pg_dump's custom format. Restoring one wraps pg_restore in TimescaleDB's pre- and
+# post-restore steps. Both act on the app's database; db=<name> picks another.
+DB = $(or $(db),$$POSTGRES_DB)
+PSQL = psql -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER"
+
+backup: ## Save the database to backups/: make backup
+	@mkdir -p backups
+	@file=backups/backup-$$(date -u +%Y%m%d-%H%M%S).dump; \
+	$(COMPOSE) exec -T db sh -c 'pg_dump -U "$$POSTGRES_USER" -Fc "$(DB)"' > $$file && echo "Saved $$file"
+
+restore: ## Replace the database with a backup: make restore file=backups/backup-….dump
+	@test -f "$(file)" || { echo 'Usage: make restore file=backups/<backup>.dump' >&2; exit 1; }
+	$(COMPOSE) stop api
+	$(COMPOSE) exec -T db sh -c 'dropdb -U "$$POSTGRES_USER" --if-exists --force "$(DB)" && \
+		createdb -U "$$POSTGRES_USER" "$(DB)" && \
+		$(PSQL) -d "$(DB)" -c "CREATE EXTENSION IF NOT EXISTS timescaledb" -c "SELECT timescaledb_pre_restore()"'
+	$(COMPOSE) exec -T db sh -c 'pg_restore -U "$$POSTGRES_USER" -d "$(DB)"' < "$(file)"
+	$(COMPOSE) exec -T db sh -c '$(PSQL) -d "$(DB)" -c "SELECT timescaledb_post_restore()"'
+	@echo "Restored $(file). Start the app again with make dev."
