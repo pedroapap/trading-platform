@@ -11,7 +11,8 @@ returned. For the `curl` lines, set `$API` and `$AUTH` as in
 
 **Themes:** [Recording trades](#recording-trades) · [Journaling](#journaling) ·
 [Currencies](#currencies) · [Market data](#market-data) · [Strategies](#strategies) ·
-[Backtesting](#backtesting) · [Day trading](#day-trading)
+[Backtesting](#backtesting) · [Day trading](#day-trading) · [Analytics](#analytics) ·
+[Automation](#automation) · [Owning your data](#owning-your-data)
 
 ## Recording trades
 
@@ -787,3 +788,244 @@ account ended 378.19 USDT below zero, and no trade followed. Borrowing costs are
    about 2.5 million bars, in about 4 minutes.
 3. **Test** a day-trading rule on 5-minute bars, with **Finer bars for fills** set to 1m and
    an out-of-sample start, such as 1 January 2024.
+
+## Analytics
+
+These use the trades and journal entries of use cases 1–21. **Analytics** counts closed trades
+only, and ranks groups by their average return, best first.
+
+### 60. See which strategy pays
+
+- **In the app:** **Analytics**, grouped by **Strategy**.
+- **API:** `GET /api/analytics/performance?by=strategy`.
+- **You get:**
+
+| Strategy | Trades | Wins | Losses | Win rate | Average return | P&L |
+|---|---|---|---|---|---|---|
+| No strategy | 5 | 5 | 0 | 100.00% | 2.46% | 0.00126458 BTC, 6,200 JPY, 87 USD, 1,215.09 USDT |
+| Double bottom after a dip | 5 | 4 | 1 | 80.00% | 1.48% | 712.02 USDT |
+
+### 61. See which symbol pays
+
+Grouped by **Symbol**: 7203.T made 2.34% on its one trade, AAPL 2.05% and ETHBTC 1.64%.
+DEMOUSDT's 7 trades won 6 times, for 1,927.11 USDT and an average return of 1.96%.
+
+### 62. See how your feelings pay
+
+Grouped by **Emotion**, each trade counts once for each emotion its journal entries record:
+
+| Emotion | Trades | P&L |
+|---|---|---|
+| calm | 1 | 180.70 USDT |
+| confident | 1 | 180.70 USDT |
+| fomo | 1 | −144.67 USDT |
+| No emotion | 8 | the other trades |
+
+The 10 January trade counts twice: its plan said *confident*, and its review *calm*. The trade
+taken out of fear of missing out is the one loser.
+
+### 63. Only the feelings you had before the trade
+
+How you felt afterwards is colored by the result. To see only the feelings you wrote down
+beforehand, set **Journal entries** to *Pre-trade*: only *confident* is left, with its one
+trade. *Post-trade* keeps *calm* and *fomo*.
+
+### 64. See which setup pays
+
+Grouped by **Tag**: `limit-entry` has 1 trade and +180.70 USDT, `early-entry` 1 trade and
+−144.67 USDT, and `double-bottom` both of them, for +36.03 USDT. The tags came from the plan
+and the reviews of use cases 11 to 15.
+
+### 65. Review a month or a quarter
+
+Set **Closed from** to 1 April 2025 and **Closed to (inclusive)** to 30 June:
+
+- **Double bottom after a dip:** 3 trades, 2 wins, +311.24 USDT.
+- **No strategy:** 3 trades, all wins: 87 USD from AAPL, 6,200 JPY from 7203.T and
+  1,046.37 USDT from the 5× trade.
+- **Realized P&L:** 1,357.61 USDT over 4 trades with a deepest fall of 144.67, then 87 USD and
+  6,200 JPY.
+
+Both dates are kept in the page's address, so a bookmark brings the same quarter back.
+
+### 66. Follow realized P&L and drawdown per currency
+
+**Realized P&L** draws one curve per currency: each trade's P&L added up in the order the
+trades closed.
+
+- **All trades:** 1,927.11 USDT over 7 trades, with a deepest fall of 144.67 (the 1 June
+  loss), plus 0.00126458 BTC, 87 USD and 6,200 JPY.
+- **Filtered** by the symbol DEMOUSDT and the double-bottom strategy: 712.02 USDT over 5
+  trades.
+- **The points** are evenly spaced, one per trade, not to scale in time. Point at one, or open
+  the table, for its date.
+
+### 67. Is live trading matching its backtest?
+
+Open a completed backtest. Under **Backtest and live**, the live trades of the same strategy
+version and symbol, entered within the backtest's bars, sit beside the backtest's own:
+
+| | Backtest | Live |
+|---|---|---|
+| Trades | 14 | 5 |
+| Win rate | 64.29% | 80.00% |
+| Average return on notional | 0.99% | 1.48% |
+| Total P&L | 1,448.42 USDT | 712.02 USDT |
+
+The cancelled trade doesn't count. A backtest of version 2 shows no live trades, since they
+all followed version 1. API: `GET /api/analytics/backtests/{id}/comparison`.
+
+### 68. Why returns are on the position's value
+
+The 5× trade made 16.74% on its margin, but 3.35% on the position's value. The analytics
+average the return on the position's value (its *notional*): under *No strategy*, 2.46%.
+Averaging the returns on margin would give 5.14%, so one leveraged trade would count five
+times over. The money totals are the real P&L either way.
+
+## Automation
+
+### 69. Explore the API in your browser
+
+<http://localhost:8000/api/docs> lists every endpoint with its fields. Select **Authorize**
+and log in with your email and password, then select an endpoint and **Try it out**. The
+schema itself is at `/api/openapi.json`. [Automating with the API](api.md) has curl and
+Python examples.
+
+### 70. Run a sweep of backtests from the shell
+
+The app runs one backtest at a time, but a script can run many. This one saves the RSI dip
+at four levels as four strategies, and backtests each:
+
+```sh
+DEFINITION=$(curl -s -H "$AUTH" $API/strategies | jq '.[] | select(.name == "RSI dip") | .definition')
+for level in 20 25 30 35; do
+  STRATEGY=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' $API/strategies -d '{
+    "name": "RSI under '$level'",
+    "definition": '"$(echo "$DEFINITION" | jq --argjson level $level '.entry.right.value = $level')"'
+  }' | jq -r .id)
+  RUN=$(curl -s -H "$AUTH" -H 'Content-Type: application/json' $API/backtests -d '{
+    "strategy_id": "'$STRATEGY'", "symbol": "DEMOUSDT", "timeframe": "1h",
+    "fee_pct": "0.1", "slippage_pct": "0.05"
+  }' | jq -r .id)
+  until curl -s -H "$AUTH" $API/backtests/$RUN | jq -e '.status | test("completed|failed")' >/dev/null; do sleep 1; done
+  curl -s -H "$AUTH" $API/backtests/$RUN | jq -r --arg level $level \
+    '"RSI under \($level): \(.metrics.num_trades) trades, \(.metrics.total_return_pct * 100 | round / 100)%"'
+done
+```
+
+```text
+RSI under 20: 5 trades, 1.63%
+RSI under 25: 32 trades, 25.23%
+RSI under 30: 73 trades, 35.69%
+RSI under 35: 113 trades, 52.81%
+```
+
+The best of a sweep on the same bars flatters itself: it was picked because it did well there.
+Check the pick on bars it wasn't picked on, with an out-of-sample start
+([use case 44](#44-hold-out-the-latest-months)).
+
+### 71. Analyse your trades in pandas
+
+How long do you hold winners and losers? With [pandas](https://pandas.pydata.org/) and
+requests:
+
+```python
+import pandas as pd
+import requests
+
+API = "http://localhost:8000/api"
+token = requests.post(
+    f"{API}/auth/login", data={"username": "you@example.com", "password": "your password"}
+).json()["access_token"]
+response = requests.get(
+    f"{API}/trades", params={"status": "closed", "limit": 500},
+    headers={"Authorization": f"Bearer {token}"},
+)
+trades = pd.DataFrame(response.json()["items"])
+trades["held"] = pd.to_datetime(trades["exit_time"]) - pd.to_datetime(trades["entry_time"])
+trades["result"] = trades["pnl"].astype(float).gt(0).map({True: "win", False: "loss"})
+print(trades.groupby("result")["held"].agg(["count", "median", "max"]))
+```
+
+```text
+        count          median             max
+result
+loss        1 0 days 04:55:00 0 days 04:55:00
+win         9 0 days 04:40:00 2 days 06:00:00
+```
+
+### 72. Ask the database with SQL
+
+`make db-shell` opens `psql` on the app's database. The tables are described in
+[The data model](schema.md). P&L per month and currency:
+
+```sql
+SELECT to_char(t.exit_time, 'YYYY-MM') AS month, i.quote_currency, count(*) AS trades, sum(t.pnl) AS pnl
+FROM trades t JOIN instruments i USING (symbol)
+WHERE t.status = 'closed'
+GROUP BY 1, 2 ORDER BY 1, 2;
+```
+
+```text
+  month  | quote_currency | trades |        pnl
+---------+----------------+--------+-------------------
+ 2025-01 | USDT           |      1 |  180.700000000000
+ 2025-02 | USDT           |      1 |  220.080000000000
+ 2025-03 | BTC            |      1 |    0.001264580000
+ 2025-04 | USDT           |      1 |  225.700000000000
+ 2025-05 | USD            |      1 |   87.000000000000
+ 2025-05 | USDT           |      1 |  230.210000000000
+ 2025-06 | JPY            |      1 | 6200.000000000000
+ 2025-06 | USDT           |      2 |  901.700000000000
+ 2025-07 | USDT           |      1 |  168.720000000000
+```
+
+Reading is safe. The database refuses to rewrite history (see
+[What can't be changed or deleted](schema.md#what-cant-be-changed-or-deleted)), but other
+changes made here skip the app's checks.
+
+## Owning your data
+
+### 73. Keep everything on your own machine
+
+- **What runs:** three containers, started by `make dev`: the database (TimescaleDB, port
+  5432), the API (8000) and the app's pages (5173).
+- **Where the data is:** in a Docker volume named after the app's folder, such as
+  `trading-platform_pgdata`.
+- **What leaves:** nothing. The app calls no outside service, and prices come only from the
+  files you import.
+- **Stopping:** `make down` stops the containers and keeps the data. `docker compose down -v`
+  deletes the volume, and everything in it.
+
+### 74. Back up, and restore
+
+```sh
+make backup
+```
+
+It prints *Saved backups/backup-20261017-100755.dump*: here 10 MB in under 3 seconds, for a
+database holding 630,969 bars and 53 backtests. `pg_dump` warns about circular foreign keys in
+TimescaleDB's own tables; that is expected.
+
+```sh
+make restore file=backups/backup-20261017-100755.dump
+```
+
+- **What it does:** it stops the API and replaces the database with the backup, wrapping the
+  restore in the steps TimescaleDB needs. Start the app again with `make dev`.
+- **Checked:** restored into a new database, every table came back with the same rows. That
+  includes the bars in 15 compressed chunks, their compression settings and schedule, and the
+  triggers that keep history from being rewritten. The app on it showed the same analytics,
+  and a new backtest found the same data fingerprint.
+- **Keep copies elsewhere:** the backups are in the `backups` folder, on the same disk as the
+  database. Restore with the same version of the app.
+
+### 75. Use it from your phone
+
+The pages fit a phone's screen. While `make dev` runs, they answer on every network address of
+your computer. On the same Wi-Fi, open `http://` followed by your computer's IP address and
+`:5173`, such as `http://192.168.1.20:5173`, on the phone. Use the address: the development
+server refuses the computer's name.
+
+Anyone on that network can reach the login page, so use a strong password. Away from home,
+use a VPN to your network rather than opening the port to the internet.
