@@ -10,7 +10,8 @@ returned. For the `curl` lines, set `$API` and `$AUTH` as in
 [Logging in](api.md#logging-in).
 
 **Themes:** [Recording trades](#recording-trades) · [Journaling](#journaling) ·
-[Currencies](#currencies)
+[Currencies](#currencies) · [Market data](#market-data) · [Strategies](#strategies) ·
+[Backtesting](#backtesting) · [Day trading](#day-trading)
 
 ## Recording trades
 
@@ -299,3 +300,490 @@ curl -s -X PUT -H "$AUTH" -H 'Content-Type: application/json' \
 of **6,200 JPY** (2.34%). Under *No strategy*, the analytics now show four totals side by
 side: 0.00126458 BTC, 6,200 JPY, 87 USD and 1,215.09 USDT, from 5 trades with an average
 return of 2.46%.
+
+## Market data
+
+### 22. Import Binance's own files
+
+Binance publishes the history of every pair at `data.binance.vision`, one zip file per month.
+For Bitcoin's 1-minute bars of January 2024:
+
+```sh
+curl -O https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2024-01.zip
+curl -O https://data.binance.vision/data/spot/monthly/klines/BTCUSDT/1m/BTCUSDT-1m-2024-01.zip.CHECKSUM
+sha256sum -c BTCUSDT-1m-2024-01.zip.CHECKSUM
+unzip BTCUSDT-1m-2024-01.zip
+```
+
+- **In the app:** on **Market data**, choose `BTCUSDT-1m-2024-01.csv`, type the symbol
+  `BTCUSDT` and select **Import**.
+- **You get:** *BTCUSDT 1m (binance_klines): 44,640 bars added, 0 already stored, 0
+  rejected*, from 1 January 00:00 to 31 January 23:59 UTC. The format and the timeframe are
+  worked out from the file.
+- **Times:** Binance's files give times in milliseconds up to 2024, and in microseconds from
+  January 2025. The app reads both: June 2025 adds 43,200 bars.
+
+### 23. Import a Yahoo Finance or TradingView export
+
+Both are CSV files with a header row, which the app reads as *OHLCV with a header row*. Here
+are three days in Yahoo Finance's layout, with made-up prices for a made-up symbol, ACME:
+
+```text
+Date,Open,High,Low,Close,Adj Close,Volume
+2025-03-03,101.20,102.85,100.90,102.40,101.95,1250300
+2025-03-04,102.40,103.10,101.75,102.05,101.60,1102800
+2025-03-05,102.05,104.30,101.95,104.10,103.64,1530200
+```
+
+Imported as `ACME`, it adds 3 daily bars: the timeframe comes from their spacing. Extra
+columns such as `Adj Close` are ignored, so the bars hold the Open, High, Low and Close as
+they are.
+
+TradingView's chart export can give times as Unix seconds:
+
+```text
+time,open,high,low,close,Volume
+1741010400,102.10,102.60,101.90,102.45,84120
+1741014000,102.45,102.80,102.20,102.30,61900
+1741017600,102.30,102.55,101.80,101.95,70350
+```
+
+It adds 3 hourly bars, from 14:00 to 16:00 UTC on 3 March 2025. ACME's name holds no currency,
+so set it on **Instruments** ([use case 20](#20-fix-a-missing-or-wrong-currency)).
+
+### 24. Import the same file twice, or files that overlap
+
+Importing the sample file a second time gives *0 bars added, 8,760 already stored, 0
+rejected*. Bars already stored, for the same symbol, timeframe and time, are kept as they were.
+So you can import overlapping downloads, such as a month's file again once it is complete.
+
+### 25. Find the bad rows in a file
+
+A made-up file with four problems in it:
+
+```text
+timestamp,open,high,low,close,volume
+2025-03-10T00:00:00Z,100.0,101.0,99.0,100.5,10
+2025-03-10T01:00:00Z,100.5,100.2,99.8,100.1,12
+2025-03-10T02:07:00Z,100.1,100.6,99.9,100.4,9
+2025-03-10T03:00:00Z,100.4,100.9,100.2,100.8,15
+2025-03-10T03:00:00Z,100.8,101.0,100.5,100.9,8
+2025-03-10T04:00:00Z,100.9,101.4,100.7,101.2,-3
+2025-03-10T05:00:00Z,101.2,101.5,100.9,101.1,11
+```
+
+**You get:** 3 bars added and 4 rows rejected, each with its line in the file and the reason:
+
+| Line | Reason |
+|---|---|
+| 3 | low/high do not bracket open and close |
+| 4 | 2025-03-10T02:07:00+00:00 is not the start of a 1h bar |
+| 6 | duplicate of the bar on line 5 |
+| 7 | volume cannot be negative |
+
+The good rows are stored. Fix the others and import the file again: the rows already stored
+count as such.
+
+### 26. Import a big file from the command line
+
+The web form takes files up to 200 MB. The command line takes any size, and suits many
+files. The sample's 1-minute file comes from its generator:
+
+```sh
+python docs/sample-data/generate.py --minutes
+make import-csv file=docs/sample-data/demousdt-1m.csv symbol=DEMOUSDT
+```
+
+**You get:** *Imported 525600 1m bars for DEMOUSDT (generic_ohlcv): 0 already stored, 0 rows
+rejected*, in about 25 seconds here. The 1-minute bars make up the hourly ones exactly. With
+them, the backtests below run on 5-minute bars, and settle fills inside hourly bars.
+
+For many files, such as Binance's months, import them one after another:
+
+```sh
+for file in BTCUSDT-1m-*.csv; do make import-csv file=$file symbol=BTCUSDT; done
+```
+
+### 27. Use bigger bars without importing them
+
+A backtest or the API can ask for any timeframe the stored bars divide into:
+
+```sh
+curl -s -H "$AUTH" "$API/market-data/DEMOUSDT/bars?timeframe=1d&limit=1" | jq -c '{aggregated_from, bars}'
+```
+
+```json
+{"aggregated_from":"1h","bars":[{"ts":"2025-01-01T00:00:00Z","open":"100","high":"100.78","low":"95.63","close":"95.65","volume":"14124.4068"}]}
+```
+
+The daily bar is built from the stored hourly bars, the biggest stored size that divides a
+day. With the 1-minute file stored too, 5-minute bars are built from it
+(`"aggregated_from":"1m"`).
+
+### 28. Symbols with a slash
+
+Exchanges often write pairs as `BTC/USDT`. Imported as `demo/usdt`, the sample is stored as
+`DEMO/USDT`, and its currency, USDT, is guessed from the name. In API paths, write the slash
+as `%2F`:
+
+```sh
+curl -s -H "$AUTH" "$API/market-data/DEMO%2FUSDT/bars?timeframe=1d&limit=1" | jq .symbol
+```
+
+This prints `"DEMO/USDT"`.
+
+### 29. See what is stored
+
+- **In the app:** **Market data** lists the **Stored bars**: each symbol and timeframe with
+  its first and last bar and its count.
+- **API:** `GET /api/market-data/symbols`.
+- **You get,** after the imports above (times in UTC):
+
+| Symbol | Timeframe | First bar | Last bar | Bars |
+|---|---|---|---|---|
+| ACME | 1h | 2025-03-03 14:00 | 2025-03-10 05:00 | 6 |
+| ACME | 1d | 2025-03-03 | 2025-03-05 | 3 |
+| BTCUSDT | 1m | 2024-01-01 00:00 | 2025-06-30 23:59 | 87,840 |
+| DEMO/USDT | 1h | 2025-01-01 00:00 | 2025-12-31 23:00 | 8,760 |
+| DEMOUSDT | 1m | 2025-01-01 00:00 | 2025-12-31 23:59 | 525,600 |
+| DEMOUSDT | 1h | 2025-01-01 00:00 | 2025-12-31 23:00 | 8,760 |
+
+Gaps don't show here: BTCUSDT's two months are counted as one stretch.
+
+## Strategies
+
+### 30. Start from an example
+
+- **In the app:** **Strategies** → **New strategy** → **Start from an example**. Six examples
+  each say what they do in words: *Double bottom after a dip*, *Breakout with a stop entry*,
+  *Trend with an ATR trailing stop*, *RSI dip*, *Opening-range breakout (New York)* and *VWAP
+  pullback in a daily uptrend*. Choosing one fills in the definition. Name it and select
+  **Create strategy**.
+- **You get:** a working strategy to backtest at once, and to change.
+
+### 31. Try the cookbook on the sample prices
+
+[The rule language](rules.md#cookbook) ends with 12 recipes. Each was saved as a strategy and
+backtested on DEMOUSDT with the tour's settings: 10,000 USDT, a 0.1% fee and 0.05% slippage,
+on 1h bars, or on 5-minute bars with 1-minute fills for the two day-trading recipes. Buying and
+holding made 2.06%.
+
+| Recipe | Trades | Return | Max drawdown | Win rate |
+|---|---|---|---|---|
+| Double bottom after a dip | 14 | +14.48% | 3.74% | 64.29% |
+| RSI dip | 73 | +35.69% | 22.48% | 38.36% |
+| Breakout with a stop entry | 70 | −48.54% | 51.42% | 25.71% |
+| Trend with an ATR trailing stop | 243 | −49.80% | 54.04% | 24.28% |
+| Dip to the moving average | 1 | +6.05% | 23.02% | 100.00% |
+| Golden cross | 33 | −47.31% | 53.51% | 27.27% |
+| MACD with a trend filter | 181 | −60.06% | 60.84% | 24.86% |
+| Bollinger dip in an uptrend | 56 | −9.41% | 21.61% | 66.07% |
+| Double top, short | 117 | −15.44% | 29.15% | 35.90% |
+| Buy the first new low in a while | 2 | −4.61% | 5.03% | 50.00% |
+| Opening-range breakout (New York) | 300 | −54.93% | 55.35% | 33.33% |
+| VWAP pullback in a daily uptrend | 780 | −93.42% | 93.43% | 25.90% |
+
+The prices are made up, so this says nothing about the recipes on a real market. It does
+show why you test:
+
+- **Most rules lose after costs.** 9 of the 12 lost money.
+- **The winners have reasons.** The double bottoms were planted. The made-up price keeps
+  being pulled back toward a level, which suits a dip buyer such as the RSI dip, and is hard
+  on trend followers.
+- **One trade proves nothing.** The dip to the moving average bought once and held to the
+  end.
+
+### 32. Get told exactly what's wrong
+
+When you save a definition, the app checks it and lists each problem at its place:
+
+- **An RSI with a period of 0:** `entry.left.period` *Input should be greater than or equal
+  to 2*.
+- **A word where arithmetic needs a number:** `entry.right.multiply[1].value` *Input should
+  be a valid number, unable to parse string as a number*.
+- **No way out at all:** a problem with the whole strategy, so it has no place: *a strategy
+  needs a way out: an exit rule, a stop-loss, a take-profit, a trailing stop, exit_after_bars
+  or flat_at*.
+
+Nothing is saved until the definition is valid.
+
+### 33. Buy at a price, with the stop at a level
+
+The double-bottom example doesn't buy at the market. It places a limit order 0.3% above the
+latest swing low, which works for 6 bars. Its stop is 1% under that low, and its target is at
+twice the risk (`"take_profit_r": 2`). On the sample, 9 of its 14 trades reached the target
+and 5 the stop. See [Entry orders](rules.md#entry-orders).
+
+### 34. Let a winner run with a trailing stop
+
+*Trend with an ATR trailing stop* trails its stop 3 ATRs under the 22-bar high, so the stop
+rises with the price and never falls. On the sample, 242 of its 243 trades ended at the
+trailing stop, and the last was still open at the end of the data. It lost 49.80%: the
+made-up price keeps turning back, which is hard on trend followers.
+
+### 35. Get out after a set time
+
+`"exit_after_bars": 24` leaves at the open 24 bars after the entry, unless something exits
+first. *Buy the first new low in a while* holds for 24 bars, with a 5% stop as a backstop.
+Both its trades on the sample ended on time (`time_exit`).
+
+### 36. Exit only by a stop or a target
+
+A strategy needs no exit rule if a stop or a target can close its trades. *Breakout with a
+stop entry* has a stop under the 10-bar low and a target at twice the risk. On the sample, 52
+trades ended at the stop and 17 at the target, and one was still open at the end of the data.
+
+### 37. Trade the short side
+
+`"direction": "short"` sells first and buys back later. *Double top, short* mirrors the
+double bottom: 117 trades on the sample, of which 74 were stopped out and 42 reached the
+target, for −15.44%.
+
+### 38. Combine conditions
+
+`all`, `any` and `not` nest. This buys on an RSI dip or a close under the lower Bollinger
+band, but not while the 50-bar average is under the 200-bar one:
+
+```json strategy
+{
+  "direction": "long",
+  "entry": {"all": [
+    {"any": [
+      {"left": {"indicator": "rsi", "period": 14}, "op": "<", "right": {"value": 30}},
+      {"left": {"price": "close"}, "op": "<", "right": {"indicator": "bbands", "period": 20, "std": 2, "output": "lower"}}
+    ]},
+    {"not": {"left": {"indicator": "sma", "period": 50}, "op": "<", "right": {"indicator": "sma", "period": 200}}}
+  ]},
+  "exit": {"left": {"indicator": "rsi", "period": 14}, "op": ">", "right": {"value": 60}},
+  "stop_loss_pct": 3
+}
+```
+
+On the sample: 83 trades and −16.99%. 52 left on the exit rule and 31 at the stop.
+
+### 39. React to something that happened recently
+
+`happened` asks whether a rule held within the last bars. The double bottom's first condition
+is one: the 50-bar average crossed below 100 within the last 48 bars. With `times`, it counts
+separate occasions, such as a low at or under a line twice. See
+[`happened`](rules.md#happened-did-it-happen-recently).
+
+### 40. Change a strategy without losing old results
+
+- **In the app:** on the strategy's page, select **Edit strategy**, change
+  `"take_profit_r": 2` to `3`, and select **Save changes**.
+- **You get:** version 2, recorded as *changed take_profit_r*. Version 1 can't change, so its
+  backtests stay as they were. Run version 1 again at any time: it gives the same 14 trades
+  and +14.48%, from the same data fingerprint.
+
+## Backtesting
+
+These use the tour's settings unless said otherwise: DEMOUSDT's 1h bars, 10,000 USDT with all
+of it in each trade, a 0.1% fee and 0.05% slippage.
+
+### 41. Compare two versions on the same bars
+
+| | Version 1, target at 2R | Version 2, target at 3R |
+|---|---|---|
+| Trades | 14 | 12 |
+| Return | +14.48% | +13.16% |
+| Max drawdown | 3.74% | 5.98% |
+| Win rate | 64.29% | 50.00% |
+| Exits | 9 at the target, 5 at the stop | 6 at the target, 6 at the stop |
+
+The **Backtests** page lists both runs with their versions. The bigger target won more per
+win, but less often.
+
+### 42. Stress-test the costs
+
+Version 1 at four levels of costs:
+
+| Fee | Slippage | Return | Profit factor | Buy and hold |
+|---|---|---|---|---|
+| 0% | 0% | +18.03% | 3.47 | +2.37% |
+| 0.1% | 0.05% | +14.48% | 2.69 | +2.06% |
+| 0.2% | 0.1% | +11.04% | 2.13 | +1.76% |
+| 0.5% | 0.25% | +1.33% | 1.10 | +0.85% |
+
+Buy and hold pays the same costs, once in and once out. A rule that trades often needs an
+edge well above its costs.
+
+### 43. Size positions, and borrow
+
+| Position size | Return | Max drawdown |
+|---|---|---|
+| 50% | +7.08% | 1.88% |
+| 100% | +14.48% | 3.74% |
+| 300% | +47.36% | 10.96% |
+
+Over 100% borrows the rest, with no interest charged: returns and drawdowns grow together.
+[Use case 58](#58-leverage-and-margin-calls) shows where that ends.
+
+### 44. Hold out the latest months
+
+Set **Out-of-sample from** to 1 October 2025, and the run reports both sides apart:
+
+| | In-sample, to September | Out-of-sample, from October |
+|---|---|---|
+| Trades | 12 | 2 |
+| Return | +13.57% | +0.81% |
+| Buy and hold | +3.41% | −1.60% |
+| Max drawdown | 3.00% | 2.32% |
+
+Both sides are marked as too few trades to judge.
+
+### 45. Beat buy and hold, or not
+
+Each results page shows buy and hold under the return, CAGR and drawdown, and as a second line
+on the chart. The double bottom made +14.48% against +2.06%, with a deepest fall of 3.74%
+against 23.02%. The RSI dip on 5-minute bars lost 83.64% against the same +2.06%.
+
+### 46. Settle fills inside hourly bars with 1-minute bars
+
+An hourly bar doesn't say whether it reached its high or its low first. When a bar reaches
+both a trade's stop and its target, the stop counts, unless finer bars settle it.
+
+- **Example:** an RSI dip with a 0.5% stop, a 0.5% target and no exit rule. With **Finer
+  bars for fills** set to 1m, one of its 204 trades ended differently. Its last bar, at 22:00
+  on 28 April 2025, reached both levels. The worst case counted the stop (−57.77 USDT); the
+  1-minute bars show that the target came first (+23.09 USDT). The return went from −36.30%
+  to −35.63%. Later trades changed only because they started from a different equity.
+- **The cookbook's rules** didn't change on the sample: their stops and targets lie further
+  apart than an hour's range.
+
+### 47. Run one rule at 5m to 1d
+
+The RSI dip on bars built from the same stored prices:
+
+| Bars | Trades | Return | Max drawdown |
+|---|---|---|---|
+| 5m | 648 | −83.64% | 84.44% |
+| 15m | 138 | +23.61% | 23.14% |
+| 1h | 73 | +35.69% | 22.48% |
+| 4h | 15 | +16.03% | 16.14% |
+| 1d | 0 | 0.00% | 0.00% |
+
+The same rule is a different strategy on each timeframe. At 5 minutes it trades 648 times,
+each round trip paying about 0.3% of costs. On daily bars, RSI never fell under 30.
+
+### 48. Know when there are too few trades
+
+- **Under 30 trades,** the results page warns: *Too few trades to judge. With 14 trades,
+  under 30, results like these can come from luck alone.* Each side of a split is marked the
+  same way: *⚠ 12, too few to judge*.
+- **The average trade** comes with its 95% range: the double bottom's 0.99% ranges from
+  −0.03% to 2.01%.
+- **A range that spans zero** means the run can't tell an edge from luck. Even the RSI dip's
+  73 trades average 0.48%, with a range from −0.34% to 1.30%.
+
+### 49. Test a short period
+
+From 1 March to 1 April 2025 (744 bars), the double bottom made 2 trades and +4.83%. A month
+says little about a year, so CAGR, Sharpe and Sortino show *—*, with the note *Not
+annualized: under 90 days of data*.
+
+### 50. Stocks or crypto: periods per year
+
+**Periods per year** scales the Sharpe and Sortino ratios: 365 for markets that trade every
+day, 252 for stock exchanges. The RSI dip's Sharpe ratio is 1.27 at 365 and 1.05 at 252.
+Only those two ratios change.
+
+### 51. Read every simulated trade
+
+The results page lists every trade: its entry and exit time and price, size, fees, slippage,
+P&L, and why it ended. `GET /api/backtests/{id}/trades` gives the same, and
+[the API page](api.md#from-python) loads them into pandas.
+
+### 52. Check that two runs saw the same data
+
+Each run records a fingerprint of the bars it read, and its settings show the first 12
+characters.
+
+- **The same data:** running version 1 again gave the same fingerprint, `26cc79108572`, and
+  the same results.
+- **Other data:** with 1-minute fills it is `3ac0a18b572b`, since the finer bars count too.
+  Each timeframe has its own.
+
+The same fingerprint, version and settings give the same results.
+
+## Day trading
+
+These run on the sample's 5-minute bars, built from the 1-minute file
+([use case 26](#26-import-a-big-file-from-the-command-line)), with 1-minute fills and the
+tour's costs. DEMOUSDT trades around the clock, like crypto, so a New York session uses only
+part of each day.
+
+### 53. Trade only during New York hours
+
+- **A session** gives the market's hours in its own time zone, daylight saving included:
+  `"session": {"timezone": "America/New_York", "start": "09:30", "end": "16:00"}`. Outside
+  it, no entry fills.
+- **A time window** narrows entries to part of the day: `{"time": ["10:00", "12:00"]}`.
+
+The opening-range example has both. See [Sessions](rules.md#sessions-and-the-trading-day).
+
+### 54. Be out by 15:55 every day
+
+`"flat_at": "15:55"`: no entry fills from 15:55 to the end of the day, and a position still
+open leaves at the open of the 15:55 bar, with the reason `end_of_day`. In the opening-range
+breakout below, 44 of 300 trades ended that way.
+
+### 55. An opening-range breakout
+
+*Opening-range breakout (New York)*: from 10:00 to 12:00, a buy stop at the high of the first
+30 minutes, with the stop at their low and the target at twice the risk. On the sample: 300
+trades and −54.93%. 185 were stopped out, 71 reached the target and 44 left at 15:55.
+
+### 56. A VWAP pullback with a daily trend filter
+
+*VWAP pullback in a daily uptrend*: when yesterday's daily close is above its 20-day average,
+read with `{"timeframe": "1d", "of": …}`, and the close is above VWAP, it places a limit buy at
+VWAP. It has a 0.5% stop and a 1% target, and is out by 23:55 UTC. On the sample: 780 trades
+and −93.42%. 563 were stopped out, 192 reached the target and 25 left at 23:55.
+
+### 57. A breakout of yesterday's high
+
+`{"indicator": "day", "output": "high", "days_ago": 1}` is yesterday's high. This places a buy
+stop there in a daily uptrend, with the stop at VWAP and the target at twice the risk:
+
+```json strategy
+{
+  "direction": "long",
+  "entry": {"all": [
+    {"left": {"timeframe": "1d", "of": {"price": "close"}}, "op": ">", "right": {"timeframe": "1d", "of": {"indicator": "sma", "period": 20}}},
+    {"left": {"price": "close"}, "op": "<", "right": {"indicator": "day", "output": "high", "days_ago": 1}}
+  ]},
+  "entry_order": {"type": "stop", "price": {"indicator": "day", "output": "high", "days_ago": 1}, "expires_after": 1},
+  "stop_loss_at": {"indicator": "vwap"},
+  "take_profit_r": 2,
+  "flat_at": "23:55"
+}
+```
+
+On the sample: 262 trades and −62.01%. 198 were stopped out, 41 reached the target and 23 left
+at 23:55.
+
+### 58. Leverage, and margin calls
+
+The RSI dip without its stop, at three position sizes, on 1h bars:
+
+| Position size | Trades | Return | Max drawdown |
+|---|---|---|---|
+| 100% | 32 | +63.57% | 16.87% |
+| 400% | 32 | +401.03% | 63.04% |
+| 1,000% | 6 | −103.78% | 101.09% |
+
+At 10×, a 10% fall uses up the equity. The sixth trade bought at 110.55 on 22 February and
+was closed by a margin call at 99.54 on 25 February, losing 28,401.37 USDT of the 28,023.18
+the account held. Like a stop, the call filled with slippage and paid the exit fee, so the
+account ended 378.19 USDT below zero, and no trade followed. Borrowing costs aren't modelled.
+
+### 59. Day trade Bitcoin on real prices
+
+1. **Download** Binance's monthly BTCUSDT files as in
+   [use case 22](#22-import-binances-own-files). From January 2022 to September 2026, that is
+   57 files.
+2. **Import** them with the loop in [use case 26](#26-import-a-big-file-from-the-command-line):
+   about 2.5 million bars, in about 4 minutes.
+3. **Test** a day-trading rule on 5-minute bars, with **Finer bars for fills** set to 1m and
+   an out-of-sample start, such as 1 January 2024.
